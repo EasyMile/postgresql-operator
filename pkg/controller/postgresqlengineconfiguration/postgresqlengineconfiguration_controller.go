@@ -2,6 +2,8 @@ package postgresqlengineconfiguration
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -130,9 +132,22 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 		if err != nil {
 			return r.manageError(reqLogger, instance, err)
 		}
+
+		// Check if reconcile was called before interval
 		if now.Sub(lastValidatedTime) < dur {
-			newWaitDuration := now.Add(dur).Sub(now)
-			return reconcile.Result{Requeue: true, RequeueAfter: newWaitDuration}, err
+			// Called before
+			// Need to calculate hash to know if something has changed
+			hash, err := CalculateHash(instance.Spec)
+			if err != nil {
+				return r.manageError(reqLogger, instance, err)
+			}
+
+			// Compare hash to check if spec has changed before interval
+			if instance.Status.Hash == hash {
+				// Not changed => Requeue
+				newWaitDuration := now.Add(dur).Sub(now)
+				return reconcile.Result{Requeue: true, RequeueAfter: newWaitDuration}, err
+			}
 		}
 	}
 
@@ -259,12 +274,18 @@ func (r *ReconcilePostgresqlEngineConfiguration) manageSuccess(logger logr.Logge
 	if err != nil {
 		return r.manageError(logger, instance, err)
 	}
+	// Calculate hash for status
+	hash, err := CalculateHash(instance.Spec)
+	if err != nil {
+		return r.manageError(logger, instance, err)
+	}
 
 	// Update status
 	instance.Status.Message = ""
 	instance.Status.Ready = true
 	instance.Status.Phase = postgresqlv1alpha1.ValidatedPhase
 	instance.Status.LastValidatedTime = time.Now().UTC().Format(time.RFC3339)
+	instance.Status.Hash = hash
 
 	// Update object
 	err = r.client.Status().Update(context.TODO(), instance)
@@ -278,4 +299,17 @@ func (r *ReconcilePostgresqlEngineConfiguration) manageSuccess(logger logr.Logge
 
 	logger.Info("Reconcile done")
 	return reconcile.Result{RequeueAfter: dur, Requeue: true}, nil
+}
+
+func CalculateHash(spec interface{}) (string, error) {
+	// Json marshal spec
+	bytes, err := json.Marshal(spec)
+	if err != nil {
+		return "", err
+	}
+	// Sha on bytes array
+	sha256Res := sha256.Sum256(bytes)
+	sha256Bytes := sha256Res[:]
+	// Transform it to string
+	return fmt.Sprintf("%x", sha256Bytes), nil
 }

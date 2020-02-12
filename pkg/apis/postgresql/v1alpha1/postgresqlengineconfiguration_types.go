@@ -54,6 +54,8 @@ type PostgresqlEngineConfigurationStatus struct {
 	Ready bool `json:"ready"`
 	// Last validated time
 	LastValidatedTime string `json:"lastValidatedDate"`
+	// Resource hash
+	Hash string `json:"hash"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
