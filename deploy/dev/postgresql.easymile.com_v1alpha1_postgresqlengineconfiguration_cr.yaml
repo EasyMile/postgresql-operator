@@ -1,0 +1,9 @@
+apiVersion: postgresql.easymile.com/v1alpha1
+kind: PostgresqlEngineConfiguration
+metadata:
+  name: example-postgresqlengineconfiguration
+  namespace: databases
+spec:
+  host: localhost
+  secretName: pgenginesecrets
+  uriArgs: sslmode=disable
