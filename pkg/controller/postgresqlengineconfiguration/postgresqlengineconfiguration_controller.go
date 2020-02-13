@@ -122,13 +122,13 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 	if instance.Status.Phase == postgresqlv1alpha1.EngineValidatedPhase && instance.Status.LastValidatedTime != "" {
 		dur, err := time.ParseDuration(instance.Spec.CheckInterval)
 		if err != nil {
-			return r.manageError(reqLogger, instance, err)
+			return r.manageError(reqLogger, instance, errors.NewInternalError(err))
 		}
 
 		now := time.Now()
 		lastValidatedTime, err := time.Parse(time.RFC3339, instance.Status.LastValidatedTime)
 		if err != nil {
-			return r.manageError(reqLogger, instance, err)
+			return r.manageError(reqLogger, instance, errors.NewInternalError(err))
 		}
 
 		// Check if reconcile was called before interval
@@ -137,7 +137,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 			// Need to calculate hash to know if something has changed
 			hash, err := utils.CalculateHash(instance.Spec)
 			if err != nil {
-				return r.manageError(reqLogger, instance, err)
+				return r.manageError(reqLogger, instance, errors.NewInternalError(err))
 			}
 
 			// Compare hash to check if spec has changed before interval
@@ -159,7 +159,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 	// Calculate hash for status (this time is to update it in status)
 	hash, err := utils.CalculateHash(instance.Spec)
 	if err != nil {
-		return r.manageError(reqLogger, instance, err)
+		return r.manageError(reqLogger, instance, errors.NewInternalError(err))
 	}
 	instance.Status.Hash = hash
 
@@ -270,7 +270,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) manageSuccess(logger logr.Logge
 	// Try to parse duration
 	dur, err := time.ParseDuration(instance.Spec.CheckInterval)
 	if err != nil {
-		return r.manageError(logger, instance, err)
+		return r.manageError(logger, instance, errors.NewInternalError(err))
 	}
 
 	// Update status
