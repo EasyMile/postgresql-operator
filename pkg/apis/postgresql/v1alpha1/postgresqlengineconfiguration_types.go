@@ -14,6 +14,7 @@ const AWSProvider ProviderType = "AWS"
 const AzureProvider ProviderType = "AZURE"
 
 // PostgresqlEngineConfigurationSpec defines the desired state of PostgresqlEngineConfiguration
+// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 type PostgresqlEngineConfigurationSpec struct {
 	// Provider
 	// +kubebuilder:validation:Enum="";AWS;AZURE
@@ -45,6 +46,7 @@ const FailedPhase StatusPhase = "failed"
 const ValidatedPhase StatusPhase = "validated"
 
 // PostgresqlEngineConfigurationStatus defines the observed state of PostgresqlEngineConfiguration
+// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 type PostgresqlEngineConfigurationStatus struct {
 	// Current phase of the operator
 	Phase StatusPhase `json:"phase"`
