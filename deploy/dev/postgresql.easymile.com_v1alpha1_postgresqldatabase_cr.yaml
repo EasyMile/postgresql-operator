@@ -1,0 +1,20 @@
+apiVersion: postgresql.easymile.com/v1alpha1
+kind: PostgresqlDatabase
+metadata:
+  name: example-postgresqldatabase
+  namespace: databases
+spec:
+  database: devdb1
+  dropOnDelete: true
+  engineConfiguration:
+    name: example-postgresqlengineconfiguration
+  # masterRole: dev1
+  extensions:
+    list:
+      - uuid-ossp
+    dropOnDelete: true
+    deleteWithCascade: true
+  schemas:
+    list:
+      - dev1schema
+    dropOnDelete: true

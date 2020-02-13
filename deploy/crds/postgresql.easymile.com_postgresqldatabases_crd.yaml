@@ -1,0 +1,138 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: postgresqldatabases.postgresql.easymile.com
+spec:
+  group: postgresql.easymile.com
+  names:
+    kind: PostgresqlDatabase
+    listKind: PostgresqlDatabaseList
+    plural: postgresqldatabases
+    singular: postgresqldatabase
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: PostgresqlDatabase is the Schema for the postgresqldatabases API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: PostgresqlDatabaseSpec defines the desired state of PostgresqlDatabase
+          properties:
+            database:
+              description: Database name
+              type: string
+            dropOnDelete:
+              description: Should drop database on Custom Resource deletion ?
+              type: boolean
+            engineConfiguration:
+              description: Postgresql Engine Configuration link
+              properties:
+                name:
+                  description: Custom resource name
+                  type: string
+                namespace:
+                  description: Custom resource namespace
+                  type: string
+              required:
+              - name
+              type: object
+            extensions:
+              description: Extensions to enable
+              properties:
+                deleteWithCascade:
+                  description: Should drop with cascade ?
+                  type: boolean
+                dropOnDelete:
+                  description: Should drop on delete ?
+                  type: boolean
+                list:
+                  description: Modules list
+                  items:
+                    type: string
+                  type: array
+              type: object
+            masterRole:
+              description: Master role name will be used to create top group role.
+                Database owner and users will be in this group role.
+              type: string
+            schemas:
+              description: Schema to create in database
+              properties:
+                deleteWithCascade:
+                  description: Should drop with cascade ?
+                  type: boolean
+                dropOnDelete:
+                  description: Should drop on delete ?
+                  type: boolean
+                list:
+                  description: Modules list
+                  items:
+                    type: string
+                  type: array
+              type: object
+          required:
+          - database
+          - engineConfiguration
+          type: object
+        status:
+          description: PostgresqlDatabaseStatus defines the observed state of PostgresqlDatabase
+          properties:
+            extensions:
+              description: Already extensions added
+              items:
+                type: string
+              type: array
+            message:
+              description: Human-readable message indicating details about current
+                operator phase or error.
+              type: string
+            phase:
+              description: Current phase of the operator
+              type: string
+            ready:
+              description: True if all resources are in a ready state and all work
+                is done.
+              type: boolean
+            roles:
+              description: Already created roles for database
+              properties:
+                owner:
+                  type: string
+                reader:
+                  type: string
+                writer:
+                  type: string
+              required:
+              - owner
+              - reader
+              - writer
+              type: object
+            schemas:
+              description: Already created schemas
+              items:
+                type: string
+              type: array
+          required:
+          - message
+          - phase
+          - ready
+          type: object
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true

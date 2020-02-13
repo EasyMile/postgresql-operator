@@ -7,11 +7,15 @@ import (
 )
 
 const (
+	CASCADE              = "CASCADE"
+	RESTRICT             = "RESTRICT"
 	CREATE_DB            = `CREATE DATABASE "%s"`
 	CREATE_SCHEMA        = `CREATE SCHEMA IF NOT EXISTS "%s" AUTHORIZATION "%s"`
 	CREATE_EXTENSION     = `CREATE EXTENSION IF NOT EXISTS "%s"`
 	ALTER_DB_OWNER       = `ALTER DATABASE "%s" OWNER TO "%s"`
 	DROP_DATABASE        = `DROP DATABASE "%s"`
+	DROP_EXTENSION       = `DROP EXTENSION IF EXISTS "%s" %s`
+	DROP_SCHEMA          = `DROP SCHEMA IF EXISTS "%s" %s`
 	GRANT_USAGE_SCHEMA   = `GRANT USAGE ON SCHEMA "%s" TO "%s"`
 	GRANT_ALL_TABLES     = `GRANT %s ON ALL TABLES IN SCHEMA "%s" TO "%s"`
 	DEFAULT_PRIVS_SCHEMA = `ALTER DEFAULT PRIVILEGES FOR ROLE "%s" IN SCHEMA "%s" GRANT %s ON TABLES TO "%s"`
@@ -65,6 +69,48 @@ func (c *pg) DropDatabase(database string) error {
 	}
 
 	c.log.Info(fmt.Sprintf("Dropped database %s", database))
+
+	return nil
+}
+
+func (c *pg) DropExtension(database, extension string, cascade bool) error {
+	err := c.connect(database)
+	if err != nil {
+		return err
+	}
+	defer c.close()
+
+	param := RESTRICT
+	if cascade {
+		param = CASCADE
+	}
+	_, err = c.db.Exec(fmt.Sprintf(DROP_EXTENSION, extension, param))
+	if err != nil {
+		return err
+	}
+
+	c.log.Info(fmt.Sprintf("Dropped extension %s on database %s with parameter %s", extension, database, param))
+
+	return nil
+}
+
+func (c *pg) DropSchema(database, schema string, cascade bool) error {
+	err := c.connect(database)
+	if err != nil {
+		return err
+	}
+	defer c.close()
+
+	param := RESTRICT
+	if cascade {
+		param = CASCADE
+	}
+	_, err = c.db.Exec(fmt.Sprintf(DROP_SCHEMA, schema, param))
+	if err != nil {
+		return err
+	}
+
+	c.log.Info(fmt.Sprintf("Dropped schema %s on database %s with parameter %s", schema, database, param))
 
 	return nil
 }

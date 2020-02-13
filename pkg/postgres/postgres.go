@@ -21,6 +21,8 @@ type PG interface {
 	AlterDefaultLoginRole(role, setRole string) error
 	DropDatabase(db string) error
 	DropRole(role, newOwner, database string) error
+	DropSchema(database, schema string, cascade bool) error
+	DropExtension(database, extension string, cascade bool) error
 	GetUser() string
 	GetDefaultDatabase() string
 	Ping() error

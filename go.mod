@@ -8,6 +8,8 @@ require (
 	github.com/lib/pq v1.2.0
 	github.com/operator-framework/operator-sdk v0.14.1
 	github.com/spf13/pflag v1.0.5
+	github.com/thoas/go-funk v0.5.0
+	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449 // indirect
 	k8s.io/api v0.0.0
 	k8s.io/apimachinery v0.0.0
 	k8s.io/client-go v12.0.0+incompatible

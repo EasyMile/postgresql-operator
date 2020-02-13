@@ -71,6 +71,7 @@ rules:
   resources:
   - '*'
   - postgresqlengineconfigurations
+  - postgresqldatabases
   verbs:
   - create
   - delete
