@@ -10,17 +10,17 @@ import (
 
 type PG interface {
 	CreateDB(dbname, username string) error
-	CreateSchema(db, role, schema string, logger logr.Logger) error
-	CreateExtension(db, extension string, logger logr.Logger) error
+	CreateSchema(db, role, schema string) error
+	CreateExtension(db, extension string) error
 	CreateGroupRole(role string) error
 	CreateUserRole(role, password string) (string, error)
 	UpdatePassword(role, password string) error
 	GrantRole(role, grantee string) error
-	SetSchemaPrivileges(db, creator, role, schema, privs string, logger logr.Logger) error
+	SetSchemaPrivileges(db, creator, role, schema, privs string) error
 	RevokeRole(role, revoked string) error
 	AlterDefaultLoginRole(role, setRole string) error
-	DropDatabase(db string, logger logr.Logger) error
-	DropRole(role, newOwner, database string, logger logr.Logger) error
+	DropDatabase(db string) error
+	DropRole(role, newOwner, database string) error
 	GetUser() string
 	GetDefaultDatabase() string
 	Ping() error

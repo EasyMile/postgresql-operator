@@ -3,7 +3,6 @@ package postgres
 import (
 	"fmt"
 
-	"github.com/go-logr/logr"
 	"github.com/lib/pq"
 )
 
@@ -39,7 +38,7 @@ func (c *pg) CreateDB(dbname, role string) error {
 	return nil
 }
 
-func (c *pg) CreateSchema(db, role, schema string, logger logr.Logger) error {
+func (c *pg) CreateSchema(db, role, schema string) error {
 	err := c.connect(db)
 	if err != nil {
 		return err
@@ -53,7 +52,7 @@ func (c *pg) CreateSchema(db, role, schema string, logger logr.Logger) error {
 	return nil
 }
 
-func (c *pg) DropDatabase(database string, logger logr.Logger) error {
+func (c *pg) DropDatabase(database string) error {
 	err := c.connect(c.default_database)
 	if err != nil {
 		return err
@@ -65,12 +64,12 @@ func (c *pg) DropDatabase(database string, logger logr.Logger) error {
 		return err
 	}
 
-	logger.Info(fmt.Sprintf("Dropped database %s", database))
+	c.log.Info(fmt.Sprintf("Dropped database %s", database))
 
 	return nil
 }
 
-func (c *pg) CreateExtension(db, extension string, logger logr.Logger) error {
+func (c *pg) CreateExtension(db, extension string) error {
 	err := c.connect(db)
 	if err != nil {
 		return err
@@ -84,7 +83,7 @@ func (c *pg) CreateExtension(db, extension string, logger logr.Logger) error {
 	return nil
 }
 
-func (c *pg) SetSchemaPrivileges(db, creator, role, schema, privs string, logger logr.Logger) error {
+func (c *pg) SetSchemaPrivileges(db, creator, role, schema, privs string) error {
 	err := c.connect(db)
 	if err != nil {
 		return err
