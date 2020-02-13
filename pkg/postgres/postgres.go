@@ -69,7 +69,6 @@ func (c *pg) connect(database string) error {
 	if err != nil {
 		return err
 	}
-	c.log.Info("connected to postgres server")
 	c.db = db
 	return nil
 }
