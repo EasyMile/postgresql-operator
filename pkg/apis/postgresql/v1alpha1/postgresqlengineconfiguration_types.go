@@ -39,17 +39,17 @@ type PostgresqlEngineConfigurationSpec struct {
 	SecretName string `json:"secretName"`
 }
 
-type StatusPhase string
+type EngineStatusPhase string
 
-const NoPhase StatusPhase = ""
-const FailedPhase StatusPhase = "failed"
-const ValidatedPhase StatusPhase = "validated"
+const EngineNoPhase EngineStatusPhase = ""
+const EngineFailedPhase EngineStatusPhase = "failed"
+const EngineValidatedPhase EngineStatusPhase = "validated"
 
 // PostgresqlEngineConfigurationStatus defines the observed state of PostgresqlEngineConfiguration
 // Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 type PostgresqlEngineConfigurationStatus struct {
 	// Current phase of the operator
-	Phase StatusPhase `json:"phase"`
+	Phase EngineStatusPhase `json:"phase"`
 	// Human-readable message indicating details about current operator phase or error.
 	Message string `json:"message"`
 	// True if all resources are in a ready state and all work is done.

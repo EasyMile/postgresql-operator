@@ -2,13 +2,11 @@ package postgresqlengineconfiguration
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"time"
 
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/pkg/apis/postgresql/v1alpha1"
-	"github.com/easymile/postgresql-operator/pkg/config"
+	"github.com/easymile/postgresql-operator/pkg/controller/utils"
 	"github.com/easymile/postgresql-operator/pkg/postgres"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -121,7 +119,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 	// Creation or update case
 
 	// Check if the reconcile loop wasn't recall just because of update status
-	if instance.Status.Phase == postgresqlv1alpha1.ValidatedPhase && instance.Status.LastValidatedTime != "" {
+	if instance.Status.Phase == postgresqlv1alpha1.EngineValidatedPhase && instance.Status.LastValidatedTime != "" {
 		dur, err := time.ParseDuration(instance.Spec.CheckInterval)
 		if err != nil {
 			return r.manageError(reqLogger, instance, err)
@@ -137,7 +135,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 		if now.Sub(lastValidatedTime) < dur {
 			// Called before
 			// Need to calculate hash to know if something has changed
-			hash, err := CalculateHash(instance.Spec)
+			hash, err := utils.CalculateHash(instance.Spec)
 			if err != nil {
 				return r.manageError(reqLogger, instance, err)
 			}
@@ -159,7 +157,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 	}
 
 	// Calculate hash for status (this time is to update it in status)
-	hash, err := CalculateHash(instance.Spec)
+	hash, err := utils.CalculateHash(instance.Spec)
 	if err != nil {
 		return r.manageError(reqLogger, instance, err)
 	}
@@ -212,7 +210,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) updateInstance(instance *postgr
 	needUpdateDefaultValues := r.addDefaultValues(instance)
 
 	// Add finalizer
-	needUpdateFinalizer := r.addFinalizer(instance)
+	needUpdateFinalizer := utils.AddFinalizer(instance)
 
 	// Check if update is needed
 	if needUpdateDefaultValues || needUpdateFinalizer {
@@ -220,14 +218,6 @@ func (r *ReconcilePostgresqlEngineConfiguration) updateInstance(instance *postgr
 	}
 
 	return nil
-}
-
-func (r *ReconcilePostgresqlEngineConfiguration) addFinalizer(instance *postgresqlv1alpha1.PostgresqlEngineConfiguration) bool {
-	if len(instance.GetFinalizers()) < 1 && instance.GetDeletionTimestamp() == nil {
-		instance.SetFinalizers([]string{config.Finalizer})
-		return true
-	}
-	return false
 }
 
 // Add default values here to be saved in reconcile loop in order to help people to debug
@@ -261,7 +251,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) manageError(logger logr.Logger,
 	// Update status
 	instance.Status.Message = issue.Error()
 	instance.Status.Ready = false
-	instance.Status.Phase = postgresqlv1alpha1.FailedPhase
+	instance.Status.Phase = postgresqlv1alpha1.EngineFailedPhase
 
 	// Update object
 	err := r.client.Status().Update(context.TODO(), instance)
@@ -286,7 +276,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) manageSuccess(logger logr.Logge
 	// Update status
 	instance.Status.Message = ""
 	instance.Status.Ready = true
-	instance.Status.Phase = postgresqlv1alpha1.ValidatedPhase
+	instance.Status.Phase = postgresqlv1alpha1.EngineValidatedPhase
 	instance.Status.LastValidatedTime = time.Now().UTC().Format(time.RFC3339)
 
 	// Update object
@@ -301,17 +291,4 @@ func (r *ReconcilePostgresqlEngineConfiguration) manageSuccess(logger logr.Logge
 
 	logger.Info("Reconcile done")
 	return reconcile.Result{RequeueAfter: dur, Requeue: true}, nil
-}
-
-func CalculateHash(spec interface{}) (string, error) {
-	// Json marshal spec
-	bytes, err := json.Marshal(spec)
-	if err != nil {
-		return "", err
-	}
-	// Sha on bytes array
-	sha256Res := sha256.Sum256(bytes)
-	sha256Bytes := sha256Res[:]
-	// Transform it to string
-	return fmt.Sprintf("%x", sha256Bytes), nil
 }
