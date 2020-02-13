@@ -54,7 +54,7 @@ type PostgresqlEngineConfigurationStatus struct {
 	Ready bool `json:"ready"`
 	// Last validated time
 	LastValidatedTime string `json:"lastValidatedDate"`
-	// Resource hash
+	// Resource Spec hash
 	Hash string `json:"hash"`
 }
 

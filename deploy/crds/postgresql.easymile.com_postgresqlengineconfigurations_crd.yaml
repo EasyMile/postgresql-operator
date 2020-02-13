@@ -69,6 +69,9 @@ spec:
           description: PostgresqlEngineConfigurationStatus defines the observed state
             of PostgresqlEngineConfiguration
           properties:
+            hash:
+              description: Resource Spec hash
+              type: string
             lastValidatedDate:
               description: Last validated time
               type: string
@@ -84,6 +87,7 @@ spec:
                 is done.
               type: boolean
           required:
+          - hash
           - lastValidatedDate
           - message
           - phase

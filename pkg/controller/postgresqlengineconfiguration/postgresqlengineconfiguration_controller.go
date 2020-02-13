@@ -146,6 +146,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 			if instance.Status.Hash == hash {
 				// Not changed => Requeue
 				newWaitDuration := now.Add(dur).Sub(now)
+				reqLogger.Info("Reconcile skipped because called before check interval and nothing has changed")
 				return reconcile.Result{Requeue: true, RequeueAfter: newWaitDuration}, err
 			}
 		}
@@ -156,6 +157,13 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 	if err != nil {
 		return r.manageError(reqLogger, instance, err)
 	}
+
+	// Calculate hash for status (this time is to update it in status)
+	hash, err := CalculateHash(instance.Spec)
+	if err != nil {
+		return r.manageError(reqLogger, instance, err)
+	}
+	instance.Status.Hash = hash
 
 	// Change status
 	r.recorder.Event(instance, "Normal", "Validating", "Validating engine connection")
@@ -274,18 +282,12 @@ func (r *ReconcilePostgresqlEngineConfiguration) manageSuccess(logger logr.Logge
 	if err != nil {
 		return r.manageError(logger, instance, err)
 	}
-	// Calculate hash for status
-	hash, err := CalculateHash(instance.Spec)
-	if err != nil {
-		return r.manageError(logger, instance, err)
-	}
 
 	// Update status
 	instance.Status.Message = ""
 	instance.Status.Ready = true
 	instance.Status.Phase = postgresqlv1alpha1.ValidatedPhase
 	instance.Status.LastValidatedTime = time.Now().UTC().Format(time.RFC3339)
-	instance.Status.Hash = hash
 
 	// Update object
 	err = r.client.Status().Update(context.TODO(), instance)
