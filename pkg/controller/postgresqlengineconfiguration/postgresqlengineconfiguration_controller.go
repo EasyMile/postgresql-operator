@@ -110,7 +110,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 		// Need to delete
 		// TODO Need to check if linked subresources exist
 		// Clean finalizer
-		instance.SetFinalizers(nil)
+		controllerutil.RemoveFinalizer(instance, config.Finalizer)
 		// Update CR
 		err = r.client.Update(context.TODO(), instance)
 		if err != nil {
