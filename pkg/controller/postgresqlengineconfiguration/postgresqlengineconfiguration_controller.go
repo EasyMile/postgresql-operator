@@ -9,12 +9,9 @@ import (
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/pkg/apis/postgresql/v1alpha1"
 	"github.com/easymile/postgresql-operator/pkg/config"
 	"github.com/easymile/postgresql-operator/pkg/controller/utils"
-	"github.com/easymile/postgresql-operator/pkg/postgres"
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -182,8 +179,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 	r.recorder.Event(instance, "Normal", "Validating", "Validating engine connection")
 
 	// Get secret for user/password
-	secret := &corev1.Secret{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Spec.SecretName, Namespace: instance.Namespace}, secret)
+	secret, err := utils.FindSecretPgEngineCfg(r.client, instance)
 	if err != nil {
 		return r.manageError(reqLogger, instance, err)
 	}
@@ -201,15 +197,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 	}
 
 	// Create PG object
-	pg := postgres.NewPG(
-		instance.Spec.Host,
-		user,
-		password,
-		instance.Spec.UriArgs,
-		instance.Spec.DefaultDatabase,
-		instance.Spec.Provider,
-		reqLogger,
-	)
+	pg := utils.CreatePgInstance(reqLogger, secret.Data, &instance.Spec)
 
 	// Try to connect
 	err = pg.Ping()

@@ -8,13 +8,12 @@ import (
 
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/pkg/apis/postgresql/v1alpha1"
 	"github.com/easymile/postgresql-operator/pkg/config"
+	"github.com/easymile/postgresql-operator/pkg/controller/utils"
 	"github.com/easymile/postgresql-operator/pkg/postgres"
 	"github.com/go-logr/logr"
 	"github.com/thoas/go-funk"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -136,13 +135,13 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 	// Creation case
 
 	// Try to find PostgresqlEngineConfiguration CR
-	pgEngCfg, err := r.findPgEngineCfg(instance)
+	pgEngCfg, err := utils.FindPgEngineCfg(r.client, instance)
 	if err != nil {
 		return r.manageError(reqLogger, instance, err)
 	}
 
 	// Get secret linked to PostgresqlEngineConfiguration CR
-	secret, err := r.findSecretPgEngineCfg(pgEngCfg)
+	secret, err := utils.FindSecretPgEngineCfg(r.client, pgEngCfg)
 	if err != nil {
 		return r.manageError(reqLogger, instance, err)
 	}
@@ -154,7 +153,7 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 	}
 
 	// Create PG instance
-	pg := r.createPgInstance(reqLogger, secret.Data, &pgEngCfg.Spec)
+	pg := utils.CreatePgInstance(reqLogger, secret.Data, &pgEngCfg.Spec)
 
 	owner := instance.Spec.MasterRole
 	if owner == "" {
@@ -205,7 +204,7 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 
 func (r *ReconcilePostgresqlDatabase) manageDropDatabase(logger logr.Logger, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
 	// Try to find PostgresqlEngineConfiguration CR
-	pgEngCfg, err := r.findPgEngineCfg(instance)
+	pgEngCfg, err := utils.FindPgEngineCfg(r.client, instance)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
@@ -216,13 +215,13 @@ func (r *ReconcilePostgresqlDatabase) manageDropDatabase(logger logr.Logger, ins
 	}
 
 	// Get secret linked to PostgresqlEngineConfiguration CR
-	secret, err := r.findSecretPgEngineCfg(pgEngCfg)
+	secret, err := utils.FindSecretPgEngineCfg(r.client, pgEngCfg)
 	if err != nil {
 		return err
 	}
 
 	// Create PG instance
-	pg := r.createPgInstance(logger, secret.Data, &pgEngCfg.Spec)
+	pg := utils.CreatePgInstance(logger, secret.Data, &pgEngCfg.Spec)
 
 	// Drop roles first
 
@@ -444,47 +443,6 @@ func (r *ReconcilePostgresqlDatabase) manageOwnerRole(pg postgres.PG, owner stri
 	instance.Status.Roles.Owner = owner
 	return nil
 }
-
-// TODO put this into utils and rework controllers
-func (r *ReconcilePostgresqlDatabase) createPgInstance(reqLogger logr.Logger, secretData map[string][]byte, spec *postgresqlv1alpha1.PostgresqlEngineConfigurationSpec) postgres.PG {
-	user := string(secretData["user"])
-	password := string(secretData["password"])
-	return postgres.NewPG(
-		spec.Host,
-		user,
-		password,
-		spec.UriArgs,
-		spec.DefaultDatabase,
-		spec.Provider,
-		reqLogger,
-	)
-}
-
-// TODO put this into utils and rework controllers
-func (r *ReconcilePostgresqlDatabase) findSecretPgEngineCfg(instance *postgresqlv1alpha1.PostgresqlEngineConfiguration) (*corev1.Secret, error) {
-	secret := &corev1.Secret{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Spec.SecretName, Namespace: instance.Namespace}, secret)
-	return secret, err
-}
-
-// TODO put this into utils and rework controllers
-func (r *ReconcilePostgresqlDatabase) findPgEngineCfg(instance *postgresqlv1alpha1.PostgresqlDatabase) (*postgresqlv1alpha1.PostgresqlEngineConfiguration, error) {
-	// Try to get namespace from spec
-	namespace := instance.Spec.EngineConfiguration.Namespace
-	if namespace == "" {
-		// Namespace not found, take it from instance namespace
-		namespace = instance.Namespace
-	}
-
-	pgEngineCfg := &postgresqlv1alpha1.PostgresqlEngineConfiguration{}
-	err := r.client.Get(context.TODO(), client.ObjectKey{
-		Name:      instance.Spec.EngineConfiguration.Name,
-		Namespace: namespace,
-	}, pgEngineCfg)
-
-	return pgEngineCfg, err
-}
-
 func (r *ReconcilePostgresqlDatabase) manageError(logger logr.Logger, instance *postgresqlv1alpha1.PostgresqlDatabase, issue error) (reconcile.Result, error) {
 	logger.Error(issue, "issue raised in reconcile")
 	// Add kubernetes event
