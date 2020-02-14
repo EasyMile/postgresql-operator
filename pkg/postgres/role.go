@@ -24,9 +24,14 @@ func (c *pg) CreateGroupRole(role string) error {
 		return err
 	}
 	defer c.close()
-	// Error code 42710 is duplicate_object (role already exists)
 	_, err = c.db.Exec(fmt.Sprintf(CREATE_GROUP_ROLE, role))
-	if err != nil && err.(*pq.Error).Code != "42710" {
+	if err != nil {
+		// Try to cast error
+		pqErr, ok := err.(*pq.Error)
+		// Error code 42710 is duplicate_object (role already exists)
+		if ok && pqErr.Code == "42710" {
+			return nil
+		}
 		return err
 	}
 	return nil
@@ -94,15 +99,23 @@ func (c *pg) DropRole(role, newOwner, database string) error {
 
 	_, err = c.db.Exec(fmt.Sprintf(REASIGN_OBJECTS, role, newOwner))
 	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
-	if err != nil && err.(*pq.Error).Code != "42704" {
-		return err
+	if err != nil {
+		// Try to cast error
+		pqErr, ok := err.(*pq.Error)
+		if !ok || pqErr.Code != "42704" {
+			return err
+		}
 	}
 
 	// We previously assigned all objects to the operator's role so DROP OWNED BY will drop privileges of role
 	_, err = c.db.Exec(fmt.Sprintf(DROP_OWNED_BY, role))
 	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
-	if err != nil && err.(*pq.Error).Code != "42704" {
-		return err
+	if err != nil {
+		// Try to cast error
+		pqErr, ok := err.(*pq.Error)
+		if !ok || pqErr.Code != "42704" {
+			return err
+		}
 	}
 
 	// Close now and connect to default database
@@ -117,8 +130,12 @@ func (c *pg) DropRole(role, newOwner, database string) error {
 	}
 	_, err = c.db.Exec(fmt.Sprintf(DROP_ROLE, role))
 	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
-	if err != nil && err.(*pq.Error).Code != "42704" {
-		return err
+	if err != nil {
+		// Try to cast error
+		pqErr, ok := err.(*pq.Error)
+		if !ok || pqErr.Code != "42704" {
+			return err
+		}
 	}
 	return nil
 }

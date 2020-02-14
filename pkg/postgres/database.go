@@ -30,7 +30,9 @@ func (c *pg) CreateDB(dbname, role string) error {
 	_, err = c.db.Exec(fmt.Sprintf(CREATE_DB, dbname))
 	if err != nil {
 		// eat DUPLICATE DATABASE ERROR
-		if err.(*pq.Error).Code != "42P04" {
+		// Try to cast error
+		pqErr, ok := err.(*pq.Error)
+		if !ok || pqErr.Code != "42P04" {
 			return err
 		}
 	}
@@ -64,8 +66,12 @@ func (c *pg) DropDatabase(database string) error {
 	defer c.close()
 	_, err = c.db.Exec(fmt.Sprintf(DROP_DATABASE, database))
 	// Error code 3D000 is returned if database doesn't exist
-	if err != nil && err.(*pq.Error).Code != "3D000" {
-		return err
+	if err != nil {
+		// Try to cast error
+		pqErr, ok := err.(*pq.Error)
+		if !ok || pqErr.Code != "3D000" {
+			return err
+		}
 	}
 
 	c.log.Info(fmt.Sprintf("Dropped database %s", database))
