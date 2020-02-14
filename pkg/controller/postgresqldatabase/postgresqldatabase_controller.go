@@ -86,8 +86,6 @@ type ReconcilePostgresqlDatabase struct {
 
 // Reconcile reads that state of the cluster for a PostgresqlDatabase object and makes changes based on the state read
 // and what is in the PostgresqlDatabase.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
-// a Pod as an example
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
@@ -110,7 +108,30 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 	}
 
 	// Deletion case
-	// TODO
+	if !instance.GetDeletionTimestamp().IsZero() {
+		// Deletion in progress detected
+		// Test should delete database
+		shouldDelete, err := r.shouldDropDatabase(instance)
+		if err != nil {
+			return r.manageError(reqLogger, instance, err)
+		}
+		if shouldDelete {
+			// Drop database
+			err := r.manageDropDatabase(reqLogger, instance)
+			if err != nil {
+				return r.manageError(reqLogger, instance, err)
+			}
+		}
+		// Remove finalizer
+		controllerutil.RemoveFinalizer(instance, config.Finalizer)
+		// Update CR
+		err = r.client.Update(context.TODO(), instance)
+		if err != nil {
+			return r.manageError(reqLogger, instance, err)
+		}
+		// Stop reconcile
+		return reconcile.Result{}, nil
+	}
 
 	// Creation case
 
@@ -146,6 +167,8 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 	}
 
 	// Create database
+	// TODO Need to manage spec change
+	// Because if spec has changed, "old" database won't be removed
 	err = pg.CreateDB(instance.Spec.Database, owner)
 	if err != nil {
 		return r.manageError(reqLogger, instance, errors.NewInternalError(err))
@@ -178,6 +201,93 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 	}
 
 	return r.manageSuccess(reqLogger, instance)
+}
+
+func (r *ReconcilePostgresqlDatabase) manageDropDatabase(logger logr.Logger, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
+	// Try to find PostgresqlEngineConfiguration CR
+	pgEngCfg, err := r.findPgEngineCfg(instance)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+	// In case of not found => Can't delete => skip
+	if errors.IsNotFound(err) {
+		logger.Error(err, "can't delete database because PostgresEngineConfiguration didn't exists anymore")
+		return nil
+	}
+
+	// Get secret linked to PostgresqlEngineConfiguration CR
+	secret, err := r.findSecretPgEngineCfg(pgEngCfg)
+	if err != nil {
+		return err
+	}
+
+	// Create PG instance
+	pg := r.createPgInstance(logger, secret.Data, &pgEngCfg.Spec)
+
+	// Drop roles first
+
+	// Drop owner
+	if instance.Status.Roles.Owner != "" {
+		err = pg.DropRole(instance.Status.Roles.Owner, pg.GetUser(), instance.Spec.Database)
+		if err != nil {
+			return err
+		}
+		// Clear status
+		instance.Status.Roles.Owner = ""
+	}
+	// Drop writer
+	if instance.Status.Roles.Writer != "" {
+		err = pg.DropRole(instance.Status.Roles.Writer, pg.GetUser(), instance.Spec.Database)
+		if err != nil {
+			return err
+		}
+		// Clear status
+		instance.Status.Roles.Writer = ""
+	}
+	// Drop reader
+	if instance.Status.Roles.Reader != "" {
+		err = pg.DropRole(instance.Status.Roles.Reader, pg.GetUser(), instance.Spec.Database)
+		if err != nil {
+			return err
+		}
+		// Clear status
+		instance.Status.Roles.Reader = ""
+	}
+
+	// Drop database
+	err = pg.DropDatabase(instance.Spec.Database)
+	return err
+}
+
+func (r *ReconcilePostgresqlDatabase) shouldDropDatabase(instance *postgresqlv1alpha1.PostgresqlDatabase) (bool, error) {
+	// Check if drop on delete flag is enabled
+	if instance.Spec.DropOnDelete {
+		return true, nil
+	}
+
+	// Check if other postgresql database CR ask for the same database
+	crList := postgresqlv1alpha1.PostgresqlDatabaseList{}
+	err := r.client.List(context.TODO(), &crList)
+	// Check if error exists
+	if err != nil {
+		return false, err
+	}
+	// Check
+	for _, cr := range crList.Items {
+		// Check if cr is equal to actual instance
+		// If yes, skip it
+		if cr.Name == instance.Name && cr.Namespace == instance.Namespace {
+			continue
+		}
+		// Check if database is the same
+		// If yes, stop
+		if cr.Spec.Database == instance.Spec.Database {
+			return false, nil
+		}
+	}
+
+	// Default case is no !
+	return false, nil
 }
 
 func (r *ReconcilePostgresqlDatabase) updateInstance(instance *postgresqlv1alpha1.PostgresqlDatabase, pgEngCfg *postgresqlv1alpha1.PostgresqlEngineConfiguration) error {

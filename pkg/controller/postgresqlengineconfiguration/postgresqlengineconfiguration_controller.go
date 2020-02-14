@@ -108,7 +108,19 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 	// Deletion case
 	if !instance.GetDeletionTimestamp().IsZero() {
 		// Need to delete
-		// TODO Need to check if linked subresources exist
+		// Check if wait linked resources deletion flag is enabled
+		if instance.Spec.WaitLinkedResourcesDeletion {
+			// Check if there are linked resource linked to this
+			existingDb, err := r.getAnyDatabaseLinked(instance)
+			if err != nil {
+				return r.manageError(reqLogger, instance, err)
+			}
+			if existingDb != nil {
+				// Wait for children removal
+				err := fmt.Errorf("cannot remove resource because found database %s in namespace %s linked to this resource and wait for deletion flag is enabled", existingDb.Name, existingDb.Namespace)
+				return r.manageError(reqLogger, instance, err)
+			}
+		}
 		// Clean finalizer
 		controllerutil.RemoveFinalizer(instance, config.Finalizer)
 		// Update CR
@@ -206,6 +218,24 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 	}
 
 	return r.manageSuccess(reqLogger, instance)
+}
+
+func (r *ReconcilePostgresqlEngineConfiguration) getAnyDatabaseLinked(instance *postgresqlv1alpha1.PostgresqlEngineConfiguration) (*postgresqlv1alpha1.PostgresqlDatabase, error) {
+	// Initialize postgres database list
+	dbL := postgresqlv1alpha1.PostgresqlDatabaseList{}
+	// Requests for list of databases
+	err := r.client.List(context.TODO(), &dbL)
+	if err != nil {
+		return nil, err
+	}
+	// Loop over the list
+	for _, db := range dbL.Items {
+		// Check db is linked to pgengineconfig
+		if db.Spec.EngineConfiguration.Name == instance.Name && (db.Spec.EngineConfiguration.Namespace == instance.Namespace || db.Namespace == instance.Namespace) {
+			return &db, nil
+		}
+	}
+	return nil, nil
 }
 
 func (r *ReconcilePostgresqlEngineConfiguration) updateInstance(instance *postgresqlv1alpha1.PostgresqlEngineConfiguration) error {

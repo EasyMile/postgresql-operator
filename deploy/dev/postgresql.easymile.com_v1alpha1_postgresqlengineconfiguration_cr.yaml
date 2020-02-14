@@ -7,3 +7,4 @@ spec:
   host: localhost
   secretName: pgenginesecrets
   uriArgs: sslmode=disable
+  # waitLinkedResourcesDeletion: true
