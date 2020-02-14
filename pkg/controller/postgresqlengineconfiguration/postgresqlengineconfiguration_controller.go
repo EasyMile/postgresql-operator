@@ -3,9 +3,11 @@ package postgresqlengineconfiguration
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/pkg/apis/postgresql/v1alpha1"
+	"github.com/easymile/postgresql-operator/pkg/config"
 	"github.com/easymile/postgresql-operator/pkg/controller/utils"
 	"github.com/easymile/postgresql-operator/pkg/postgres"
 	"github.com/go-logr/logr"
@@ -16,6 +18,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -206,14 +209,17 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 }
 
 func (r *ReconcilePostgresqlEngineConfiguration) updateInstance(instance *postgresqlv1alpha1.PostgresqlEngineConfiguration) error {
+	// Deep copy
+	copy := instance.DeepCopy()
+
 	// Add default values
-	needUpdateDefaultValues := r.addDefaultValues(instance)
+	r.addDefaultValues(instance)
 
 	// Add finalizer
-	needUpdateFinalizer := utils.AddFinalizer(instance)
+	controllerutil.AddFinalizer(instance, config.Finalizer)
 
 	// Check if update is needed
-	if needUpdateDefaultValues || needUpdateFinalizer {
+	if !reflect.DeepEqual(instance, copy) {
 		return r.client.Update(context.TODO(), instance)
 	}
 
@@ -221,26 +227,20 @@ func (r *ReconcilePostgresqlEngineConfiguration) updateInstance(instance *postgr
 }
 
 // Add default values here to be saved in reconcile loop in order to help people to debug
-func (r *ReconcilePostgresqlEngineConfiguration) addDefaultValues(instance *postgresqlv1alpha1.PostgresqlEngineConfiguration) bool {
-	needUpdate := false
+func (r *ReconcilePostgresqlEngineConfiguration) addDefaultValues(instance *postgresqlv1alpha1.PostgresqlEngineConfiguration) {
 	// Check port
 	if instance.Spec.Port == 0 {
-		needUpdate = true
 		instance.Spec.Port = 5432
 	}
 	// Check default database
 	if instance.Spec.DefaultDatabase == "" {
-		needUpdate = true
 		// In classic pg, postgres is a default database
 		instance.Spec.DefaultDatabase = "postgres"
 	}
 	// Check "check interval"
 	if instance.Spec.CheckInterval == "" {
-		needUpdate = true
 		instance.Spec.CheckInterval = "30s"
 	}
-
-	return needUpdate
 }
 
 func (r *ReconcilePostgresqlEngineConfiguration) manageError(logger logr.Logger, instance *postgresqlv1alpha1.PostgresqlEngineConfiguration, issue error) (reconcile.Result, error) {

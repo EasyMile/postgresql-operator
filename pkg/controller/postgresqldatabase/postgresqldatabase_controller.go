@@ -3,10 +3,11 @@ package postgresqldatabase
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/pkg/apis/postgresql/v1alpha1"
-	"github.com/easymile/postgresql-operator/pkg/controller/utils"
+	"github.com/easymile/postgresql-operator/pkg/config"
 	"github.com/easymile/postgresql-operator/pkg/postgres"
 	"github.com/go-logr/logr"
 	"github.com/thoas/go-funk"
@@ -17,6 +18,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -112,12 +114,6 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 
 	// Creation case
 
-	// Add finalizer
-	err = r.updateInstance(instance)
-	if err != nil {
-		return r.manageError(reqLogger, instance, err)
-	}
-
 	// Try to find PostgresqlEngineConfiguration CR
 	pgEngCfg, err := r.findPgEngineCfg(instance)
 	if err != nil {
@@ -126,6 +122,12 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 
 	// Get secret linked to PostgresqlEngineConfiguration CR
 	secret, err := r.findSecretPgEngineCfg(pgEngCfg)
+	if err != nil {
+		return r.manageError(reqLogger, instance, err)
+	}
+
+	// Add finalizer and owners
+	err = r.updateInstance(instance, pgEngCfg)
 	if err != nil {
 		return r.manageError(reqLogger, instance, err)
 	}
@@ -178,12 +180,21 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 	return r.manageSuccess(reqLogger, instance)
 }
 
-func (r *ReconcilePostgresqlDatabase) updateInstance(instance *postgresqlv1alpha1.PostgresqlDatabase) error {
+func (r *ReconcilePostgresqlDatabase) updateInstance(instance *postgresqlv1alpha1.PostgresqlDatabase, pgEngCfg *postgresqlv1alpha1.PostgresqlEngineConfiguration) error {
+	// Deep copy
+	copy := instance.DeepCopy()
+
+	// Add owner
+	err := controllerutil.SetControllerReference(pgEngCfg, instance, r.scheme)
+	if err != nil {
+		return err
+	}
+
 	// Add finalizer
-	needUpdateFinalizer := utils.AddFinalizer(instance)
+	controllerutil.AddFinalizer(instance, config.Finalizer)
 
 	// Check if update is needed
-	if needUpdateFinalizer {
+	if !reflect.DeepEqual(copy.ObjectMeta, instance.ObjectMeta) {
 		return r.client.Update(context.TODO(), instance)
 	}
 
