@@ -142,6 +142,7 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 	if err != nil {
 		return r.manageError(reqLogger, instance, err)
 	}
+	// TODO Check that pg db is ready before continue
 
 	// Find PG Engine cfg
 	pgEngineCfg, err := utils.FindPgEngineCfg(r.client, pgDb)
@@ -307,8 +308,7 @@ func (r *ReconcilePostgresqlUser) manageDeletion(reqLogger logr.Logger, instance
 	pgInstance := utils.CreatePgInstance(reqLogger, pgEngineSecret.Data, &pgEngineCfg.Spec)
 
 	// Prepare database name
-	// TODO Need to be changed with database in status
-	databaseName := pgDb.Spec.Database
+	databaseName := pgDb.Status.Database
 
 	// Delete role
 	err = pgInstance.DropRole(

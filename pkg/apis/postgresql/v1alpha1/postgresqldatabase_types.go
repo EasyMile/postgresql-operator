@@ -66,6 +66,8 @@ type PostgresqlDatabaseStatus struct {
 	Message string `json:"message"`
 	// True if all resources are in a ready state and all work is done.
 	Ready bool `json:"ready"`
+	// Created database
+	Database string `json:"database"`
 	// Already created roles for database
 	// +optional
 	Roles PostgresRoles `json:"roles"`

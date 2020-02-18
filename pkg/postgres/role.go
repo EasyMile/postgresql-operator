@@ -17,6 +17,7 @@ const (
 	DROP_OWNED_BY       = `DROP OWNED BY "%s"`
 	REASIGN_OBJECTS     = `REASSIGN OWNED BY "%s" TO "%s"`
 	IS_ROLE_EXIST       = `SELECT 1 FROM pg_roles WHERE rolname='%s'`
+	RENAME_ROLE         = `ALTER ROLE "%s" RENAME TO "%s"`
 )
 
 func (c *pg) CreateGroupRole(role string) error {
@@ -84,8 +85,13 @@ func (c *pg) RevokeRole(role, revoked string) error {
 	}
 	defer c.close()
 	_, err = c.db.Exec(fmt.Sprintf(REVOKE_ROLE, role, revoked))
+	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
 	if err != nil {
-		return err
+		// Try to cast error
+		pqErr, ok := err.(*pq.Error)
+		if !ok || pqErr.Code != "42704" {
+			return err
+		}
 	}
 	return nil
 }
@@ -172,4 +178,18 @@ func (c *pg) IsRoleExist(role string) (bool, error) {
 	}
 
 	return nb == 1, nil
+}
+
+func (c *pg) RenameRole(oldname, newname string) error {
+	err := c.connect(c.default_database)
+	if err != nil {
+		return err
+	}
+	defer c.close()
+	_, err = c.db.Exec(fmt.Sprintf(RENAME_ROLE, oldname, newname))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

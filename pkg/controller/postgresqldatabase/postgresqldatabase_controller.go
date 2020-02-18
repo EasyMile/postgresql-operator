@@ -158,7 +158,7 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 
 	owner := instance.Spec.MasterRole
 	if owner == "" {
-		owner = fmt.Sprintf("%s-group", instance.Spec.Database)
+		owner = fmt.Sprintf("%s-owner", instance.Spec.Database)
 	}
 	// Create owner role
 	err = r.manageOwnerRole(pg, owner, instance)
@@ -166,10 +166,8 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 		return r.manageError(reqLogger, instance, errors.NewInternalError(err))
 	}
 
-	// Create database
-	// TODO Need to manage spec change
-	// Because if spec has changed, "old" database won't be removed
-	err = pg.CreateDB(instance.Spec.Database, owner)
+	// Create or update database
+	err = r.manageDBCreationOrUpdate(pg, instance, owner)
 	if err != nil {
 		return r.manageError(reqLogger, instance, errors.NewInternalError(err))
 	}
@@ -201,6 +199,36 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 	}
 
 	return r.manageSuccess(reqLogger, instance)
+}
+
+func (r *ReconcilePostgresqlDatabase) manageDBCreationOrUpdate(pg postgres.PG, instance *postgresqlv1alpha1.PostgresqlDatabase, owner string) error {
+	// Check if database was already created in the past
+	if instance.Status.Database != "" {
+		exists, err := pg.IsDatabaseExist(instance.Status.Database)
+		if err != nil {
+			return err
+		}
+		// Check if "old" already exists and need to be renamed
+		// If needed, rename and let create db do his job
+		if exists && instance.Spec.Database != instance.Status.Database {
+			// Rename
+			err = pg.RenameDatabase(instance.Status.Database, instance.Spec.Database)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// Create database
+	err := pg.CreateDB(instance.Spec.Database, owner)
+	if err != nil {
+		return err
+	}
+
+	// Update status
+	instance.Status.Database = instance.Spec.Database
+
+	return nil
 }
 
 func (r *ReconcilePostgresqlDatabase) manageDropDatabase(logger logr.Logger, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
@@ -277,27 +305,6 @@ func (r *ReconcilePostgresqlDatabase) shouldDropDatabase(instance *postgresqlv1a
 	// Check if drop on delete flag is enabled
 	if instance.Spec.DropOnDelete {
 		return true, nil
-	}
-
-	// Check if other postgresql database CR ask for the same database
-	crList := postgresqlv1alpha1.PostgresqlDatabaseList{}
-	err := r.client.List(context.TODO(), &crList)
-	// Check if error exists
-	if err != nil {
-		return false, err
-	}
-	// Check
-	for _, cr := range crList.Items {
-		// Check if cr is equal to actual instance
-		// If yes, skip it
-		if cr.Name == instance.Name && cr.Namespace == instance.Namespace {
-			continue
-		}
-		// Check if database is the same
-		// If yes, stop
-		if cr.Spec.Database == instance.Spec.Database {
-			return false, nil
-		}
 	}
 
 	// Default case is no !
@@ -440,6 +447,23 @@ func (r *ReconcilePostgresqlDatabase) manageExtensions(pg postgres.PG, instance 
 }
 
 func (r *ReconcilePostgresqlDatabase) manageReaderRole(pg postgres.PG, reader string, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
+	// Check if role was already created in the past
+	if instance.Status.Roles.Reader != "" {
+		exists, err := pg.IsRoleExist(instance.Status.Roles.Reader)
+		if err != nil {
+			return err
+		}
+		// Check if "old" already exists and need to be renamed
+		// if needed rename and let create role do his job
+		if exists && reader != instance.Status.Roles.Reader {
+			// Rename
+			err = pg.RenameRole(instance.Status.Roles.Reader, reader)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	err := pg.CreateGroupRole(reader)
 	if err != nil {
 		return err
@@ -450,6 +474,23 @@ func (r *ReconcilePostgresqlDatabase) manageReaderRole(pg postgres.PG, reader st
 }
 
 func (r *ReconcilePostgresqlDatabase) manageWriterRole(pg postgres.PG, writer string, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
+	// Check if role was already created in the past
+	if instance.Status.Roles.Writer != "" {
+		exists, err := pg.IsRoleExist(instance.Status.Roles.Writer)
+		if err != nil {
+			return err
+		}
+		// Check if "old" already exists and need to be renamed
+		// if needed rename and let create role do his job
+		if exists && writer != instance.Status.Roles.Writer {
+			// Rename
+			err = pg.RenameRole(instance.Status.Roles.Writer, writer)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	err := pg.CreateGroupRole(writer)
 	if err != nil {
 		return err
@@ -460,17 +501,26 @@ func (r *ReconcilePostgresqlDatabase) manageWriterRole(pg postgres.PG, writer st
 }
 
 func (r *ReconcilePostgresqlDatabase) manageOwnerRole(pg postgres.PG, owner string, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
-	err := pg.CreateGroupRole(owner)
-	if err != nil {
-		return err
-	}
-	// Check if previous owner was the same
-	if instance.Status.Roles.Owner != "" && instance.Status.Roles.Owner != owner {
-		// Drop old owner
-		err = pg.DropRole(instance.Status.Roles.Owner, owner, instance.Spec.Database)
+	// Check if role was already created in the past
+	if instance.Status.Roles.Owner != "" {
+		exists, err := pg.IsRoleExist(instance.Status.Roles.Owner)
 		if err != nil {
 			return err
 		}
+		// Check if "old" already exists and need to be renamed
+		// if needed rename and let create role do his job
+		if exists && owner != instance.Status.Roles.Owner {
+			// Rename
+			err = pg.RenameRole(instance.Status.Roles.Owner, owner)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	err := pg.CreateGroupRole(owner)
+	if err != nil {
+		return err
 	}
 	// Update status
 	instance.Status.Roles.Owner = owner

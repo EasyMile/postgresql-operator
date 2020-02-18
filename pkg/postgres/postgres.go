@@ -10,11 +10,14 @@ import (
 
 type PG interface {
 	CreateDB(dbname, username string) error
+	IsDatabaseExist(dbname string) (bool, error)
+	RenameDatabase(oldname, newname string) error
 	CreateSchema(db, role, schema string) error
 	CreateExtension(db, extension string) error
 	CreateGroupRole(role string) error
 	CreateUserRole(role, password string) (string, error)
 	IsRoleExist(role string) (bool, error)
+	RenameRole(oldname, newname string) error
 	UpdatePassword(role, password string) error
 	GrantRole(role, grantee string) error
 	SetSchemaPrivileges(db, creator, role, schema, privs string) error

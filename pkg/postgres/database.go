@@ -10,6 +10,8 @@ const (
 	CASCADE              = "CASCADE"
 	RESTRICT             = "RESTRICT"
 	CREATE_DB            = `CREATE DATABASE "%s"`
+	IS_DATABASE_EXIST    = `SELECT 1 FROM pg_database WHERE datname='%s'`
+	RENAME_DATABASE      = `ALTER DATABASE "%s" RENAME TO "%s"`
 	CREATE_SCHEMA        = `CREATE SCHEMA IF NOT EXISTS "%s" AUTHORIZATION "%s"`
 	CREATE_EXTENSION     = `CREATE EXTENSION IF NOT EXISTS "%s"`
 	ALTER_DB_OWNER       = `ALTER DATABASE "%s" OWNER TO "%s"`
@@ -20,6 +22,39 @@ const (
 	GRANT_ALL_TABLES     = `GRANT %s ON ALL TABLES IN SCHEMA "%s" TO "%s"`
 	DEFAULT_PRIVS_SCHEMA = `ALTER DEFAULT PRIVILEGES FOR ROLE "%s" IN SCHEMA "%s" GRANT %s ON TABLES TO "%s"`
 )
+
+func (c *pg) IsDatabaseExist(dbname string) (bool, error) {
+	err := c.connect(c.default_database)
+	if err != nil {
+		return false, err
+	}
+	defer c.close()
+	res, err := c.db.Exec(fmt.Sprintf(IS_DATABASE_EXIST, dbname))
+	if err != nil {
+		return false, err
+	}
+	// Get affected rows
+	nb, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	return nb == 1, nil
+}
+
+func (c *pg) RenameDatabase(oldname, newname string) error {
+	err := c.connect(c.default_database)
+	if err != nil {
+		return err
+	}
+	defer c.close()
+
+	_, err = c.db.Exec(fmt.Sprintf(RENAME_DATABASE, oldname, newname))
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 func (c *pg) CreateDB(dbname, role string) error {
 	err := c.connect(c.default_database)
