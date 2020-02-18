@@ -59,8 +59,6 @@ type PostgresqlUserStatus struct {
 	PostgresGroup string `json:"postgresGroup"`
 	// Postgres database name for which user is created
 	PostgresDatabaseName string `json:"postgresDatabaseName"`
-	// Resource Spec hash
-	Hash string `json:"hash"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

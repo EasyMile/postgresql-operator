@@ -3,9 +3,11 @@ package postgresqluser
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/pkg/apis/postgresql/v1alpha1"
+	"github.com/easymile/postgresql-operator/pkg/config"
 	"github.com/easymile/postgresql-operator/pkg/controller/utils"
 	"github.com/easymile/postgresql-operator/pkg/postgres"
 	"github.com/go-logr/logr"
@@ -116,24 +118,24 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	// Deletion case
-	// TODO
+	if !instance.GetDeletionTimestamp().IsZero() {
+		// Deletion detected
+		err = r.manageDeletion(reqLogger, instance)
+		if err != nil {
+			return r.manageError(reqLogger, instance, err)
+		}
+		// Remove finalizer
+		controllerutil.RemoveFinalizer(instance, config.Finalizer)
+		// Update CR
+		err = r.client.Update(context.TODO(), instance)
+		if err != nil {
+			return r.manageError(reqLogger, instance, err)
+		}
+		// Stop reconcile
+		return reconcile.Result{}, nil
+	}
 
 	// Creation case
-
-	// Add finalizer and owners
-	// TODO
-	// err = r.updateInstance(instance, pgEngCfg)
-	// if err != nil {
-	// 	return r.manageError(reqLogger, instance, err)
-	// }
-
-	// Calculate spec hash
-	hash, err := utils.CalculateHash(instance.Spec)
-	if err != nil {
-		return r.manageError(reqLogger, instance, err)
-	}
-	// Update status
-	instance.Status.Hash = hash
 
 	// Find PG Database
 	pgDb, err := utils.FindPgDatabase(r.client, instance)
@@ -149,6 +151,12 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 
 	// Find PG Engine secret
 	pgEngineSecret, err := utils.FindSecretPgEngineCfg(r.client, pgEngineCfg)
+	if err != nil {
+		return r.manageError(reqLogger, instance, err)
+	}
+
+	// Add finalizer and owners
+	err = r.updateInstance(instance, pgDb)
 	if err != nil {
 		return r.manageError(reqLogger, instance, err)
 	}
@@ -264,6 +272,76 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	return r.manageSuccess(reqLogger, instance)
+}
+
+func (r *ReconcilePostgresqlUser) manageDeletion(reqLogger logr.Logger, instance *postgresqlv1alpha1.PostgresqlUser) error {
+	// Find PG Database
+	pgDb, err := utils.FindPgDatabase(r.client, instance)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Can't do anything => log and stop
+			reqLogger.Info("Can't delete user because linked PostgresqlDatabase can't be found")
+			return nil
+		}
+		return err
+	}
+
+	// Find PG Engine cfg
+	pgEngineCfg, err := utils.FindPgEngineCfg(r.client, pgDb)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Can't do anything => log and stop
+			reqLogger.Info("Can't delete user because linked PostgresqlEngineConfiguration can't be found")
+			return nil
+		}
+		return err
+	}
+
+	// Find PG Engine secret
+	pgEngineSecret, err := utils.FindSecretPgEngineCfg(r.client, pgEngineCfg)
+	if err != nil {
+		return err
+	}
+
+	// Create pg instance
+	pgInstance := utils.CreatePgInstance(reqLogger, pgEngineSecret.Data, &pgEngineCfg.Spec)
+
+	// Prepare database name
+	// TODO Need to be changed with database in status
+	databaseName := pgDb.Spec.Database
+
+	// Delete role
+	err = pgInstance.DropRole(
+		instance.Status.PostgresRole,
+		instance.Status.PostgresGroup,
+		databaseName,
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *ReconcilePostgresqlUser) updateInstance(instance *postgresqlv1alpha1.PostgresqlUser, pgDb *postgresqlv1alpha1.PostgresqlDatabase) error {
+	// Deep copy
+	copy := instance.DeepCopy()
+
+	// Add owner
+	err := controllerutil.SetControllerReference(pgDb, instance, r.scheme)
+	if err != nil {
+		return err
+	}
+
+	// Add finalizer
+	controllerutil.AddFinalizer(instance, config.Finalizer)
+
+	// Check if update is needed
+	if !reflect.DeepEqual(copy.ObjectMeta, instance.ObjectMeta) {
+		return r.client.Update(context.TODO(), instance)
+	}
+
+	return nil
 }
 
 func (r *ReconcilePostgresqlUser) manageCreateUserRole(reqLogger logr.Logger, pgInstance postgres.PG, instance *postgresqlv1alpha1.PostgresqlUser, password string) (string, string, error) {

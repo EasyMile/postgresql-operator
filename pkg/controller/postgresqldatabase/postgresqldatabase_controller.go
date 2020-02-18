@@ -260,6 +260,20 @@ func (r *ReconcilePostgresqlDatabase) manageDropDatabase(logger logr.Logger, ins
 }
 
 func (r *ReconcilePostgresqlDatabase) shouldDropDatabase(instance *postgresqlv1alpha1.PostgresqlDatabase) (bool, error) {
+	// Check if wait linked resources deletion flag is enabled
+	if instance.Spec.WaitLinkedResourcesDeletion {
+		// Check if there are linked resource linked to this
+		existingUser, err := r.getAnyUserLinked(instance)
+		if err != nil {
+			return false, err
+		}
+		if existingUser != nil {
+			// Wait for children removal
+			err := fmt.Errorf("cannot remove resource because found user %s in namespace %s linked to this resource and wait for deletion flag is enabled", existingUser.Name, existingUser.Namespace)
+			return false, err
+		}
+	}
+
 	// Check if drop on delete flag is enabled
 	if instance.Spec.DropOnDelete {
 		return true, nil
@@ -288,6 +302,24 @@ func (r *ReconcilePostgresqlDatabase) shouldDropDatabase(instance *postgresqlv1a
 
 	// Default case is no !
 	return false, nil
+}
+
+func (r *ReconcilePostgresqlDatabase) getAnyUserLinked(instance *postgresqlv1alpha1.PostgresqlDatabase) (*postgresqlv1alpha1.PostgresqlUser, error) {
+	// Initialize postgres user list
+	userL := postgresqlv1alpha1.PostgresqlUserList{}
+	// Requests for list of users
+	err := r.client.List(context.TODO(), &userL)
+	if err != nil {
+		return nil, err
+	}
+	// Loop over the list
+	for _, user := range userL.Items {
+		// Check db is linked to pgdatabase
+		if user.Spec.Database.Name == instance.Name && (user.Spec.Database.Namespace == instance.Namespace || user.Namespace == instance.Namespace) {
+			return &user, nil
+		}
+	}
+	return nil, nil
 }
 
 func (r *ReconcilePostgresqlDatabase) updateInstance(instance *postgresqlv1alpha1.PostgresqlDatabase, pgEngCfg *postgresqlv1alpha1.PostgresqlEngineConfiguration) error {

@@ -83,6 +83,9 @@ spec:
                     type: string
                   type: array
               type: object
+            waitLinkedResourcesDeletion:
+              description: Wait for linked resource to be deleted
+              type: boolean
           required:
           - database
           - engineConfiguration

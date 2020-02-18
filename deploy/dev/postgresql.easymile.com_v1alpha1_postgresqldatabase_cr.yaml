@@ -18,3 +18,4 @@ spec:
     list:
       - dev1schema
     dropOnDelete: true
+  waitLinkedResourcesDeletion: true

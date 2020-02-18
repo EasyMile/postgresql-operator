@@ -22,6 +22,9 @@ type PostgresqlDatabaseSpec struct {
 	// Should drop database on Custom Resource deletion ?
 	// +optional
 	DropOnDelete bool `json:"dropOnDelete,omitempty"`
+	// Wait for linked resource to be deleted
+	// +optional
+	WaitLinkedResourcesDeletion bool `json:"waitLinkedResourcesDeletion,omitempty"`
 	// Schema to create in database
 	// +optional
 	Schemas DatabaseModulesList `json:"schemas,omitempty"`

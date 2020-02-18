@@ -67,9 +67,6 @@ spec:
         status:
           description: PostgresqlUserStatus defines the observed state of PostgresqlUser
           properties:
-            hash:
-              description: Resource Spec hash
-              type: string
             message:
               description: Human-readable message indicating details about current
                 operator phase or error.
@@ -97,7 +94,6 @@ spec:
               description: User role used
               type: string
           required:
-          - hash
           - message
           - phase
           - postgresDatabaseName
