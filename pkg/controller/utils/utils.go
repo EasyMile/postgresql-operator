@@ -63,3 +63,20 @@ func FindPgEngineCfg(cl client.Client, instance *postgresqlv1alpha1.PostgresqlDa
 
 	return pgEngineCfg, err
 }
+
+func FindPgDatabase(cl client.Client, instance *postgresqlv1alpha1.PostgresqlUser) (*postgresqlv1alpha1.PostgresqlDatabase, error) {
+	// Try to get namespace from spec
+	namespace := instance.Spec.Database.Namespace
+	if namespace == "" {
+		// Namespace not found, take it from instance namespace
+		namespace = instance.Namespace
+	}
+
+	pgDatabase := &postgresqlv1alpha1.PostgresqlDatabase{}
+	err := cl.Get(context.TODO(), client.ObjectKey{
+		Name:      instance.Spec.Database.Name,
+		Namespace: namespace,
+	}, pgDatabase)
+
+	return pgDatabase, err
+}

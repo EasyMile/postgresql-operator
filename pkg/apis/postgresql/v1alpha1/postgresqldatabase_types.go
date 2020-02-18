@@ -7,16 +7,6 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-type PostgresqlEngineConfigurationLink struct {
-	// Custom resource name
-	// +required
-	// +kubebuilder:validation:Required
-	Name string `json:"name"`
-	// Custom resource namespace
-	// +optional
-	Namespace string `json:"namespace,omitempty"`
-}
-
 // PostgresqlDatabaseSpec defines the desired state of PostgresqlDatabase
 type PostgresqlDatabaseSpec struct {
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
@@ -41,7 +31,7 @@ type PostgresqlDatabaseSpec struct {
 	// Postgresql Engine Configuration link
 	// +required
 	// +kubebuilder:validation:Required
-	EngineConfiguration *PostgresqlEngineConfigurationLink `json:"engineConfiguration"`
+	EngineConfiguration *CRLink `json:"engineConfiguration"`
 }
 
 type DatabaseModulesList struct {

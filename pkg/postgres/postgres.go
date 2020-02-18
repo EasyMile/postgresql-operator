@@ -14,16 +14,18 @@ type PG interface {
 	CreateExtension(db, extension string) error
 	CreateGroupRole(role string) error
 	CreateUserRole(role, password string) (string, error)
+	IsRoleExist(role string) (bool, error)
 	UpdatePassword(role, password string) error
 	GrantRole(role, grantee string) error
 	SetSchemaPrivileges(db, creator, role, schema, privs string) error
-	RevokeRole(role, revoked string) error
+	RevokeRole(role, userRole string) error
 	AlterDefaultLoginRole(role, setRole string) error
 	DropDatabase(db string) error
 	DropRole(role, newOwner, database string) error
 	DropSchema(database, schema string, cascade bool) error
 	DropExtension(database, extension string, cascade bool) error
 	GetUser() string
+	GetHost() string
 	GetDefaultDatabase() string
 	Ping() error
 }
@@ -60,6 +62,10 @@ func NewPG(host, user, password, uri_args, default_database string, cloud_type v
 
 func (c *pg) GetUser() string {
 	return c.user
+}
+
+func (c *pg) GetHost() string {
+	return c.host
 }
 
 func (c *pg) GetDefaultDatabase() string {

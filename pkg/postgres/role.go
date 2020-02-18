@@ -16,6 +16,7 @@ const (
 	DROP_ROLE           = `DROP ROLE "%s"`
 	DROP_OWNED_BY       = `DROP OWNED BY "%s"`
 	REASIGN_OBJECTS     = `REASSIGN OWNED BY "%s" TO "%s"`
+	IS_ROLE_EXIST       = `SELECT 1 FROM pg_roles WHERE rolname='%s'`
 )
 
 func (c *pg) CreateGroupRole(role string) error {
@@ -152,4 +153,23 @@ func (c *pg) UpdatePassword(role, password string) error {
 	}
 
 	return nil
+}
+
+func (c *pg) IsRoleExist(role string) (bool, error) {
+	err := c.connect(c.default_database)
+	if err != nil {
+		return false, err
+	}
+	defer c.close()
+	res, err := c.db.Exec(fmt.Sprintf(IS_ROLE_EXIST, role))
+	if err != nil {
+		return false, err
+	}
+	// Get affected rows
+	nb, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	return nb == 1, nil
 }
