@@ -26,10 +26,11 @@ import (
 )
 
 const (
-	RequeueDelayErrorSeconds = 5 * time.Second
-	ControllerName           = "postgresqldatabase-controller"
-	readerPrivs              = "SELECT"
-	writerPrivs              = "SELECT,INSERT,DELETE,UPDATE"
+	RequeueDelayErrorSeconds   = 5 * time.Second
+	RequeueDelaySuccessSeconds = 30 * time.Second
+	ControllerName             = "postgresqldatabase-controller"
+	readerPrivs                = "SELECT"
+	writerPrivs                = "SELECT,INSERT,DELETE,UPDATE"
 )
 
 var log = logf.Log.WithName("controller_postgresqldatabase")
@@ -443,6 +444,7 @@ func (r *ReconcilePostgresqlDatabase) manageOwnerRole(pg postgres.PG, owner stri
 	instance.Status.Roles.Owner = owner
 	return nil
 }
+
 func (r *ReconcilePostgresqlDatabase) manageError(logger logr.Logger, instance *postgresqlv1alpha1.PostgresqlDatabase, issue error) (reconcile.Result, error) {
 	logger.Error(issue, "issue raised in reconcile")
 	// Add kubernetes event
@@ -483,5 +485,8 @@ func (r *ReconcilePostgresqlDatabase) manageSuccess(logger logr.Logger, instance
 	}
 
 	logger.Info("Reconcile done")
-	return reconcile.Result{}, nil
+	return reconcile.Result{
+		Requeue:      true,
+		RequeueAfter: RequeueDelaySuccessSeconds,
+	}, nil
 }
