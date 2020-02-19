@@ -141,6 +141,17 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 		return r.manageError(reqLogger, instance, err)
 	}
 
+	// Check that postgres engine configuration is ready before continue but only if it is the first time
+	// If not, requeue event with a short delay (1 second)
+	if instance.Status.Phase == postgresqlv1alpha1.DatabaseNoPhase && !pgEngCfg.Status.Ready {
+		reqLogger.Info("PostgresqlEngineConfiguration not ready, waiting for it")
+		r.recorder.Event(instance, "Warning", "Processing", "Processing stopped because PostgresqlEngineConfiguration isn't ready. Waiting for it.")
+		return reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: time.Second,
+		}, nil
+	}
+
 	// Get secret linked to PostgresqlEngineConfiguration CR
 	secret, err := utils.FindSecretPgEngineCfg(r.client, pgEngCfg)
 	if err != nil {

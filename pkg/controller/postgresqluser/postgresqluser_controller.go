@@ -141,7 +141,17 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 	if err != nil {
 		return r.manageError(reqLogger, instance, err)
 	}
-	// TODO Check that pg db is ready before continue
+
+	// Check that postgres database is ready before continue but only if it is the first time
+	// If not, requeue event with a short delay (1 second)
+	if instance.Status.Phase == postgresqlv1alpha1.UserNoPhase && !pgDb.Status.Ready {
+		reqLogger.Info("PostgresqlDatabase not ready, waiting for it")
+		r.recorder.Event(instance, "Warning", "Processing", "Processing stopped because PostgresqlDatabase isn't ready. Waiting for it.")
+		return reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: time.Second,
+		}, nil
+	}
 
 	// Find PG Engine cfg
 	pgEngineCfg, err := utils.FindPgEngineCfg(r.client, pgDb)
