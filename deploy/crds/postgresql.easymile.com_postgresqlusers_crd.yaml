@@ -67,6 +67,9 @@ spec:
         status:
           description: PostgresqlUserStatus defines the observed state of PostgresqlUser
           properties:
+            lastPasswordChangedTime:
+              description: Last password changed time
+              type: string
             message:
               description: Human-readable message indicating details about current
                 operator phase or error.
@@ -94,6 +97,7 @@ spec:
               description: User role used
               type: string
           required:
+          - lastPasswordChangedTime
           - message
           - phase
           - postgresDatabaseName

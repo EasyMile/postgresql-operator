@@ -243,14 +243,14 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 	instance.Status.PostgresDatabaseName = pgDb.Spec.Database
 
 	// Create new secret
-	secret, err := r.newSecretForPGUser(instance, role, password, login, pgInstance, pgDb)
+	generatedSecret, err := r.newSecretForPGUser(instance, role, password, login, pgInstance, pgDb)
 	if err != nil {
 		return r.manageError(reqLogger, instance, err)
 	}
 
 	// Check if this Secret already exists
 	secrFound := &corev1.Secret{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, secrFound)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: generatedSecret.Name, Namespace: generatedSecret.Namespace}, secrFound)
 	// Check if error exists and not a not found error
 	if err != nil && !errors.IsNotFound(err) {
 		return r.manageError(reqLogger, instance, err)
@@ -267,17 +267,53 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 		if err != nil {
 			return r.manageError(reqLogger, instance, err)
 		}
-		reqLogger.Info("Creating secret", "Secret.Namespace", secret.Namespace, "Secret.Name", secret.Name)
-		r.recorder.Event(instance, "Normal", "Processing", fmt.Sprintf("Creating secret %s for Postgresql User", secret.Name))
-		err = r.client.Create(context.TODO(), secret)
+		reqLogger.Info("Creating secret", "Secret.Namespace", generatedSecret.Namespace, "Secret.Name", generatedSecret.Name)
+		r.recorder.Event(instance, "Normal", "Processing", fmt.Sprintf("Creating secret %s for Postgresql User", generatedSecret.Name))
+		err = r.client.Create(context.TODO(), generatedSecret)
 		if err != nil {
 			return r.manageError(reqLogger, instance, err)
 		}
-	} else if secretRole != instance.Status.PostgresRole { // Check if secret must be updated
+
+		// Update status
+		instance.Status.LastPasswordChangedTime = time.Now().Format(time.RFC3339)
+	} else if secretRole != instance.Status.PostgresRole { // Check if secret must be updated because role has changed
 		// Need to update secret
-		err = r.updatePGUserSecret(secrFound, secret)
+		err = r.updatePGUserSecret(secrFound, generatedSecret)
 		if err != nil {
 			return r.manageError(reqLogger, instance, err)
+		}
+
+		// Update status
+		instance.Status.LastPasswordChangedTime = time.Now().Format(time.RFC3339)
+	} else if instance.Spec.UserPasswordRotationDuration != "" { // Check if password rotation is enabled
+		// Try to parse duration
+		dur, err := time.ParseDuration(instance.Spec.UserPasswordRotationDuration)
+		if err != nil {
+			return r.manageError(reqLogger, instance, err)
+		}
+
+		// Check if is time to change
+		now := time.Now()
+		lastChange, err := time.Parse(time.RFC3339, instance.Status.LastPasswordChangedTime)
+		if err != nil {
+			return r.manageError(reqLogger, instance, err)
+		}
+
+		if now.Sub(lastChange) >= dur {
+			// Need to change password
+
+			// Update password in pg
+			err = pgInstance.UpdatePassword(role, password)
+			if err != nil {
+				return r.manageError(reqLogger, instance, err)
+			}
+			// Need to update secret
+			err = r.updatePGUserSecret(secrFound, generatedSecret)
+			if err != nil {
+				return r.manageError(reqLogger, instance, err)
+			}
+			// Update status
+			instance.Status.LastPasswordChangedTime = now.Format(time.RFC3339)
 		}
 	}
 
