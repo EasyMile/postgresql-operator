@@ -27,7 +27,7 @@ import (
 
 const (
 	RequeueDelayErrorSeconds   = 5 * time.Second
-	RequeueDelaySuccessSeconds = 30 * time.Second
+	RequeueDelaySuccessSeconds = 10 * time.Second
 	ControllerName             = "postgresqldatabase-controller"
 	readerPrivs                = "SELECT"
 	writerPrivs                = "SELECT,INSERT,DELETE,UPDATE"

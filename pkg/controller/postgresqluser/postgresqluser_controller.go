@@ -29,7 +29,7 @@ import (
 
 const (
 	RequeueDelayErrorSeconds   = 5 * time.Second
-	RequeueDelaySuccessSeconds = 30 * time.Second
+	RequeueDelaySuccessSeconds = 10 * time.Second
 	ControllerName             = "postgresqluser-controller"
 )
 
