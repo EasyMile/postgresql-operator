@@ -426,7 +426,8 @@ func (r *ReconcilePostgresqlUser) updatePGUserSecret(foundSecret, newSecret *cor
 }
 
 func (r *ReconcilePostgresqlUser) newSecretForPGUser(instance *postgresqlv1alpha1.PostgresqlUser, role, password, login string, pg postgres.PG) (*corev1.Secret, error) {
-	pgUserUrl := fmt.Sprintf("postgresql://%s:%s@%s:%d/%s", role, password, pg.GetHost(), pg.GetPort(), instance.Status.PostgresDatabaseName)
+	pgUserURL := postgres.TemplatePostgresqlURL(pg.GetHost(), role, password, instance.Status.PostgresDatabaseName, pg.GetPort())
+	pgUserURLWArgs := postgres.TemplatePostgresqlURLWithArgs(pg.GetHost(), role, password, pg.GetArgs(), instance.Status.PostgresDatabaseName, pg.GetPort())
 	labels := map[string]string{
 		"app": instance.Name,
 	}
@@ -437,10 +438,15 @@ func (r *ReconcilePostgresqlUser) newSecretForPGUser(instance *postgresqlv1alpha
 			Labels:    labels,
 		},
 		Data: map[string][]byte{
-			"POSTGRES_URL": []byte(pgUserUrl),
-			"ROLE":         []byte(role),
-			"PASSWORD":     []byte(password),
-			"LOGIN":        []byte(login),
+			"POSTGRES_URL":      []byte(pgUserURL),
+			"POSTGRES_URL_ARGS": []byte(pgUserURLWArgs),
+			"ROLE":              []byte(role),
+			"PASSWORD":          []byte(password),
+			"LOGIN":             []byte(login),
+			"DATABASE":          []byte(instance.Status.PostgresDatabaseName),
+			"HOST":              []byte(pg.GetHost()),
+			"POST":              []byte(fmt.Sprintf("%d", pg.GetPort())),
+			"ARGS":              []byte(pg.GetArgs()),
 		},
 	}
 

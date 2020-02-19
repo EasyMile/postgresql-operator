@@ -31,6 +31,7 @@ type PG interface {
 	GetHost() string
 	GetPort() int
 	GetDefaultDatabase() string
+	GetArgs() string
 	Ping() error
 }
 
@@ -74,6 +75,10 @@ func (c *pg) GetHost() string {
 	return c.host
 }
 
+func (c *pg) GetArgs() string {
+	return c.args
+}
+
 func (c *pg) GetPort() int {
 	return c.port
 }
@@ -83,7 +88,7 @@ func (c *pg) GetDefaultDatabase() string {
 }
 
 func (c *pg) connect(database string) error {
-	pgUrl := fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?%s", c.user, c.pass, c.host, c.port, database, c.args)
+	pgUrl := TemplatePostgresqlURLWithArgs(c.host, c.user, c.pass, c.args, database, c.port)
 	db, err := sql.Open("postgres", pgUrl)
 	if err != nil {
 		return err
@@ -106,4 +111,12 @@ func (c *pg) Ping() error {
 
 func (c *pg) close() error {
 	return c.db.Close()
+}
+
+func TemplatePostgresqlURLWithArgs(host, user, password, uri_args, database string, port int) string {
+	return fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?%s", user, password, host, port, database, uri_args)
+}
+
+func TemplatePostgresqlURL(host, user, password, database string, port int) string {
+	return fmt.Sprintf("postgresql://%s:%s@%s:%d/%s", user, password, host, port, database)
 }
