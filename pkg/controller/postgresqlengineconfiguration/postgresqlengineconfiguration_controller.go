@@ -175,9 +175,6 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 	}
 	instance.Status.Hash = hash
 
-	// Change status
-	r.recorder.Event(instance, "Normal", "Validating", "Validating engine connection")
-
 	// Get secret for user/password
 	secret, err := utils.FindSecretPgEngineCfg(r.client, instance)
 	if err != nil {
