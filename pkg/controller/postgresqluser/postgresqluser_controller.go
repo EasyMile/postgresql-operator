@@ -256,8 +256,6 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 		return r.manageError(reqLogger, instance, err)
 	}
 
-	// Get role in secret
-	secretRole := string(secrFound.Data["ROLE"])
 	// Check if error exists and if it a not found error
 	if err != nil && errors.IsNotFound(err) {
 		// Secret wasn't already present
@@ -276,9 +274,16 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 
 		// Update status
 		instance.Status.LastPasswordChangedTime = time.Now().Format(time.RFC3339)
-	} else if secretRole != instance.Status.PostgresRole { // Check if secret must be updated because role has changed
+	} else if !r.isSecretValid(secrFound, generatedSecret) { // Check if secret must be updated because invalid
+		// Update password in pg
+		reqLogger.Info("Updating password in Postgresql Engine")
+		err = pgInstance.UpdatePassword(role, password)
+		if err != nil {
+			return r.manageError(reqLogger, instance, err)
+		}
+
 		// Need to update secret
-		reqLogger.Info("Updating secret", "Secret.Namespace", generatedSecret.Namespace, "Secret.Name", generatedSecret.Name)
+		reqLogger.Info("Updating secret because secret has changed", "Secret.Namespace", generatedSecret.Namespace, "Secret.Name", generatedSecret.Name)
 		err = r.updatePGUserSecret(secrFound, generatedSecret)
 		if err != nil {
 			return r.manageError(reqLogger, instance, err)
@@ -416,13 +421,49 @@ func (r *ReconcilePostgresqlUser) updatePGUserSecret(foundSecret, newSecret *cor
 	// Save it
 	err := r.client.Update(context.TODO(), foundSecret)
 	if err != nil {
-	return err
-}
+		return err
+	}
 
 	// Add event
 	r.recorder.Event(foundSecret, "Normal", "Updated", "Secret updated by "+ControllerName)
 
 	return nil
+}
+
+func (r *ReconcilePostgresqlUser) isSecretValid(foundSecret, newSecret *corev1.Secret) bool {
+	// Get data
+	foundData := foundSecret.Data
+	newData := newSecret.Data
+
+	// Check if POSTGRES_URL exists
+	// As we don't know the password, just check exist
+	if string(foundData["POSTGRES_URL"]) == "" {
+		return false
+	}
+
+	// Check if POSTGRES_URL_ARGS exists
+	// As we don't know the password, just check exist
+	if string(foundData["POSTGRES_URL_ARGS"]) == "" {
+		return false
+	}
+
+	// Check if PASSWORD exists
+	// As we don't know the password, just check exist
+	if string(foundData["PASSWORD"]) == "" {
+		return false
+	}
+
+	// Must be equal cases
+	cases := []string{"ROLE", "LOGIN", "DATABASE", "HOST", "PORT", "ARGS"}
+	// Check
+	for _, k := range cases {
+		if string(foundData[k]) != string(newData[k]) {
+			return false
+		}
+	}
+
+	// Ok
+	return true
 }
 
 func (r *ReconcilePostgresqlUser) newSecretForPGUser(instance *postgresqlv1alpha1.PostgresqlUser, role, password, login string, pg postgres.PG) (*corev1.Secret, error) {
