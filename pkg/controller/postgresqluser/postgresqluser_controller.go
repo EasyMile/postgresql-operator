@@ -243,7 +243,7 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 	instance.Status.PostgresDatabaseName = pgDb.Spec.Database
 
 	// Create new secret
-	generatedSecret, err := r.newSecretForPGUser(instance, role, password, login, pgInstance, pgDb)
+	generatedSecret, err := r.newSecretForPGUser(instance, role, password, login, pgInstance)
 	if err != nil {
 		return r.manageError(reqLogger, instance, err)
 	}
@@ -278,7 +278,6 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 		instance.Status.LastPasswordChangedTime = time.Now().Format(time.RFC3339)
 	} else if secretRole != instance.Status.PostgresRole { // Check if secret must be updated because role has changed
 		// Need to update secret
-		reqLogger.Info("Updating secret", "Secret.Namespace", generatedSecret.Namespace, "Secret.Name", generatedSecret.Name)
 		err = r.updatePGUserSecret(secrFound, generatedSecret)
 		if err != nil {
 			return r.manageError(reqLogger, instance, err)
@@ -304,13 +303,11 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 			// Need to change password
 
 			// Update password in pg
-			reqLogger.Info("Updating password in Postgresql Engine")
 			err = pgInstance.UpdatePassword(role, password)
 			if err != nil {
 				return r.manageError(reqLogger, instance, err)
 			}
 			// Need to update secret
-			reqLogger.Info("Updating secret", "Secret.Namespace", generatedSecret.Namespace, "Secret.Name", generatedSecret.Name)
 			err = r.updatePGUserSecret(secrFound, generatedSecret)
 			if err != nil {
 				return r.manageError(reqLogger, instance, err)
@@ -415,18 +412,11 @@ func (r *ReconcilePostgresqlUser) updatePGUserSecret(foundSecret, newSecret *cor
 
 	// Save it
 	err := r.client.Update(context.TODO(), foundSecret)
-	if err != nil {
-		return err
-	}
-
-	// Add event
-	r.recorder.Event(foundSecret, "Normal", "Updated", "Secret updated by "+ControllerName)
-
-	return nil
+	return err
 }
 
-func (r *ReconcilePostgresqlUser) newSecretForPGUser(instance *postgresqlv1alpha1.PostgresqlUser, role, password, login string, pg postgres.PG, pgDb *postgresqlv1alpha1.PostgresqlDatabase) (*corev1.Secret, error) {
-	pgUserUrl := fmt.Sprintf("postgresql://%s:%s@%s/%s", role, password, pg.GetHost(), instance.Status.PostgresDatabaseName)
+func (r *ReconcilePostgresqlUser) newSecretForPGUser(instance *postgresqlv1alpha1.PostgresqlUser, role, password, login string, pg postgres.PG) (*corev1.Secret, error) {
+	pgUserUrl := fmt.Sprintf("postgresql://%s:%s@%s:%d/%s", role, password, pg.GetHost(), pg.GetPort(), instance.Status.PostgresDatabaseName)
 	labels := map[string]string{
 		"app": instance.Name,
 	}

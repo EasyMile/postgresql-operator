@@ -29,6 +29,7 @@ type PG interface {
 	DropExtension(database, extension string, cascade bool) error
 	GetUser() string
 	GetHost() string
+	GetPort() int
 	GetDefaultDatabase() string
 	Ping() error
 }
@@ -37,16 +38,18 @@ type pg struct {
 	db               *sql.DB
 	log              logr.Logger
 	host             string
+	port             int
 	user             string
 	pass             string
 	args             string
 	default_database string
 }
 
-func NewPG(host, user, password, uri_args, default_database string, cloud_type v1alpha1.ProviderType, logger logr.Logger) PG {
+func NewPG(host, user, password, uri_args, default_database string, port int, cloud_type v1alpha1.ProviderType, logger logr.Logger) PG {
 	postgres := &pg{
 		log:              logger,
 		host:             host,
+		port:             port,
 		user:             user,
 		pass:             password,
 		args:             uri_args,
@@ -71,12 +74,17 @@ func (c *pg) GetHost() string {
 	return c.host
 }
 
+func (c *pg) GetPort() int {
+	return c.port
+}
+
 func (c *pg) GetDefaultDatabase() string {
 	return c.default_database
 }
 
 func (c *pg) connect(database string) error {
-	db, err := sql.Open("postgres", fmt.Sprintf("postgresql://%s:%s@%s/%s?%s", c.user, c.pass, c.host, database, c.args))
+	pgUrl := fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?%s", c.user, c.pass, c.host, c.port, database, c.args)
+	db, err := sql.Open("postgres", pgUrl)
 	if err != nil {
 		return err
 	}
