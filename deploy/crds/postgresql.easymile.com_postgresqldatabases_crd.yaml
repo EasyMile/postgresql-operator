@@ -3,11 +3,37 @@ kind: CustomResourceDefinition
 metadata:
   name: postgresqldatabases.postgresql.easymile.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.database
+    description: Database name
+    name: Database
+    type: string
+  - JSONPath: .spec.dropOnDelete
+    description: Should drop on delete ?
+    name: Drop On Delete
+    type: string
+  - JSONPath: .spec.schemas.list
+    description: Schemas
+    name: Schemas
+    type: string
+  - JSONPath: .spec.extensions.list
+    description: Extensions
+    name: Extensions
+    type: string
+  - JSONPath: .status.phase
+    description: Status phase
+    name: Phase
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
   group: postgresql.easymile.com
   names:
     kind: PostgresqlDatabase
     listKind: PostgresqlDatabaseList
     plural: postgresqldatabases
+    shortNames:
+    - pgdb
     singular: postgresqldatabase
   scope: Namespaced
   subresources:

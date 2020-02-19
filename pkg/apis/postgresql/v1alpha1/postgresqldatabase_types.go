@@ -53,8 +53,8 @@ type DatabaseModulesList struct {
 type DatabaseStatusPhase string
 
 const DatabaseNoPhase DatabaseStatusPhase = ""
-const DatabaseFailedPhase DatabaseStatusPhase = "failed"
-const DatabaseCreatedPhase DatabaseStatusPhase = "created"
+const DatabaseFailedPhase DatabaseStatusPhase = "Failed"
+const DatabaseCreatedPhase DatabaseStatusPhase = "Created"
 
 // PostgresqlDatabaseStatus defines the observed state of PostgresqlDatabase
 type PostgresqlDatabaseStatus struct {
@@ -93,7 +93,13 @@ type PostgresRoles struct {
 
 // PostgresqlDatabase is the Schema for the postgresqldatabases API
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=postgresqldatabases,scope=Namespaced
+// +kubebuilder:resource:path=postgresqldatabases,scope=Namespaced,shortName=pgdb
+// +kubebuilder:printcolumn:name="Database",type=string,description="Database name",JSONPath=".spec.database"
+// +kubebuilder:printcolumn:name="Drop On Delete",type=string,description="Should drop on delete ?",JSONPath=".spec.dropOnDelete"
+// +kubebuilder:printcolumn:name="Schemas",type=string,description="Schemas",JSONPath=".spec.schemas.list"
+// +kubebuilder:printcolumn:name="Extensions",type=string,description="Extensions",JSONPath=".spec.extensions.list"
+// +kubebuilder:printcolumn:name="Phase",type=string,description="Status phase",JSONPath=".status.phase"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type PostgresqlDatabase struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
