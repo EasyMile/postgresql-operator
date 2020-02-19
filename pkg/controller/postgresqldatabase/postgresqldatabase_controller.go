@@ -333,12 +333,6 @@ func (r *ReconcilePostgresqlDatabase) updateInstance(instance *postgresqlv1alpha
 	// Deep copy
 	copy := instance.DeepCopy()
 
-	// Add owner
-	err := controllerutil.SetControllerReference(pgEngCfg, instance, r.scheme)
-	if err != nil {
-		return err
-	}
-
 	// Add finalizer
 	controllerutil.AddFinalizer(instance, config.Finalizer)
 
