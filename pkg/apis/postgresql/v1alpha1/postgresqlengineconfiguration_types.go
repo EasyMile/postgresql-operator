@@ -43,8 +43,8 @@ type PostgresqlEngineConfigurationSpec struct {
 type EngineStatusPhase string
 
 const EngineNoPhase EngineStatusPhase = ""
-const EngineFailedPhase EngineStatusPhase = "failed"
-const EngineValidatedPhase EngineStatusPhase = "validated"
+const EngineFailedPhase EngineStatusPhase = "Failed"
+const EngineValidatedPhase EngineStatusPhase = "Validated"
 
 // PostgresqlEngineConfigurationStatus defines the observed state of PostgresqlEngineConfiguration
 type PostgresqlEngineConfigurationStatus struct {
@@ -66,7 +66,10 @@ type PostgresqlEngineConfigurationStatus struct {
 
 // PostgresqlEngineConfiguration is the Schema for the postgresqlengineconfigurations API
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=postgresqlengineconfigurations,scope=Namespaced
+// +kubebuilder:resource:path=postgresqlengineconfigurations,scope=Namespaced,shortName=pgengcfg
+// +kubebuilder:printcolumn:name="Last Validation",type=date,description="Last time validated",JSONPath=".status.lastValidatedTime"
+// +kubebuilder:printcolumn:name="Phase",type=string,description="Status phase",JSONPath=".status.phase"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type PostgresqlEngineConfiguration struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

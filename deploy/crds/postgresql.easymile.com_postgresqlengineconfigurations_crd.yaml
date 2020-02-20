@@ -3,11 +3,25 @@ kind: CustomResourceDefinition
 metadata:
   name: postgresqlengineconfigurations.postgresql.easymile.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.lastValidatedTime
+    description: Last time validated
+    name: Last Validation
+    type: date
+  - JSONPath: .status.phase
+    description: Status phase
+    name: Phase
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
   group: postgresql.easymile.com
   names:
     kind: PostgresqlEngineConfiguration
     listKind: PostgresqlEngineConfigurationList
     plural: postgresqlengineconfigurations
+    shortNames:
+    - pgengcfg
     singular: postgresqlengineconfiguration
   scope: Namespaced
   subresources:
