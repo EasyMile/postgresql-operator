@@ -107,19 +107,22 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
+	// Original patch
+	originalPatch := client.MergeFrom(instance.DeepCopy())
+
 	// Deletion case
 	if !instance.GetDeletionTimestamp().IsZero() {
 		// Deletion in progress detected
 		// Test should delete database
 		shouldDelete, err := r.shouldDropDatabase(instance)
 		if err != nil {
-			return r.manageError(reqLogger, instance, err)
+			return r.manageError(reqLogger, instance, originalPatch, err)
 		}
 		if shouldDelete {
 			// Drop database
 			err := r.manageDropDatabase(reqLogger, instance)
 			if err != nil {
-				return r.manageError(reqLogger, instance, err)
+				return r.manageError(reqLogger, instance, originalPatch, err)
 			}
 		}
 		// Remove finalizer
@@ -127,7 +130,7 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 		// Update CR
 		err = r.client.Update(context.TODO(), instance)
 		if err != nil {
-			return r.manageError(reqLogger, instance, err)
+			return r.manageError(reqLogger, instance, originalPatch, err)
 		}
 		// Stop reconcile
 		return reconcile.Result{}, nil
@@ -138,7 +141,7 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 	// Try to find PostgresqlEngineConfiguration CR
 	pgEngCfg, err := utils.FindPgEngineCfg(r.client, instance)
 	if err != nil {
-		return r.manageError(reqLogger, instance, err)
+		return r.manageError(reqLogger, instance, originalPatch, err)
 	}
 
 	// Check that postgres engine configuration is ready before continue but only if it is the first time
@@ -155,13 +158,13 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 	// Get secret linked to PostgresqlEngineConfiguration CR
 	secret, err := utils.FindSecretPgEngineCfg(r.client, pgEngCfg)
 	if err != nil {
-		return r.manageError(reqLogger, instance, err)
+		return r.manageError(reqLogger, instance, originalPatch, err)
 	}
 
 	// Add finalizer and owners
 	err = r.updateInstance(instance, pgEngCfg)
 	if err != nil {
-		return r.manageError(reqLogger, instance, err)
+		return r.manageError(reqLogger, instance, originalPatch, err)
 	}
 
 	// Create PG instance
@@ -174,42 +177,42 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 	// Create owner role
 	err = r.manageOwnerRole(pg, owner, instance)
 	if err != nil {
-		return r.manageError(reqLogger, instance, errors.NewInternalError(err))
+		return r.manageError(reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
 
 	// Create or update database
 	err = r.manageDBCreationOrUpdate(pg, instance, owner)
 	if err != nil {
-		return r.manageError(reqLogger, instance, errors.NewInternalError(err))
+		return r.manageError(reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
 
 	// Create reader role
 	reader := fmt.Sprintf("%s-reader", instance.Spec.Database)
 	err = r.manageReaderRole(pg, reader, instance)
 	if err != nil {
-		return r.manageError(reqLogger, instance, errors.NewInternalError(err))
+		return r.manageError(reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
 
 	// Create writer role
 	writer := fmt.Sprintf("%s-writer", instance.Spec.Database)
 	err = r.manageWriterRole(pg, writer, instance)
 	if err != nil {
-		return r.manageError(reqLogger, instance, errors.NewInternalError(err))
+		return r.manageError(reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
 
 	// Manage extensions
 	err = r.manageExtensions(pg, instance)
 	if err != nil {
-		return r.manageError(reqLogger, instance, errors.NewInternalError(err))
+		return r.manageError(reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
 
 	// Manage schema
 	err = r.manageSchemas(pg, instance)
 	if err != nil {
-		return r.manageError(reqLogger, instance, errors.NewInternalError(err))
+		return r.manageError(reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
 
-	return r.manageSuccess(reqLogger, instance)
+	return r.manageSuccess(reqLogger, instance, originalPatch)
 }
 
 func (r *ReconcilePostgresqlDatabase) manageDBCreationOrUpdate(pg postgres.PG, instance *postgresqlv1alpha1.PostgresqlDatabase, owner string) error {
@@ -532,7 +535,7 @@ func (r *ReconcilePostgresqlDatabase) manageOwnerRole(pg postgres.PG, owner stri
 	return nil
 }
 
-func (r *ReconcilePostgresqlDatabase) manageError(logger logr.Logger, instance *postgresqlv1alpha1.PostgresqlDatabase, issue error) (reconcile.Result, error) {
+func (r *ReconcilePostgresqlDatabase) manageError(logger logr.Logger, instance *postgresqlv1alpha1.PostgresqlDatabase, originalPatch client.Patch, issue error) (reconcile.Result, error) {
 	logger.Error(issue, "issue raised in reconcile")
 	// Add kubernetes event
 	r.recorder.Event(instance, "Warning", "ProcessingError", issue.Error())
@@ -542,8 +545,8 @@ func (r *ReconcilePostgresqlDatabase) manageError(logger logr.Logger, instance *
 	instance.Status.Ready = false
 	instance.Status.Phase = postgresqlv1alpha1.DatabaseFailedPhase
 
-	// Update object
-	err := r.client.Status().Update(context.TODO(), instance)
+	// Patch status
+	err := r.client.Status().Patch(context.TODO(), instance, originalPatch)
 	if err != nil {
 		logger.Error(err, "unable to update status")
 	}
@@ -555,14 +558,14 @@ func (r *ReconcilePostgresqlDatabase) manageError(logger logr.Logger, instance *
 	}, nil
 }
 
-func (r *ReconcilePostgresqlDatabase) manageSuccess(logger logr.Logger, instance *postgresqlv1alpha1.PostgresqlDatabase) (reconcile.Result, error) {
+func (r *ReconcilePostgresqlDatabase) manageSuccess(logger logr.Logger, instance *postgresqlv1alpha1.PostgresqlDatabase, originalPatch client.Patch) (reconcile.Result, error) {
 	// Update status
 	instance.Status.Message = ""
 	instance.Status.Ready = true
 	instance.Status.Phase = postgresqlv1alpha1.DatabaseCreatedPhase
 
-	// Update object
-	err := r.client.Status().Update(context.TODO(), instance)
+	// Patch status
+	err := r.client.Status().Patch(context.TODO(), instance, originalPatch)
 	if err != nil {
 		logger.Error(err, "unable to update status")
 		return reconcile.Result{

@@ -124,15 +124,7 @@ spec:
               description: User role used
               type: string
           required:
-          - lastPasswordChangedTime
-          - message
           - phase
-          - postgresDatabaseName
-          - postgresGroup
-          - postgresLogin
-          - postgresRole
-          - ready
-          - rolePrefix
           type: object
       type: object
   version: v1alpha1

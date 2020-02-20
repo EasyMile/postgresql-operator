@@ -46,20 +46,28 @@ type PostgresqlUserStatus struct {
 	// Current phase of the operator
 	Phase UserStatusPhase `json:"phase"`
 	// Human-readable message indicating details about current operator phase or error.
+	// +optional
 	Message string `json:"message"`
 	// True if all resources are in a ready state and all work is done.
+	// +optional
 	Ready bool `json:"ready"`
 	// User role used
+	// +optional
 	RolePrefix string `json:"rolePrefix"`
 	// Postgres role for user
+	// +optional
 	PostgresRole string `json:"postgresRole"`
 	// User login
+	// +optional
 	PostgresLogin string `json:"postgresLogin"`
 	// Postgres group for user
+	// +optional
 	PostgresGroup string `json:"postgresGroup"`
 	// Postgres database name for which user is created
+	// +optional
 	PostgresDatabaseName string `json:"postgresDatabaseName"`
 	// Last password changed time
+	// +optional
 	LastPasswordChangedTime string `json:"lastPasswordChangedTime"`
 }
 

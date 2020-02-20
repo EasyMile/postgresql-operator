@@ -63,10 +63,13 @@ type PostgresqlDatabaseStatus struct {
 	// Current phase of the operator
 	Phase DatabaseStatusPhase `json:"phase"`
 	// Human-readable message indicating details about current operator phase or error.
+	// +optional
 	Message string `json:"message"`
 	// True if all resources are in a ready state and all work is done.
+	// +optional
 	Ready bool `json:"ready"`
 	// Created database
+	// +optional
 	Database string `json:"database"`
 	// Already created roles for database
 	// +optional

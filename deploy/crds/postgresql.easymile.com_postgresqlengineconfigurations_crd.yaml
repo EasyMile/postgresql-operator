@@ -102,11 +102,7 @@ spec:
                 is done.
               type: boolean
           required:
-          - hash
-          - lastValidatedTime
-          - message
           - phase
-          - ready
           type: object
       type: object
   version: v1alpha1

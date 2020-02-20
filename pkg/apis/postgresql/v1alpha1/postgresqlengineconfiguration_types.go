@@ -53,12 +53,16 @@ type PostgresqlEngineConfigurationStatus struct {
 	// Current phase of the operator
 	Phase EngineStatusPhase `json:"phase"`
 	// Human-readable message indicating details about current operator phase or error.
+	// +optional
 	Message string `json:"message"`
 	// True if all resources are in a ready state and all work is done.
+	// +optional
 	Ready bool `json:"ready"`
 	// Last validated time
+	// +optional
 	LastValidatedTime string `json:"lastValidatedTime"`
 	// Resource Spec hash
+	// +optional
 	Hash string `json:"hash"`
 }
 

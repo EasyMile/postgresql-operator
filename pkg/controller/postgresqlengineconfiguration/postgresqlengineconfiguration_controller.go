@@ -102,6 +102,9 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 		return reconcile.Result{}, err
 	}
 
+	// Original patch
+	originalPatch := client.MergeFrom(instance.DeepCopy())
+
 	// Deletion case
 	if !instance.GetDeletionTimestamp().IsZero() {
 		// Need to delete
@@ -110,12 +113,12 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 			// Check if there are linked resource linked to this
 			existingDb, err := r.getAnyDatabaseLinked(instance)
 			if err != nil {
-				return r.manageError(reqLogger, instance, err)
+				return r.manageError(reqLogger, instance, originalPatch, err)
 			}
 			if existingDb != nil {
 				// Wait for children removal
 				err := fmt.Errorf("cannot remove resource because found database %s in namespace %s linked to this resource and wait for deletion flag is enabled", existingDb.Name, existingDb.Namespace)
-				return r.manageError(reqLogger, instance, err)
+				return r.manageError(reqLogger, instance, originalPatch, err)
 			}
 		}
 		// Clean finalizer
@@ -123,7 +126,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 		// Update CR
 		err = r.client.Update(context.TODO(), instance)
 		if err != nil {
-			return r.manageError(reqLogger, instance, err)
+			return r.manageError(reqLogger, instance, originalPatch, err)
 		}
 		return reconcile.Result{}, nil
 	}
@@ -134,13 +137,13 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 	if instance.Status.Phase == postgresqlv1alpha1.EngineValidatedPhase && instance.Status.LastValidatedTime != "" {
 		dur, err := time.ParseDuration(instance.Spec.CheckInterval)
 		if err != nil {
-			return r.manageError(reqLogger, instance, errors.NewInternalError(err))
+			return r.manageError(reqLogger, instance, originalPatch, errors.NewInternalError(err))
 		}
 
 		now := time.Now()
 		lastValidatedTime, err := time.Parse(time.RFC3339, instance.Status.LastValidatedTime)
 		if err != nil {
-			return r.manageError(reqLogger, instance, errors.NewInternalError(err))
+			return r.manageError(reqLogger, instance, originalPatch, errors.NewInternalError(err))
 		}
 
 		// Check if reconcile was called before interval
@@ -149,7 +152,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 			// Need to calculate hash to know if something has changed
 			hash, err := utils.CalculateHash(instance.Spec)
 			if err != nil {
-				return r.manageError(reqLogger, instance, errors.NewInternalError(err))
+				return r.manageError(reqLogger, instance, originalPatch, errors.NewInternalError(err))
 			}
 
 			// Compare hash to check if spec has changed before interval
@@ -165,20 +168,20 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 	// Add default values and/or finalizer if needed
 	err = r.updateInstance(instance)
 	if err != nil {
-		return r.manageError(reqLogger, instance, err)
+		return r.manageError(reqLogger, instance, originalPatch, err)
 	}
 
 	// Calculate hash for status (this time is to update it in status)
 	hash, err := utils.CalculateHash(instance.Spec)
 	if err != nil {
-		return r.manageError(reqLogger, instance, errors.NewInternalError(err))
+		return r.manageError(reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
 	instance.Status.Hash = hash
 
 	// Get secret for user/password
 	secret, err := utils.FindSecretPgEngineCfg(r.client, instance)
 	if err != nil {
-		return r.manageError(reqLogger, instance, err)
+		return r.manageError(reqLogger, instance, originalPatch, err)
 	}
 
 	// Got secret
@@ -189,6 +192,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 		return r.manageError(
 			reqLogger,
 			instance,
+			originalPatch,
 			fmt.Errorf("secret %s must contain \"user\" and \"password\" values", instance.Spec.SecretName),
 		)
 	}
@@ -199,10 +203,10 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 	// Try to connect
 	err = pg.Ping()
 	if err != nil {
-		return r.manageError(reqLogger, instance, err)
+		return r.manageError(reqLogger, instance, originalPatch, err)
 	}
 
-	return r.manageSuccess(reqLogger, instance)
+	return r.manageSuccess(reqLogger, instance, originalPatch)
 }
 
 func (r *ReconcilePostgresqlEngineConfiguration) getAnyDatabaseLinked(instance *postgresqlv1alpha1.PostgresqlEngineConfiguration) (*postgresqlv1alpha1.PostgresqlDatabase, error) {
@@ -258,7 +262,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) addDefaultValues(instance *post
 	}
 }
 
-func (r *ReconcilePostgresqlEngineConfiguration) manageError(logger logr.Logger, instance *postgresqlv1alpha1.PostgresqlEngineConfiguration, issue error) (reconcile.Result, error) {
+func (r *ReconcilePostgresqlEngineConfiguration) manageError(logger logr.Logger, instance *postgresqlv1alpha1.PostgresqlEngineConfiguration, originalPatch client.Patch, issue error) (reconcile.Result, error) {
 	logger.Error(issue, "issue raised in reconcile")
 	// Add kubernetes event
 	r.recorder.Event(instance, "Warning", "ProcessingError", issue.Error())
@@ -268,8 +272,8 @@ func (r *ReconcilePostgresqlEngineConfiguration) manageError(logger logr.Logger,
 	instance.Status.Ready = false
 	instance.Status.Phase = postgresqlv1alpha1.EngineFailedPhase
 
-	// Update object
-	err := r.client.Status().Update(context.TODO(), instance)
+	// Patch status
+	err := r.client.Status().Patch(context.TODO(), instance, originalPatch)
 	if err != nil {
 		logger.Error(err, "unable to update status")
 	}
@@ -281,11 +285,11 @@ func (r *ReconcilePostgresqlEngineConfiguration) manageError(logger logr.Logger,
 	}, nil
 }
 
-func (r *ReconcilePostgresqlEngineConfiguration) manageSuccess(logger logr.Logger, instance *postgresqlv1alpha1.PostgresqlEngineConfiguration) (reconcile.Result, error) {
+func (r *ReconcilePostgresqlEngineConfiguration) manageSuccess(logger logr.Logger, instance *postgresqlv1alpha1.PostgresqlEngineConfiguration, originalPatch client.Patch) (reconcile.Result, error) {
 	// Try to parse duration
 	dur, err := time.ParseDuration(instance.Spec.CheckInterval)
 	if err != nil {
-		return r.manageError(logger, instance, errors.NewInternalError(err))
+		return r.manageError(logger, instance, originalPatch, errors.NewInternalError(err))
 	}
 
 	// Update status
@@ -294,8 +298,8 @@ func (r *ReconcilePostgresqlEngineConfiguration) manageSuccess(logger logr.Logge
 	instance.Status.Phase = postgresqlv1alpha1.EngineValidatedPhase
 	instance.Status.LastValidatedTime = time.Now().UTC().Format(time.RFC3339)
 
-	// Update object
-	err = r.client.Status().Update(context.TODO(), instance)
+	// Patch status
+	err = r.client.Status().Patch(context.TODO(), instance, originalPatch)
 	if err != nil {
 		logger.Error(err, "unable to update status")
 		return reconcile.Result{
