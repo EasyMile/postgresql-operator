@@ -4,19 +4,15 @@ metadata:
   name: postgresqldatabases.postgresql.easymile.com
 spec:
   additionalPrinterColumns:
-  - JSONPath: .spec.database
+  - JSONPath: .status.database
     description: Database name
     name: Database
     type: string
-  - JSONPath: .spec.dropOnDelete
-    description: Should drop on delete ?
-    name: Drop On Delete
-    type: string
-  - JSONPath: .spec.schemas.list
+  - JSONPath: .status.schemas
     description: Schemas
     name: Schemas
     type: string
-  - JSONPath: .spec.extensions.list
+  - JSONPath: .status.extensions
     description: Extensions
     name: Extensions
     type: string

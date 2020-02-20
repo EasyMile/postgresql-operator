@@ -36,8 +36,8 @@ type PostgresqlUserSpec struct {
 type UserStatusPhase string
 
 const UserNoPhase UserStatusPhase = ""
-const UserFailedPhase UserStatusPhase = "failed"
-const UserCreatedPhase UserStatusPhase = "created"
+const UserFailedPhase UserStatusPhase = "Failed"
+const UserCreatedPhase UserStatusPhase = "Created"
 
 // PostgresqlUserStatus defines the observed state of PostgresqlUser
 type PostgresqlUserStatus struct {
@@ -67,7 +67,13 @@ type PostgresqlUserStatus struct {
 
 // PostgresqlUser is the Schema for the postgresqlusers API
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=postgresqlusers,scope=Namespaced
+// +kubebuilder:resource:path=postgresqlusers,scope=Namespaced,shortName=pguser;pgu
+// +kubebuilder:printcolumn:name="User role",type=string,description="Generated user role",JSONPath=".status.postgresRole"
+// +kubebuilder:printcolumn:name="User group",type=string,description="User group",JSONPath=".status.postgresGroup"
+// +kubebuilder:printcolumn:name="Database",type=string,description="Database",JSONPath=".status.postgresDatabaseName"
+// +kubebuilder:printcolumn:name="Last Password Change",type=date,description="Last time the password was changed",JSONPath=".status.lastPasswordChangedTime"
+// +kubebuilder:printcolumn:name="Phase",type=string,description="Status phase",JSONPath=".status.phase"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type PostgresqlUser struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

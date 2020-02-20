@@ -3,11 +3,38 @@ kind: CustomResourceDefinition
 metadata:
   name: postgresqlusers.postgresql.easymile.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.postgresRole
+    description: Generated user role
+    name: User role
+    type: string
+  - JSONPath: .status.postgresGroup
+    description: User group
+    name: User group
+    type: string
+  - JSONPath: .status.postgresDatabaseName
+    description: Database
+    name: Database
+    type: string
+  - JSONPath: .status.lastPasswordChangedTime
+    description: Last time the password was changed
+    name: Last Password Change
+    type: date
+  - JSONPath: .status.phase
+    description: Status phase
+    name: Phase
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
   group: postgresql.easymile.com
   names:
     kind: PostgresqlUser
     listKind: PostgresqlUserList
     plural: postgresqlusers
+    shortNames:
+    - pguser
+    - pgu
     singular: postgresqluser
   scope: Namespaced
   subresources:
