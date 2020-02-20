@@ -94,10 +94,9 @@ type PostgresRoles struct {
 // PostgresqlDatabase is the Schema for the postgresqldatabases API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=postgresqldatabases,scope=Namespaced,shortName=pgdb
-// +kubebuilder:printcolumn:name="Database",type=string,description="Database name",JSONPath=".spec.database"
-// +kubebuilder:printcolumn:name="Drop On Delete",type=string,description="Should drop on delete ?",JSONPath=".spec.dropOnDelete"
-// +kubebuilder:printcolumn:name="Schemas",type=string,description="Schemas",JSONPath=".spec.schemas.list"
-// +kubebuilder:printcolumn:name="Extensions",type=string,description="Extensions",JSONPath=".spec.extensions.list"
+// +kubebuilder:printcolumn:name="Database",type=string,description="Database name",JSONPath=".status.database"
+// +kubebuilder:printcolumn:name="Schemas",type=string,description="Schemas",JSONPath=".status.schemas"
+// +kubebuilder:printcolumn:name="Extensions",type=string,description="Extensions",JSONPath=".status.extensions"
 // +kubebuilder:printcolumn:name="Phase",type=string,description="Status phase",JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type PostgresqlDatabase struct {
