@@ -66,7 +66,7 @@ type PostgresqlEngineConfigurationStatus struct {
 
 // PostgresqlEngineConfiguration is the Schema for the postgresqlengineconfigurations API
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=postgresqlengineconfigurations,scope=Namespaced,shortName=pgengcfg
+// +kubebuilder:resource:path=postgresqlengineconfigurations,scope=Namespaced,shortName=pgengcfg,pgec
 // +kubebuilder:printcolumn:name="Last Validation",type=date,description="Last time validated",JSONPath=".status.lastValidatedTime"
 // +kubebuilder:printcolumn:name="Phase",type=string,description="Status phase",JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
