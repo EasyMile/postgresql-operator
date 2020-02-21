@@ -16,6 +16,14 @@ GOARCH=amd64
 CGO_ENABLED=0
 
 ##############################
+# Release                    #
+##############################
+
+.PHONY: release/olm-catalog
+release/olm-catalog:
+	@operator-sdk generate csv --csv-channel alpha --csv-version $(version) --update-crds
+
+##############################
 # Operator Management        #
 ##############################
 .PHONY: cluster/prepare
