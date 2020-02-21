@@ -31,7 +31,7 @@ type PostgresqlEngineConfigurationSpec struct {
 	// Default database
 	DefaultDatabase string `json:"defaultDatabase,omitempty"`
 	// Duration between two checks for valid engine
-	CheckInterval string `json:"checkDuration,omitempty"`
+	CheckInterval string `json:"checkInterval,omitempty"`
 	// Wait for linked resource to be deleted
 	WaitLinkedResourcesDeletion bool `json:"waitLinkedResourcesDeletion,omitempty"`
 	// User and password secret
