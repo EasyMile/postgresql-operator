@@ -26,11 +26,11 @@ import (
 )
 
 const (
-	RequeueDelayErrorSeconds   = 5 * time.Second
-	RequeueDelaySuccessSeconds = 10 * time.Second
-	ControllerName             = "postgresqldatabase-controller"
-	readerPrivs                = "SELECT"
-	writerPrivs                = "SELECT,INSERT,DELETE,UPDATE"
+	RequeueDelayErrorNumberSeconds   = 5
+	RequeueDelaySuccessNumberSeconds = 10
+	ControllerName                   = "postgresqldatabase-controller"
+	readerPrivs                      = "SELECT"
+	writerPrivs                      = "SELECT,INSERT,DELETE,UPDATE"
 )
 
 var log = logf.Log.WithName("controller_postgresqldatabase")
@@ -553,7 +553,7 @@ func (r *ReconcilePostgresqlDatabase) manageError(logger logr.Logger, instance *
 
 	// Requeue
 	return reconcile.Result{
-		RequeueAfter: RequeueDelayErrorSeconds,
+		RequeueAfter: RequeueDelayErrorNumberSeconds * time.Second,
 		Requeue:      true,
 	}, nil
 }
@@ -569,7 +569,7 @@ func (r *ReconcilePostgresqlDatabase) manageSuccess(logger logr.Logger, instance
 	if err != nil {
 		logger.Error(err, "unable to update status")
 		return reconcile.Result{
-			RequeueAfter: RequeueDelayErrorSeconds,
+			RequeueAfter: RequeueDelayErrorNumberSeconds * time.Second,
 			Requeue:      true,
 		}, nil
 	}
@@ -577,6 +577,6 @@ func (r *ReconcilePostgresqlDatabase) manageSuccess(logger logr.Logger, instance
 	logger.Info("Reconcile done")
 	return reconcile.Result{
 		Requeue:      true,
-		RequeueAfter: RequeueDelaySuccessSeconds,
+		RequeueAfter: RequeueDelaySuccessNumberSeconds * time.Second,
 	}, nil
 }

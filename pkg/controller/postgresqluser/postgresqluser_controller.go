@@ -28,9 +28,11 @@ import (
 )
 
 const (
-	RequeueDelayErrorSeconds   = 5 * time.Second
-	RequeueDelaySuccessSeconds = 10 * time.Second
-	ControllerName             = "postgresqluser-controller"
+	RequeueDelayErrorNumberSeconds   = 5
+	RequeueDelaySuccessNumberSeconds = 10
+	ControllerName                   = "postgresqluser-controller"
+	RoleSuffixSize                   = 6
+	PasswordSize                     = 15
 )
 
 var log = logf.Log.WithName("controller_postgresqluser")
@@ -179,7 +181,7 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 
 	role := instance.Status.PostgresRole
 	login := instance.Status.PostgresLogin
-	password := utils.GetRandomString(15)
+	password := utils.GetRandomString(PasswordSize)
 
 	// Create user role if necessary
 	if instance.Spec.RolePrefix != instance.Status.RolePrefix {
@@ -413,7 +415,7 @@ func (r *ReconcilePostgresqlUser) manageCreateUserRole(reqLogger logr.Logger, pg
 		}
 	}
 	// Create new role
-	suffix := utils.GetRandomString(6)
+	suffix := utils.GetRandomString(RoleSuffixSize)
 	role := fmt.Sprintf("%s-%s", instance.Spec.RolePrefix, suffix)
 	login, err := pgInstance.CreateUserRole(role, password)
 	if err != nil {
@@ -525,7 +527,7 @@ func (r *ReconcilePostgresqlUser) manageError(logger logr.Logger, instance *post
 
 	// Requeue
 	return reconcile.Result{
-		RequeueAfter: RequeueDelayErrorSeconds,
+		RequeueAfter: RequeueDelayErrorNumberSeconds * time.Second,
 		Requeue:      true,
 	}, nil
 }
@@ -541,7 +543,7 @@ func (r *ReconcilePostgresqlUser) manageSuccess(logger logr.Logger, instance *po
 	if err != nil {
 		logger.Error(err, "unable to update status")
 		return reconcile.Result{
-			RequeueAfter: RequeueDelayErrorSeconds,
+			RequeueAfter: RequeueDelayErrorNumberSeconds * time.Second,
 			Requeue:      true,
 		}, nil
 	}
@@ -549,6 +551,6 @@ func (r *ReconcilePostgresqlUser) manageSuccess(logger logr.Logger, instance *po
 	logger.Info("Reconcile done")
 	return reconcile.Result{
 		Requeue:      true,
-		RequeueAfter: RequeueDelaySuccessSeconds,
+		RequeueAfter: RequeueDelaySuccessNumberSeconds * time.Second,
 	}, nil
 }

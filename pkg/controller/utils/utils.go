@@ -34,7 +34,7 @@ func CreatePgInstance(reqLogger logr.Logger, secretData map[string][]byte, spec 
 		spec.Host,
 		user,
 		password,
-		spec.UriArgs,
+		spec.URIArgs,
 		spec.DefaultDatabase,
 		spec.Port,
 		spec.Provider,

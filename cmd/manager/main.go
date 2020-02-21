@@ -36,6 +36,7 @@ var (
 	metricsHost               = "0.0.0.0"
 	metricsPort         int32 = 8383
 	operatorMetricsPort int32 = 8686
+	errorExitCode             = 1
 )
 var log = logf.Log.WithName("cmd")
 
@@ -72,14 +73,14 @@ func main() {
 	namespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {
 		log.Error(err, "Failed to get watch namespace")
-		os.Exit(1)
+		os.Exit(errorExitCode)
 	}
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
 		log.Error(err, "")
-		os.Exit(1)
+		os.Exit(errorExitCode)
 	}
 
 	ctx := context.TODO()
@@ -87,7 +88,7 @@ func main() {
 	err = leader.Become(ctx, "postgresql-operator-lock")
 	if err != nil {
 		log.Error(err, "")
-		os.Exit(1)
+		os.Exit(errorExitCode)
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components
@@ -97,7 +98,7 @@ func main() {
 	})
 	if err != nil {
 		log.Error(err, "")
-		os.Exit(1)
+		os.Exit(errorExitCode)
 	}
 
 	log.Info("Registering Components.")
@@ -105,13 +106,13 @@ func main() {
 	// Setup Scheme for all resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "")
-		os.Exit(1)
+		os.Exit(errorExitCode)
 	}
 
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr); err != nil {
 		log.Error(err, "")
-		os.Exit(1)
+		os.Exit(errorExitCode)
 	}
 
 	// Add the Metrics Service
@@ -122,7 +123,7 @@ func main() {
 	// Start the Cmd
 	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
 		log.Error(err, "Manager exited non-zero")
-		os.Exit(1)
+		os.Exit(errorExitCode)
 	}
 }
 

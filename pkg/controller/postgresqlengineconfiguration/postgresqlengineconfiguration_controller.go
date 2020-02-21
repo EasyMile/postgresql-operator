@@ -26,8 +26,8 @@ import (
 var log = logf.Log.WithName("controller_postgresqlengineconfiguration")
 
 const (
-	RequeueDelayErrorSeconds = 5 * time.Second
-	ControllerName           = "postgresqlengineconfiguration-controller"
+	RequeueDelayErrorNumberSeconds = 5
+	ControllerName                 = "postgresqlengineconfiguration-controller"
 )
 
 /**
@@ -280,7 +280,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) manageError(logger logr.Logger,
 
 	// Requeue
 	return reconcile.Result{
-		RequeueAfter: RequeueDelayErrorSeconds,
+		RequeueAfter: RequeueDelayErrorNumberSeconds * time.Second,
 		Requeue:      true,
 	}, nil
 }
@@ -303,7 +303,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) manageSuccess(logger logr.Logge
 	if err != nil {
 		logger.Error(err, "unable to update status")
 		return reconcile.Result{
-			RequeueAfter: RequeueDelayErrorSeconds,
+			RequeueAfter: RequeueDelayErrorNumberSeconds * time.Second,
 			Requeue:      true,
 		}, nil
 	}

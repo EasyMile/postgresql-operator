@@ -7,31 +7,34 @@ import (
 )
 
 const (
-	CREATE_GROUP_ROLE   = `CREATE ROLE "%s"`
-	CREATE_USER_ROLE    = `CREATE ROLE "%s" WITH LOGIN PASSWORD '%s'`
-	GRANT_ROLE          = `GRANT "%s" TO "%s"`
-	ALTER_USER_SET_ROLE = `ALTER USER "%s" SET ROLE "%s"`
-	REVOKE_ROLE         = `REVOKE "%s" FROM "%s"`
-	UPDATE_PASSWORD     = `ALTER ROLE "%s" WITH PASSWORD '%s'`
-	DROP_ROLE           = `DROP ROLE "%s"`
-	DROP_OWNED_BY       = `DROP OWNED BY "%s"`
-	REASIGN_OBJECTS     = `REASSIGN OWNED BY "%s" TO "%s"`
-	IS_ROLE_EXIST       = `SELECT 1 FROM pg_roles WHERE rolname='%s'`
-	RENAME_ROLE         = `ALTER ROLE "%s" RENAME TO "%s"`
+	CreateGroupRoleSQLTemplate     = `CREATE ROLE "%s"`
+	CreateUserRoleSQLTemplate      = `CREATE ROLE "%s" WITH LOGIN PASSWORD '%s'`
+	GrantRoleSQLTemplate           = `GRANT "%s" TO "%s"`
+	AlterUserSetRoleSQLTemplate    = `ALTER USER "%s" SET ROLE "%s"`
+	RevokeRoleSQLTemplate          = `REVOKE "%s" FROM "%s"`
+	UpdatePasswordSQLTemplate      = `ALTER ROLE "%s" WITH PASSWORD '%s'` // #nosec
+	DropRoleSQLTemplate            = `DROP ROLE "%s"`
+	DropOwnedBySQLTemplate         = `DROP OWNED BY "%s"`
+	ReassignObjectsSQLTemplate     = `REASSIGN OWNED BY "%s" TO "%s"`
+	IsRoleExistSQLTemplate         = `SELECT 1 FROM pg_roles WHERE rolname='%s'`
+	RenameRoleSQLTemplate          = `ALTER ROLE "%s" RENAME TO "%s"`
+	DuplicateRoleErrorCode         = "42710"
+	RoleNotFoundErrorCode          = "42704"
+	InvalidGrantOperationErrorCode = "0LP01"
 )
 
 func (c *pg) CreateGroupRole(role string) error {
-	err := c.connect(c.default_database)
+	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 	defer c.close()
-	_, err = c.db.Exec(fmt.Sprintf(CREATE_GROUP_ROLE, role))
+	_, err = c.db.Exec(fmt.Sprintf(CreateGroupRoleSQLTemplate, role))
 	if err != nil {
 		// Try to cast error
 		pqErr, ok := err.(*pq.Error)
 		// Error code 42710 is duplicate_object (role already exists)
-		if ok && pqErr.Code == "42710" {
+		if ok && pqErr.Code == DuplicateRoleErrorCode {
 			return nil
 		}
 		return err
@@ -40,12 +43,12 @@ func (c *pg) CreateGroupRole(role string) error {
 }
 
 func (c *pg) CreateUserRole(role, password string) (string, error) {
-	err := c.connect(c.default_database)
+	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return "", err
 	}
 	defer c.close()
-	_, err = c.db.Exec(fmt.Sprintf(CREATE_USER_ROLE, role, password))
+	_, err = c.db.Exec(fmt.Sprintf(CreateUserRoleSQLTemplate, role, password))
 	if err != nil {
 		return "", err
 	}
@@ -53,12 +56,12 @@ func (c *pg) CreateUserRole(role, password string) (string, error) {
 }
 
 func (c *pg) GrantRole(role, grantee string) error {
-	err := c.connect(c.default_database)
+	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 	defer c.close()
-	_, err = c.db.Exec(fmt.Sprintf(GRANT_ROLE, role, grantee))
+	_, err = c.db.Exec(fmt.Sprintf(GrantRoleSQLTemplate, role, grantee))
 	if err != nil {
 		return err
 	}
@@ -66,12 +69,12 @@ func (c *pg) GrantRole(role, grantee string) error {
 }
 
 func (c *pg) AlterDefaultLoginRole(role, setRole string) error {
-	err := c.connect(c.default_database)
+	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 	defer c.close()
-	_, err = c.db.Exec(fmt.Sprintf(ALTER_USER_SET_ROLE, role, setRole))
+	_, err = c.db.Exec(fmt.Sprintf(AlterUserSetRoleSQLTemplate, role, setRole))
 	if err != nil {
 		return err
 	}
@@ -79,17 +82,17 @@ func (c *pg) AlterDefaultLoginRole(role, setRole string) error {
 }
 
 func (c *pg) RevokeRole(role, revoked string) error {
-	err := c.connect(c.default_database)
+	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 	defer c.close()
-	_, err = c.db.Exec(fmt.Sprintf(REVOKE_ROLE, role, revoked))
+	_, err = c.db.Exec(fmt.Sprintf(RevokeRoleSQLTemplate, role, revoked))
 	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
 	if err != nil {
 		// Try to cast error
 		pqErr, ok := err.(*pq.Error)
-		if !ok || pqErr.Code != "42704" {
+		if !ok || pqErr.Code != RoleNotFoundErrorCode {
 			return err
 		}
 	}
@@ -104,23 +107,23 @@ func (c *pg) DropRole(role, newOwner, database string) error {
 	}
 	defer c.close()
 
-	_, err = c.db.Exec(fmt.Sprintf(REASIGN_OBJECTS, role, newOwner))
+	_, err = c.db.Exec(fmt.Sprintf(ReassignObjectsSQLTemplate, role, newOwner))
 	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
 	if err != nil {
 		// Try to cast error
 		pqErr, ok := err.(*pq.Error)
-		if !ok || pqErr.Code != "42704" {
+		if !ok || pqErr.Code != RoleNotFoundErrorCode {
 			return err
 		}
 	}
 
 	// We previously assigned all objects to the operator's role so DROP OWNED BY will drop privileges of role
-	_, err = c.db.Exec(fmt.Sprintf(DROP_OWNED_BY, role))
+	_, err = c.db.Exec(fmt.Sprintf(DropOwnedBySQLTemplate, role))
 	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
 	if err != nil {
 		// Try to cast error
 		pqErr, ok := err.(*pq.Error)
-		if !ok || pqErr.Code != "42704" {
+		if !ok || pqErr.Code != RoleNotFoundErrorCode {
 			return err
 		}
 	}
@@ -131,16 +134,16 @@ func (c *pg) DropRole(role, newOwner, database string) error {
 		return err
 	}
 
-	err = c.connect(c.default_database)
+	err = c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
-	_, err = c.db.Exec(fmt.Sprintf(DROP_ROLE, role))
+	_, err = c.db.Exec(fmt.Sprintf(DropRoleSQLTemplate, role))
 	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
 	if err != nil {
 		// Try to cast error
 		pqErr, ok := err.(*pq.Error)
-		if !ok || pqErr.Code != "42704" {
+		if !ok || pqErr.Code != RoleNotFoundErrorCode {
 			return err
 		}
 	}
@@ -148,12 +151,12 @@ func (c *pg) DropRole(role, newOwner, database string) error {
 }
 
 func (c *pg) UpdatePassword(role, password string) error {
-	err := c.connect(c.default_database)
+	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 	defer c.close()
-	_, err = c.db.Exec(fmt.Sprintf(UPDATE_PASSWORD, role, password))
+	_, err = c.db.Exec(fmt.Sprintf(UpdatePasswordSQLTemplate, role, password))
 	if err != nil {
 		return err
 	}
@@ -162,12 +165,12 @@ func (c *pg) UpdatePassword(role, password string) error {
 }
 
 func (c *pg) IsRoleExist(role string) (bool, error) {
-	err := c.connect(c.default_database)
+	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return false, err
 	}
 	defer c.close()
-	res, err := c.db.Exec(fmt.Sprintf(IS_ROLE_EXIST, role))
+	res, err := c.db.Exec(fmt.Sprintf(IsRoleExistSQLTemplate, role))
 	if err != nil {
 		return false, err
 	}
@@ -181,12 +184,12 @@ func (c *pg) IsRoleExist(role string) (bool, error) {
 }
 
 func (c *pg) RenameRole(oldname, newname string) error {
-	err := c.connect(c.default_database)
+	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 	defer c.close()
-	_, err = c.db.Exec(fmt.Sprintf(RENAME_ROLE, oldname, newname))
+	_, err = c.db.Exec(fmt.Sprintf(RenameRoleSQLTemplate, oldname, newname))
 	if err != nil {
 		return err
 	}

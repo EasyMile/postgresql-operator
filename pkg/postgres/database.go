@@ -7,29 +7,29 @@ import (
 )
 
 const (
-	CASCADE              = "CASCADE"
-	RESTRICT             = "RESTRICT"
-	CREATE_DB            = `CREATE DATABASE "%s"`
-	IS_DATABASE_EXIST    = `SELECT 1 FROM pg_database WHERE datname='%s'`
-	RENAME_DATABASE      = `ALTER DATABASE "%s" RENAME TO "%s"`
-	CREATE_SCHEMA        = `CREATE SCHEMA IF NOT EXISTS "%s" AUTHORIZATION "%s"`
-	CREATE_EXTENSION     = `CREATE EXTENSION IF NOT EXISTS "%s"`
-	ALTER_DB_OWNER       = `ALTER DATABASE "%s" OWNER TO "%s"`
-	DROP_DATABASE        = `DROP DATABASE "%s"`
-	DROP_EXTENSION       = `DROP EXTENSION IF EXISTS "%s" %s`
-	DROP_SCHEMA          = `DROP SCHEMA IF EXISTS "%s" %s`
-	GRANT_USAGE_SCHEMA   = `GRANT USAGE ON SCHEMA "%s" TO "%s"`
-	GRANT_ALL_TABLES     = `GRANT %s ON ALL TABLES IN SCHEMA "%s" TO "%s"`
-	DEFAULT_PRIVS_SCHEMA = `ALTER DEFAULT PRIVILEGES FOR ROLE "%s" IN SCHEMA "%s" GRANT %s ON TABLES TO "%s"`
+	CascadeKeyword                = "CASCADE"
+	RestrictKeyword               = "RESTRICT"
+	CreateDbSQLTemplate           = `CREATE DATABASE "%s"`
+	IsDatabaseExistSQLTemplate    = `SELECT 1 FROM pg_database WHERE datname='%s'`
+	RenameDatabaseSQLTemplate     = `ALTER DATABASE "%s" RENAME TO "%s"`
+	CreateSchemaSQLTemplate       = `CREATE SCHEMA IF NOT EXISTS "%s" AUTHORIZATION "%s"`
+	CreateExtensionSQLTemplate    = `CREATE EXTENSION IF NOT EXISTS "%s"`
+	AlterDbOwnerSQLTemplate       = `ALTER DATABASE "%s" OWNER TO "%s"`
+	DropDatabaseSQLTemplate       = `DROP DATABASE "%s"`
+	DropExtensionSQLTemplate      = `DROP EXTENSION IF EXISTS "%s" %s`
+	DropSchemaSQLTemplate         = `DROP SCHEMA IF EXISTS "%s" %s`
+	GrantUsageSchemaSQLTemplate   = `GRANT USAGE ON SCHEMA "%s" TO "%s"`
+	GrantAllTablesSQLTemplate     = `GRANT %s ON ALL TABLES IN SCHEMA "%s" TO "%s"`
+	DefaultPrivsSchemaSQLTemplate = `ALTER DEFAULT PRIVILEGES FOR ROLE "%s" IN SCHEMA "%s" GRANT %s ON TABLES TO "%s"`
 )
 
 func (c *pg) IsDatabaseExist(dbname string) (bool, error) {
-	err := c.connect(c.default_database)
+	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return false, err
 	}
 	defer c.close()
-	res, err := c.db.Exec(fmt.Sprintf(IS_DATABASE_EXIST, dbname))
+	res, err := c.db.Exec(fmt.Sprintf(IsDatabaseExistSQLTemplate, dbname))
 	if err != nil {
 		return false, err
 	}
@@ -43,13 +43,13 @@ func (c *pg) IsDatabaseExist(dbname string) (bool, error) {
 }
 
 func (c *pg) RenameDatabase(oldname, newname string) error {
-	err := c.connect(c.default_database)
+	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 	defer c.close()
 
-	_, err = c.db.Exec(fmt.Sprintf(RENAME_DATABASE, oldname, newname))
+	_, err = c.db.Exec(fmt.Sprintf(RenameDatabaseSQLTemplate, oldname, newname))
 	if err != nil {
 		return err
 	}
@@ -57,12 +57,12 @@ func (c *pg) RenameDatabase(oldname, newname string) error {
 }
 
 func (c *pg) CreateDB(dbname, role string) error {
-	err := c.connect(c.default_database)
+	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 	defer c.close()
-	_, err = c.db.Exec(fmt.Sprintf(CREATE_DB, dbname))
+	_, err = c.db.Exec(fmt.Sprintf(CreateDbSQLTemplate, dbname))
 	if err != nil {
 		// eat DUPLICATE DATABASE ERROR
 		// Try to cast error
@@ -72,7 +72,7 @@ func (c *pg) CreateDB(dbname, role string) error {
 		}
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(ALTER_DB_OWNER, dbname, role))
+	_, err = c.db.Exec(fmt.Sprintf(AlterDbOwnerSQLTemplate, dbname, role))
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func (c *pg) CreateSchema(db, role, schema string) error {
 	}
 	defer c.close()
 
-	_, err = c.db.Exec(fmt.Sprintf(CREATE_SCHEMA, schema, role))
+	_, err = c.db.Exec(fmt.Sprintf(CreateSchemaSQLTemplate, schema, role))
 	if err != nil {
 		return err
 	}
@@ -94,12 +94,12 @@ func (c *pg) CreateSchema(db, role, schema string) error {
 }
 
 func (c *pg) DropDatabase(database string) error {
-	err := c.connect(c.default_database)
+	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 	defer c.close()
-	_, err = c.db.Exec(fmt.Sprintf(DROP_DATABASE, database))
+	_, err = c.db.Exec(fmt.Sprintf(DropDatabaseSQLTemplate, database))
 	// Error code 3D000 is returned if database doesn't exist
 	if err != nil {
 		// Try to cast error
@@ -121,11 +121,11 @@ func (c *pg) DropExtension(database, extension string, cascade bool) error {
 	}
 	defer c.close()
 
-	param := RESTRICT
+	param := RestrictKeyword
 	if cascade {
-		param = CASCADE
+		param = CascadeKeyword
 	}
-	_, err = c.db.Exec(fmt.Sprintf(DROP_EXTENSION, extension, param))
+	_, err = c.db.Exec(fmt.Sprintf(DropExtensionSQLTemplate, extension, param))
 	if err != nil {
 		return err
 	}
@@ -142,11 +142,11 @@ func (c *pg) DropSchema(database, schema string, cascade bool) error {
 	}
 	defer c.close()
 
-	param := RESTRICT
+	param := RestrictKeyword
 	if cascade {
-		param = CASCADE
+		param = CascadeKeyword
 	}
-	_, err = c.db.Exec(fmt.Sprintf(DROP_SCHEMA, schema, param))
+	_, err = c.db.Exec(fmt.Sprintf(DropSchemaSQLTemplate, schema, param))
 	if err != nil {
 		return err
 	}
@@ -163,7 +163,7 @@ func (c *pg) CreateExtension(db, extension string) error {
 	}
 	defer c.close()
 
-	_, err = c.db.Exec(fmt.Sprintf(CREATE_EXTENSION, extension))
+	_, err = c.db.Exec(fmt.Sprintf(CreateExtensionSQLTemplate, extension))
 	if err != nil {
 		return err
 	}
@@ -178,19 +178,19 @@ func (c *pg) SetSchemaPrivileges(db, creator, role, schema, privs string) error 
 	defer c.close()
 
 	// Grant role usage on schema
-	_, err = c.db.Exec(fmt.Sprintf(GRANT_USAGE_SCHEMA, schema, role))
+	_, err = c.db.Exec(fmt.Sprintf(GrantUsageSchemaSQLTemplate, schema, role))
 	if err != nil {
 		return err
 	}
 
 	// Grant role privs on existing tables in schema
-	_, err = c.db.Exec(fmt.Sprintf(GRANT_ALL_TABLES, privs, schema, role))
+	_, err = c.db.Exec(fmt.Sprintf(GrantAllTablesSQLTemplate, privs, schema, role))
 	if err != nil {
 		return err
 	}
 
 	// Grant role privs on future tables in schema
-	_, err = c.db.Exec(fmt.Sprintf(DEFAULT_PRIVS_SCHEMA, creator, schema, privs, role))
+	_, err = c.db.Exec(fmt.Sprintf(DefaultPrivsSchemaSQLTemplate, creator, schema, privs, role))
 	if err != nil {
 		return err
 	}

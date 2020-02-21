@@ -36,28 +36,28 @@ type PG interface {
 }
 
 type pg struct {
-	db               *sql.DB
-	log              logr.Logger
-	host             string
-	port             int
-	user             string
-	pass             string
-	args             string
-	default_database string
+	db              *sql.DB
+	log             logr.Logger
+	host            string
+	port            int
+	user            string
+	pass            string
+	args            string
+	defaultDatabase string
 }
 
-func NewPG(host, user, password, uri_args, default_database string, port int, cloud_type v1alpha1.ProviderType, logger logr.Logger) PG {
+func NewPG(host, user, password, args, defaultDatabase string, port int, cloudType v1alpha1.ProviderType, logger logr.Logger) PG {
 	postgres := &pg{
-		log:              logger,
-		host:             host,
-		port:             port,
-		user:             user,
-		pass:             password,
-		args:             uri_args,
-		default_database: default_database,
+		log:             logger,
+		host:            host,
+		port:            port,
+		user:            user,
+		pass:            password,
+		args:            args,
+		defaultDatabase: defaultDatabase,
 	}
 
-	switch cloud_type {
+	switch cloudType {
 	case v1alpha1.AWSProvider:
 		return newAWSPG(postgres)
 	case v1alpha1.AzureProvider:
@@ -84,12 +84,12 @@ func (c *pg) GetPort() int {
 }
 
 func (c *pg) GetDefaultDatabase() string {
-	return c.default_database
+	return c.defaultDatabase
 }
 
 func (c *pg) connect(database string) error {
-	pgUrl := TemplatePostgresqlURLWithArgs(c.host, c.user, c.pass, c.args, database, c.port)
-	db, err := sql.Open("postgres", pgUrl)
+	pgURL := TemplatePostgresqlURLWithArgs(c.host, c.user, c.pass, c.args, database, c.port)
+	db, err := sql.Open("postgres", pgURL)
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func (c *pg) connect(database string) error {
 }
 
 func (c *pg) Ping() error {
-	err := c.connect(c.default_database)
+	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
@@ -113,8 +113,8 @@ func (c *pg) close() error {
 	return c.db.Close()
 }
 
-func TemplatePostgresqlURLWithArgs(host, user, password, uri_args, database string, port int) string {
-	return fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?%s", user, password, host, port, database, uri_args)
+func TemplatePostgresqlURLWithArgs(host, user, password, URIArgs, database string, port int) string {
+	return fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?%s", user, password, host, port, database, URIArgs)
 }
 
 func TemplatePostgresqlURL(host, user, password, database string, port int) string {

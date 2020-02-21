@@ -27,7 +27,7 @@ type PostgresqlEngineConfigurationSpec struct {
 	// Port
 	Port int `json:"port,omitempty"`
 	// URI args like sslmode, ...
-	UriArgs string `json:"uriArgs,omitempty"`
+	URIArgs string `json:"uriArgs,omitempty"`
 	// Default database
 	DefaultDatabase string `json:"defaultDatabase,omitempty"`
 	// Duration between two checks for valid engine

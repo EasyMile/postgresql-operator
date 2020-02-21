@@ -10,10 +10,12 @@ type azurepg struct {
 	pg
 }
 
+const MinUserSplit = 1
+
 func newAzurePG(postgres *pg) PG {
 	splitUser := strings.Split(postgres.user, "@")
 	serverName := ""
-	if len(splitUser) > 1 {
+	if len(splitUser) > MinUserSplit {
 		serverName = splitUser[1]
 	}
 	return &azurepg{
@@ -32,7 +34,7 @@ func (azpg *azurepg) CreateUserRole(role, password string) (string, error) {
 
 func (azpg *azurepg) GetRoleForLogin(login string) string {
 	splitUser := strings.Split(azpg.user, "@")
-	if len(splitUser) > 1 {
+	if len(splitUser) > MinUserSplit {
 		return splitUser[0]
 	}
 	return login
