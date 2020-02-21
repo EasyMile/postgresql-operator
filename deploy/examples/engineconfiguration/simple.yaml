@@ -1,0 +1,9 @@
+apiVersion: postgresql.easymile.com/v1alpha1
+kind: PostgresqlEngineConfiguration
+metadata:
+  name: simple
+spec:
+  # PostgreSQL Hostname
+  host: postgres
+  # Secret name in the current namespace to find "user" and "password"
+  secretName: pgenginesecrets

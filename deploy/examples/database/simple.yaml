@@ -1,0 +1,14 @@
+apiVersion: postgresql.easymile.com/v1alpha1
+kind: PostgresqlDatabase
+metadata:
+  name: simple
+spec:
+  # Engine configuration link
+  engineConfiguration:
+    # Resource name
+    name: simple
+    # Resource namespace
+    # Will use resource namespace if not set
+    # namespace:
+  # Database name
+  database: databasename

@@ -1,0 +1,29 @@
+apiVersion: postgresql.easymile.com/v1alpha1
+kind: PostgresqlDatabase
+metadata:
+  name: extensions
+spec:
+  # Engine configuration link
+  engineConfiguration:
+    # Resource name
+    name: simple
+    # Resource namespace
+    # Will use resource namespace if not set
+    # namespace:
+  # Database name
+  database: databasename
+  # Extensions
+  extensions:
+    # List of extensions to enable
+    list:
+      - uuid-ossp
+    # Should drop on delete ?
+    # Default set to false
+    # If set to false, removing from list won't delete extension from database
+    dropOnDelete: true
+    # Delete extension with cascade
+    # Default set to false
+    # For all elements that have used the deleted extension
+    deleteWithCascade: true
+
+

@@ -1,0 +1,11 @@
+apiVersion: postgresql.easymile.com/v1alpha1
+kind: PostgresqlEngineConfiguration
+metadata:
+  name: aws-rds
+spec:
+  # Provider type
+  provider: AWS
+  # PostgreSQL Hostname
+  host: super-pg.cpenn4cuat8g.us-east-1.rds.amazonaws.com
+  # Secret name in the current namespace to find "user" and "password"
+  secretName: pgenginesecrets

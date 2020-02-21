@@ -1,0 +1,28 @@
+apiVersion: postgresql.easymile.com/v1alpha1
+kind: PostgresqlEngineConfiguration
+metadata:
+  name: full-example
+spec:
+  # Provider type
+  # Default to ""
+  provider: ""
+  # PostgreSQL Hostname
+  host: postgres
+  # PostgreSQL Port
+  # Default to 5432
+  port: 5432
+  # Secret name in the current namespace to find "user" and "password"
+  secretName: pgenginesecrets
+  # URI args to add for PostgreSQL URL
+  # Default to ""
+  uriArgs: sslmode=disabled
+  # Default database name
+  # Default to "postgres"
+  defaultDatabase: postgres
+  # Check interval
+  # Default to 30s
+  checkInterval: 30s
+  # Wait for linked resource to be deleted
+  # Default to false
+  waitLinkedResourcesDeletion: true
+

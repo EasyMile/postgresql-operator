@@ -1,0 +1,11 @@
+apiVersion: postgresql.easymile.com/v1alpha1
+kind: PostgresqlEngineConfiguration
+metadata:
+  name: uriargs
+spec:
+  # PostgreSQL Hostname
+  host: postgres
+  # Secret name in the current namespace to find "user" and "password"
+  secretName: pgenginesecrets
+  # URI args to add for PostgreSQL URL
+  uriArgs: sslmode=disabled

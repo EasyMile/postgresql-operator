@@ -1,0 +1,17 @@
+apiVersion: postgresql.easymile.com/v1alpha1
+kind: PostgresqlDatabase
+metadata:
+  name: drop-on-delete
+spec:
+  # Engine configuration link
+  engineConfiguration:
+    # Resource name
+    name: simple
+    # Resource namespace
+    # Will use resource namespace if not set
+    # namespace:
+  # Database name
+  database: databasename
+  # Should drop on delete ?
+  # Default set to false
+  dropOnDelete: true
