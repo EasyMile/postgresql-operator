@@ -48,7 +48,7 @@ spec:
           description: PostgresqlEngineConfigurationSpec defines the desired state
             of PostgresqlEngineConfiguration
           properties:
-            checkDuration:
+            checkInterval:
               description: Duration between two checks for valid engine
               type: string
             defaultDatabase:
