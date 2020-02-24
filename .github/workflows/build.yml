@@ -14,7 +14,3 @@ jobs:
       - run: |
           go build -mod=vendor -o operator ./cmd/manager
           file operator
-      - uses: actions/upload-artifact@v1
-        with:
-          name: postgresql-operator
-          path: operator
