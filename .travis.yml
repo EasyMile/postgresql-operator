@@ -15,12 +15,8 @@ env:
 stages:
   - lint
   - compile
+  - docker
   # - test
-
-before_install:
-  - go get github.com/mattn/goveralls
-  - go get github.com/modocache/gover
-  - make setup/travis
 
 job:
   include:
@@ -28,6 +24,13 @@ job:
       stage: lint
     - script: make code/compile
       stage: compile
+    - script:
+        - make setup/operator-sdk
+        - make code/docker version=latest
+      stage: docker
     # NO TEST FOR THE MOMENT
-    # - script: make test/unit test/e2e test/goveralls
+    # - script:
+    #     - go get github.com/mattn/goveralls
+    #     - go get github.com/modocache/gover
+    #     - make test/unit test/e2e test/goveralls
     #   stage: test
