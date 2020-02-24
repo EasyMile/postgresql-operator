@@ -12,10 +12,22 @@ env:
     - CHANGE_MINIKUBE_NONE_USER=true
     - KUBECONFIG=$HOME/.kube/config
 
+stages:
+  - lint
+  - compile
+  # - test
+
 before_install:
   - go get github.com/mattn/goveralls
   - go get github.com/modocache/gover
   - make setup/travis
 
-# Since there's no persistence sharing, we need to run everything in a single stage
-install: make code/check code/compile # NO TEST FOR THE MOMENT => test/unit test/e2e test/goveralls NAMESPACE=default
+job:
+  include:
+    - script: make code/check code/lint
+      stage: lint
+    - script: make code/compile
+      stage: compile
+    # NO TEST FOR THE MOMENT
+    # - script: make test/unit test/e2e test/goveralls
+    #   stage: test
