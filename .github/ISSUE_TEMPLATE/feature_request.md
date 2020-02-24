@@ -1,4 +1,12 @@
-## Issue
+---
+name: Feature request
+about: Suggest an idea for this project
+title: ""
+labels: ""
+assignees: ""
+---
+
+## Issue/Feature
 
 <!-- Add any information needed. Such as the GH issue this PR relates to or any other context you feel is necessary.) -->
 
