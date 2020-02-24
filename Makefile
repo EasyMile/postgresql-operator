@@ -21,6 +21,7 @@ CGO_ENABLED=0
 
 .PHONY: release/olm-catalog
 release/olm-catalog:
+	@echo Making OLM Catalog for release
 	@operator-sdk generate csv --csv-channel alpha --csv-version $(version) --update-crds
 
 ##############################
@@ -28,6 +29,7 @@ release/olm-catalog:
 ##############################
 .PHONY: cluster/prepare
 cluster/prepare:
+	@echo Preparing cluster
 	@kubectl apply -f deploy/crds/ || true
 	@kubectl create namespace $(NAMESPACE) || true
 	@kubectl apply -f deploy/role.yaml -n $(NAMESPACE) || true
@@ -36,6 +38,7 @@ cluster/prepare:
 
 .PHONY: cluster/clean
 cluster/clean:
+	@echo Cleaning cluster
 	# Remove all roles, rolebindings and service accounts with the name postgresql-operator
 	@kubectl get roles,rolebindings,serviceaccounts postgresql-operator -n $(NAMESPACE) --no-headers=true -o name | xargs kubectl delete -n $(NAMESPACE)
 	# Remove all CRDS with postgresql.easymile.com in the name
@@ -44,6 +47,7 @@ cluster/clean:
 
 .PHONY: cluster/create/examples
 cluster/create/examples:
+	@echo Setup examples
 	@kubectl create -f deploy/examples/engineconfiguration/engineconfigurationsecret.yaml -n $(NAMESPACE)
 	@kubectl create -f deploy/examples/engineconfiguration/simple.yaml -n $(NAMESPACE)
 	@kubectl create -f deploy/examples/database/simple.yaml -n $(NAMESPACE)
@@ -104,27 +108,30 @@ setup/operator-sdk:
 
 .PHONY: code/run
 code/run:
+	@echo Running code using operator-sdk
 	@operator-sdk run --local --namespace=${NAMESPACE}
 
 .PHONY: code/compile
 code/compile:
+	@echo Compiling code using go
 	@GOOS=${GOOS} GOARCH=${GOARCH} CGO_ENABLED=${CGO_ENABLED} go build -o=$(COMPILE_TARGET) -mod=vendor ./cmd/manager
 
 .PHONY: code/gen
 code/gen:
+	@echo Generating CRD and Kubernetes code using operator-sdk
 	operator-sdk generate k8s
 	operator-sdk generate crds
 	cp deploy/crds/* deploy/helm/postgresql-operator/crds/
 
 .PHONY: code/check
 code/check:
-	@echo go fmt
+	@echo Running go fmt
 	go fmt $$(go list ./... | grep -v /vendor/)
 
 HAS_GOLANGCI_LINT := $(shell command -v golangci-lint;)
 .PHONY: code/lint
 code/lint:
-	@echo "--> Running golangci-lint"
+	@echo Running golangci-lint
 ifndef HAS_GOLANGCI_LINT
 	@echo "=> Installing golangci-lint tool"
 		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.23.6
