@@ -19,6 +19,8 @@ linters-settings:
     statements: 100
 
 run:
+  # Skip lint on tests files
+  tests: false
   timeout: 10m
   modules-download-mode: vendor
 
