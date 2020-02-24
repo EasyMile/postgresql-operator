@@ -135,7 +135,7 @@ endif
 # CI                         #
 ##############################
 .PHONY: setup/travis
-setup/travis:
+setup/travis: setup/operator-sdk
 	@echo Installing Kubectl
 	@curl -Lo kubectl ${KUBECTL_DOWNLOAD_URL} && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
 	@echo Installing Minikube
