@@ -17,9 +17,9 @@ stages:
   - name: compile
   - name: docker
   # - name: test
-  - name: publishMaster
+  - name: publish master
     if: branch = travis
-  - name: publishTag
+  - name: publish tag
     if: tag IS present
 
 job:
@@ -43,9 +43,9 @@ job:
         - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
         - make release/docker version=latest
         - make release/docker version=master
-      stage: publishMaster
+      stage: publish master
     - script:
         - make setup/operator-sdk
         - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
         - make release/docker version=${TRAVIS_TAG}
-      stage: publishTag
+      stage: publish tag
