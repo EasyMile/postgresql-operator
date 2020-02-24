@@ -42,10 +42,12 @@ cluster/clean:
 	@kubectl get crd --no-headers=true -o name | awk '/postgresql.easymile.com/{print $1}' | xargs kubectl delete
 	@kubectl delete namespace $(NAMESPACE)
 
-# .PHONY: cluster/create/examples
-# cluster/create/examples:
-# 	@kubectl create -f deploy/examples/keycloak/keycloak.yaml -n $(NAMESPACE)
-# 	@kubectl create -f deploy/examples/realm/basic_realm.yaml -n $(NAMESPACE)
+.PHONY: cluster/create/examples
+cluster/create/examples:
+	@kubectl create -f deploy/examples/engineconfiguration/engineconfigurationsecret.yaml -n $(NAMESPACE)
+	@kubectl create -f deploy/examples/engineconfiguration/simple.yaml -n $(NAMESPACE)
+	@kubectl create -f deploy/examples/database/simple.yaml -n $(NAMESPACE)
+	@kubectl create -f deploy/examples/user/simple.yaml -n $(NAMESPACE)
 
 ##############################
 # Tests                      #
@@ -112,12 +114,12 @@ code/compile:
 code/gen:
 	operator-sdk generate k8s
 	operator-sdk generate crds
+	cp deploy/crds/* deploy/helm/postgresql-operator/crds/
 
 .PHONY: code/check
 code/check:
 	@echo go fmt
 	go fmt $$(go list ./... | grep -v /vendor/)
-
 
 HAS_GOLANGCI_LINT := $(shell command -v golangci-lint;)
 .PHONY: code/lint
@@ -144,9 +146,10 @@ setup/travis:
 	@sudo minikube start --vm-driver=none --kubernetes-version=v1.16.0
 	@sudo chown -R travis: /home/travis/.minikube/
 
-.PHONY: test/goveralls
-test/goveralls: test/coverage/prepare
-	@echo "Preparing goveralls file"
-	go get -u github.com/mattn/goveralls
-	@echo "Running goveralls"
-	@goveralls -v -coverprofile=cover-all.coverprofile -service=travis-ci
+# NO TEST FOR THE MOMENT
+# .PHONY: test/goveralls
+# test/goveralls: test/coverage/prepare
+# 	@echo "Preparing goveralls file"
+# 	go get -u github.com/mattn/goveralls
+# 	@echo "Running goveralls"
+# 	@goveralls -v -coverprofile=cover-all.coverprofile -service=travis-ci
