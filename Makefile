@@ -15,6 +15,8 @@ GOOS=linux
 GOARCH=amd64
 CGO_ENABLED=0
 
+.DEFAULT_GOAL := code/check
+
 ##############################
 # Release                    #
 ##############################
