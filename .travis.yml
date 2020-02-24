@@ -13,10 +13,14 @@ env:
     - KUBECONFIG=$HOME/.kube/config
 
 stages:
-  - lint
-  - compile
-  - docker
-  # - test
+  - name: lint
+  - name: compile
+  - name: docker
+  # - name: test
+  - name: publishMaster
+    if: branch = travis
+  - name: publishTag
+    if: tag IS present
 
 job:
   include:
@@ -28,6 +32,17 @@ job:
         - make setup/operator-sdk
         - make code/docker version=latest
       stage: docker
+    - script:
+        - make setup/operator-sdk
+        - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
+        - make release/docker version=latest
+        - make release/docker version=master
+      stage: publishMaster
+    - script:
+        - make setup/operator-sdk
+        - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
+        - make release/docker version=${TRAVIS_TAG}
+      stage: publishTag
     # NO TEST FOR THE MOMENT
     # - script:
     #     - go get github.com/mattn/goveralls
