@@ -40,12 +40,12 @@ jobs:
     #   stage: test
     - script:
         - make setup/operator-sdk
-        - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
+        - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
         - make release/docker version=latest
         - make release/docker version=master
       stage: publish master
     - script:
         - make setup/operator-sdk
-        - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
+        - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
         - make release/docker version=${TRAVIS_TAG}
       stage: publish tag
