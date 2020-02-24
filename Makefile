@@ -26,6 +26,11 @@ release/olm-catalog:
 	@echo Making OLM Catalog for release
 	@operator-sdk generate csv --csv-channel alpha --csv-version $(version) --update-crds
 
+.PHONY: release/docker
+release/docker: code/docker
+	@echo Releasing docker image
+	@docker push easymile/postgresql-operator:$(version)
+
 ##############################
 # Operator Management        #
 ##############################
@@ -117,6 +122,11 @@ code/run:
 code/compile:
 	@echo Compiling code using go
 	@GOOS=${GOOS} GOARCH=${GOARCH} CGO_ENABLED=${CGO_ENABLED} go build -o=$(COMPILE_TARGET) -mod=vendor ./cmd/manager
+
+.PHONY: code/docker
+code/docker:
+	@echo Building docker image
+	@operator-sdk build easymile/postgresql-operator:$(version)
 
 .PHONY: code/gen
 code/gen:
