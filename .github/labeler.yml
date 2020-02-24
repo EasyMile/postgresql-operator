@@ -5,3 +5,10 @@ dockerfile:
 # Add test label
 tests:
   - pkg/**/*_test.go
+
+actions:
+  - .github/workflows
+  - .github/labeler.yml
+
+ci:
+  - .travis.yml
