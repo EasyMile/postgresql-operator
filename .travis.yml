@@ -22,7 +22,7 @@ stages:
   - name: publish tag
     if: tag IS present
 
-job:
+jobs:
   include:
     - script: make code/check code/lint
       stage: lint
