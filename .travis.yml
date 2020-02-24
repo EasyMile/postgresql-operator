@@ -19,7 +19,7 @@ stages:
   - name: docker
   # - name: test
   - name: publish master
-    if: branch = travis
+    if: branch = master
   - name: publish tag
     if: tag IS present
 
