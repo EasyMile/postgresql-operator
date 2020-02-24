@@ -25,4 +25,3 @@ spec:
   # Wait for linked resource to be deleted
   # Default to false
   waitLinkedResourcesDeletion: true
-
