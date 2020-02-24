@@ -32,6 +32,12 @@ job:
         - make setup/operator-sdk
         - make code/docker version=latest
       stage: docker
+    # NO TEST FOR THE MOMENT
+    # - script:
+    #     - go get github.com/mattn/goveralls
+    #     - go get github.com/modocache/gover
+    #     - make test/unit test/e2e test/goveralls
+    #   stage: test
     - script:
         - make setup/operator-sdk
         - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
@@ -43,9 +49,3 @@ job:
         - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
         - make release/docker version=${TRAVIS_TAG}
       stage: publishTag
-    # NO TEST FOR THE MOMENT
-    # - script:
-    #     - go get github.com/mattn/goveralls
-    #     - go get github.com/modocache/gover
-    #     - make test/unit test/e2e test/goveralls
-    #   stage: test
