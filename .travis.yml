@@ -19,7 +19,7 @@ stages:
   - name: docker
   # - name: test
   - name: publish master
-    if: branch = master
+    if: branch = master and type NOT IN (pull_request)
   - name: publish tag
     if: tag IS present
 
