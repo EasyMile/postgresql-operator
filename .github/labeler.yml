@@ -1,0 +1,7 @@
+# Add dockerfile label
+dockerfile:
+  - build/Dockerfile
+
+# Add test label
+tests:
+  - pkg/**/*_test.go
