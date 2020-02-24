@@ -2,31 +2,22 @@
 name: Feature request
 about: Suggest an idea for this project
 title: ""
-labels: ""
+labels: enhancement
 assignees: ""
 ---
 
-## Issue/Feature
+## Is your feature request related to a problem? Please describe.
 
-<!-- Add any information needed. Such as the GH issue this PR relates to or any other context you feel is necessary.) -->
+<!-- A clear and concise description of what the problem is. Ex. I'm always frustrated when [...] -->
 
-## Additional Information
+## Describe the solution you'd like
 
-<!-- What/Why/How or any other context you feel is necessary.) -->
+<!--A clear and concise description of what you want to happen. -->
 
-## Verification Steps
+## Describe alternatives you've considered
 
-<!--
-Add the steps required to check this change. Following an example.
+<!--A clear and concise description of any alternative solutions or features you've considered. -->
 
-1. Go to `XX >> YY >> SS`
-2. Create a new item `N` with the info `X`
-3. Try to edit this item
-4. Check if in the left menu the feature X is not so long present.
--->
+## Additional context
 
-## Checklist:
-
-- [ ] Verified by team member
-- [ ] Comments where necessary
-- [ ] Documentation changes if necessary
+<!--Add any other context about the feature request here. -->
