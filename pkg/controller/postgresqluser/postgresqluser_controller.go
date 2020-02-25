@@ -215,9 +215,9 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 	// Grant group role to user role
 	var groupRole string
 	switch instance.Spec.Privileges {
-	case "READ":
+	case postgresqlv1alpha1.ReaderPrivilege:
 		groupRole = pgDb.Status.Roles.Reader
-	case "WRITE":
+	case postgresqlv1alpha1.WriterPrivilege:
 		groupRole = pgDb.Status.Roles.Writer
 	default:
 		groupRole = pgDb.Status.Roles.Owner
