@@ -8,3 +8,76 @@
   <a href="https://github.com/easymile/postgresql-operator/blob/master/LICENSE" rel="noopener noreferer" target="_blank"><img src="https://img.shields.io/github/license/easymile/postgresql-operator" alt="GitHub license" /></a>
   <a href="https://github.com/easymile/postgresql-operator/releases" rel="noopener noreferer" target="_blank"><img src="https://img.shields.io/github/v/release/easymile/postgresql-operator" alt="GitHub release (latest by date)" /></a>
 </p>
+
+## Features
+
+- Create or update Databases with extensions and schema
+- Create or update Users with rights (Owner, Writer or Reader)
+- Connections to multiple PostgreSQL Engines
+- Generate secrets for User login and password
+- Allow to change User password based on time (e.g: Each 30 days)
+
+## Concepts
+
+When we speak about `Engines`, we speak about PostgreSQL Database Servers. It isn't the same as Databases. Databases will store tables, ...
+
+In this operator, Users are linked to Databases and doesn't exist without it. They are "children" of databases.
+
+Moreover, a single User can only have rights to one Database.
+
+## Supported Custom Resources
+
+| CustomResourceDefinition                                                    | Description                                                                        |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [PostgresqlEngineConfiguration](docs/crds/PostgresqlEngineConfiguration.md) | Represents a PostgreSQL Engine Configuration with all necessary data to connect it |
+| [PostgresqlDatabase](docs/crds/PostgresqlDatabase.md)                       | Represents a PostgreSQL Database                                                   |
+| [PostgresqlUser](docs/crds/PostgresqlUser.md)                               | Represents a PostgreSQL User                                                       |
+
+## How to deploy ?
+
+### Using Helm 3
+
+The project has a Helm 3 chart located in `deploy/helm/postgresql-operator`.
+
+It will deploy the operator running the command:
+
+```bash
+helm install ./deploy/helm/postgresql-operator
+```
+
+### Using Helm 2
+
+As the chart located in `deploy/helm/postgresql-operator` uses the specific Helm 3 folder called `crd`. The chart can **only** install the operator but not the CRDs.
+
+CRDs have to be installed manually.
+
+The procedure is the following:
+
+- Install CRDs
+  ```bash
+  kubectl apply -f ./deploy/crds/
+  ```
+- Install the chart
+  ```bash
+  helm install ./deploy/helm/postgresql-operator
+  ```
+
+### Using Kubectl
+
+The procedure is the following:
+
+- Install CRDs
+  ```bash
+  kubectl apply -f ./deploy/crds/
+  ```
+- Install operator
+  ```bash
+  kubectl apply -f ./deploy/role_binding.yaml
+  kubectl apply -f ./deploy/role.yaml
+  kubectl apply -f ./deploy/service_account.yaml
+  kubectl apply -f ./deploy/operator.yaml
+  ```
+
+## License
+
+MIT (See [LICENSE](LICENSE))
