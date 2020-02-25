@@ -77,8 +77,8 @@ spec:
               description: User privileges
               enum:
               - OWNER
-              - WRITE
-              - READ
+              - WRITER
+              - READER
               type: string
             rolePrefix:
               description: User role

@@ -7,6 +7,12 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type PrivilegesSpecEnum string
+
+const OwnerPrivilege PrivilegesSpecEnum = "OWNER"
+const ReaderPrivilege PrivilegesSpecEnum = "READER"
+const WriterPrivilege PrivilegesSpecEnum = "WRITER"
+
 // PostgresqlUserSpec defines the desired state of PostgresqlUser
 type PostgresqlUserSpec struct {
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
@@ -18,7 +24,7 @@ type PostgresqlUserSpec struct {
 	// Postgresql Database
 	// +required
 	// +kubebuilder:validation:Required
-	Database CRLink `json:"database"`
+	Database *CRLink `json:"database"`
 	// Generated secret name prefix
 	// +required
 	// +kubebuilder:validation:Required
@@ -26,8 +32,8 @@ type PostgresqlUserSpec struct {
 	// User privileges
 	// +required
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=OWNER;WRITE;READ
-	Privileges string `json:"privileges,omitempty"`
+	// +kubebuilder:validation:Enum=OWNER;WRITER;READER
+	Privileges PrivilegesSpecEnum `json:"privileges,omitempty"`
 	// User password rotation duration
 	// +optional
 	UserPasswordRotationDuration string `json:"userPasswordRotationDuration,omitempty"`
