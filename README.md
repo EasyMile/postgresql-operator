@@ -42,7 +42,7 @@ The project has a Helm 3 chart located in `deploy/helm/postgresql-operator`.
 It will deploy the operator running the command:
 
 ```bash
-helm install ./deploy/helm/postgresql-operator
+helm install postgresql-operator ./deploy/helm/postgresql-operator
 ```
 
 ### Using Helm 2
@@ -59,7 +59,7 @@ The procedure is the following:
   ```
 - Install the chart
   ```bash
-  helm install ./deploy/helm/postgresql-operator
+  helm install postgresql-operator ./deploy/helm/postgresql-operator
   ```
 
 ### Using Kubectl
