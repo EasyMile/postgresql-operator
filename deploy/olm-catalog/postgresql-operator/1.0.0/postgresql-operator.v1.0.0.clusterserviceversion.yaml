@@ -54,7 +54,7 @@ spec:
                       fieldPath: metadata.name
                 - name: OPERATOR_NAME
                   value: postgresql-operator
-                image: REPLACE_IMAGE
+                image: easymile/postgresql-operator:1.0.0
                 imagePullPolicy: Always
                 name: postgresql-operator
                 resources: {}
@@ -149,9 +149,6 @@ spec:
     type: MultiNamespace
   - supported: true
     type: AllNamespaces
-  maturity: alpha
-  provider:
-    name: EasyMile
   keywords:
   - Postgres
   - Postgresql
@@ -160,4 +157,9 @@ spec:
     name: EasyMile DevOps Team mailing list
   - email: havrileckalexandre@gmail.com
     name: Havrileck Alexandre (Oxyno-zeta)
+  - email: alexandre.ledit@gmail.com
+    name: Ledit Alexandre (AlexDouze)
+  maturity: alpha
+  provider:
+    name: EasyMile
   version: 1.0.0
