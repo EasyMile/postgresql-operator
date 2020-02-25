@@ -27,7 +27,7 @@ All these names are available for `kubectl`:
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| provider | PostgreSQL Provider. This can be "", "AWS" or "AZURE". **Note**: AWS and Azure aren't well tested and can not work. This support is imported from [movetokube/postgres-operator](https://github.com/movetokube/postgres-operator) | String | false |
+| provider | PostgreSQL Provider. This can be "", "AWS" or "AZURE". **Note**: AWS and Azure aren't well tested and might not work. This support is imported from [movetokube/postgres-operator](https://github.com/movetokube/postgres-operator) | String | false |
 | host | PostgreSQL Hostname | String | true |
 | port | PostgreSQL Port. Default value is `5432` | Integer | false |
 | uriArgs | PostgreSQL URI arguments like `sslmode=disabled` | String | false |
