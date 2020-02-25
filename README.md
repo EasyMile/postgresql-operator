@@ -78,6 +78,11 @@ The procedure is the following:
   kubectl apply -f ./deploy/operator.yaml
   ```
 
+## Want to contribute ?
+
+- Read the [CONTRIBUTING guide](./CONTRIBUTING.md)
+- Read how to setup your environment [here](./docs/how-to/setup-local.md)
+
 ## License
 
 MIT (See [LICENSE](LICENSE))
