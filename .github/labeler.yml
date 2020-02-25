@@ -12,3 +12,7 @@ actions:
 
 ci:
   - .travis.yml
+
+documentation:
+  - "**/*.md"
+  - "*.md"
