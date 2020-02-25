@@ -73,7 +73,7 @@ type PostgresqlDatabaseStatus struct {
 	Database string `json:"database"`
 	// Already created roles for database
 	// +optional
-	Roles PostgresRoles `json:"roles"`
+	Roles StatusPostgresRoles `json:"roles"`
 	// Already created schemas
 	// +optional
 	// +listType=set
@@ -84,9 +84,9 @@ type PostgresqlDatabaseStatus struct {
 	Extensions []string `json:"extensions,omitempty"`
 }
 
-// PostgresRoles stores the different group roles already created for database
+// StatusPostgresRoles stores the different group roles already created for database
 // +k8s:openapi-gen=true
-type PostgresRoles struct {
+type StatusPostgresRoles struct {
 	Owner  string `json:"owner"`
 	Reader string `json:"reader"`
 	Writer string `json:"writer"`
