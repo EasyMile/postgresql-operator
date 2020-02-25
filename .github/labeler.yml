@@ -7,7 +7,7 @@ tests:
   - pkg/**/*_test.go
 
 actions:
-  - .github/workflows
+  - .github/workflows/**
   - .github/labeler.yml
 
 ci:
