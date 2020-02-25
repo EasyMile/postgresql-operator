@@ -43,7 +43,7 @@ All these names are available for `kubectl`:
 | phase | Current phase of the operator on the current custom resource | String | true |
 | message | Human-readable message indicating details about current operator phase or error | String | false |
 | ready | True if all resources are in a ready state and all work is done by operator | Boolean | false |
-| lastValidatedTime | Last time the operator can connect successfully to the PostgreSQL engine | String | false |
+| lastValidatedTime | Last time the operator has successfully connected to the PostgreSQL engine | String | false |
 | hash | Resource spec hash for internal needs | String | false |
 
 ## Example
