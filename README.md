@@ -11,7 +11,7 @@
 
 ## Features
 
-- Create or update Databases with extensions and schema
+- Create or update Databases with extensions and schemas
 - Create or update Users with rights (Owner, Writer or Reader)
 - Connections to multiple PostgreSQL Engines
 - Generate secrets for User login and password
