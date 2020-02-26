@@ -11,6 +11,9 @@ serviceAccount:
   create: true
   name:
 
+## Let it empty to watch all namespaces
+watchNamespace: ""
+
 replicaCount: 1
 
 image:
