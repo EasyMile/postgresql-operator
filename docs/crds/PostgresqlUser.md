@@ -78,5 +78,5 @@ spec:
   privileges: OWNER
   # User password rotation duration
   # Default set to ""
-  userPasswordRotationDuration: 30d
+  userPasswordRotationDuration: 720h
 ```
