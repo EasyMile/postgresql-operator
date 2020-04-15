@@ -142,14 +142,14 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 	// Creation case
 
 	// Find PG Database
-	pgDb, err := utils.FindPgDatabase(r.client, instance)
+	pgDB, err := utils.FindPgDatabase(r.client, instance)
 	if err != nil {
 		return r.manageError(reqLogger, instance, originalPatch, err)
 	}
 
 	// Check that postgres database is ready before continue but only if it is the first time
 	// If not, requeue event with a short delay (1 second)
-	if instance.Status.Phase == postgresqlv1alpha1.UserNoPhase && !pgDb.Status.Ready {
+	if instance.Status.Phase == postgresqlv1alpha1.UserNoPhase && !pgDB.Status.Ready {
 		reqLogger.Info("PostgresqlDatabase not ready, waiting for it")
 		r.recorder.Event(instance, "Warning", "Processing", "Processing stopped because PostgresqlDatabase isn't ready. Waiting for it.")
 		return reconcile.Result{
@@ -159,7 +159,7 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	// Find PG Engine cfg
-	pgEngineCfg, err := utils.FindPgEngineCfg(r.client, pgDb)
+	pgEngineCfg, err := utils.FindPgEngineCfg(r.client, pgDB)
 	if err != nil {
 		return r.manageError(reqLogger, instance, originalPatch, err)
 	}
@@ -171,7 +171,7 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	// Add finalizer and owners
-	err = r.updateInstance(instance, pgDb)
+	err = r.updateInstance(instance)
 	if err != nil {
 		return r.manageError(reqLogger, instance, originalPatch, err)
 	}
@@ -216,11 +216,11 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 	var groupRole string
 	switch instance.Spec.Privileges {
 	case postgresqlv1alpha1.ReaderPrivilege:
-		groupRole = pgDb.Status.Roles.Reader
+		groupRole = pgDB.Status.Roles.Reader
 	case postgresqlv1alpha1.WriterPrivilege:
-		groupRole = pgDb.Status.Roles.Writer
+		groupRole = pgDB.Status.Roles.Writer
 	default:
-		groupRole = pgDb.Status.Roles.Owner
+		groupRole = pgDB.Status.Roles.Owner
 	}
 
 	// Check if user was previously assign to another group
@@ -245,7 +245,7 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 
 	// Update status
 	instance.Status.PostgresGroup = groupRole
-	instance.Status.PostgresDatabaseName = pgDb.Spec.Database
+	instance.Status.PostgresDatabaseName = pgDB.Spec.Database
 
 	// Create new secret
 	generatedSecret, err := r.newSecretForPGUser(instance, role, password, login, pgInstance)
@@ -340,7 +340,7 @@ func (r *ReconcilePostgresqlUser) manageDeletion(reqLogger logr.Logger, instance
 		return nil
 	}
 	// Find PG Database
-	pgDb, err := utils.FindPgDatabase(r.client, instance)
+	pgDB, err := utils.FindPgDatabase(r.client, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Can't do anything => log and stop
@@ -351,7 +351,7 @@ func (r *ReconcilePostgresqlUser) manageDeletion(reqLogger logr.Logger, instance
 	}
 
 	// Find PG Engine cfg
-	pgEngineCfg, err := utils.FindPgEngineCfg(r.client, pgDb)
+	pgEngineCfg, err := utils.FindPgEngineCfg(r.client, pgDB)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Can't do anything => log and stop
@@ -371,7 +371,7 @@ func (r *ReconcilePostgresqlUser) manageDeletion(reqLogger logr.Logger, instance
 	pgInstance := utils.CreatePgInstance(reqLogger, pgEngineSecret.Data, &pgEngineCfg.Spec)
 
 	// Prepare database name
-	databaseName := pgDb.Status.Database
+	databaseName := pgDB.Status.Database
 
 	// Delete role
 	err = pgInstance.DropRole(
@@ -386,7 +386,7 @@ func (r *ReconcilePostgresqlUser) manageDeletion(reqLogger logr.Logger, instance
 	return nil
 }
 
-func (r *ReconcilePostgresqlUser) updateInstance(instance *postgresqlv1alpha1.PostgresqlUser, pgDb *postgresqlv1alpha1.PostgresqlDatabase) error {
+func (r *ReconcilePostgresqlUser) updateInstance(instance *postgresqlv1alpha1.PostgresqlUser) error {
 	// Deep copy
 	copy := instance.DeepCopy()
 
