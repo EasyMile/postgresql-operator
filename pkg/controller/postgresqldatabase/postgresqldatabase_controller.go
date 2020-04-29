@@ -170,10 +170,28 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 	// Create PG instance
 	pg := utils.CreatePgInstance(reqLogger, secret.Data, &pgEngCfg.Spec)
 
+	// Create all identifiers now to check length
 	owner := instance.Spec.MasterRole
 	if owner == "" {
 		owner = fmt.Sprintf("%s-owner", instance.Spec.Database)
 	}
+	reader := fmt.Sprintf("%s-reader", instance.Spec.Database)
+	writer := fmt.Sprintf("%s-writer", instance.Spec.Database)
+
+	// Check identifier length
+	if len(owner) > postgres.MaxIdentifierLength {
+		errStr := fmt.Sprintf("identifier too long, must be <= 63, %s is %d character, must reduce master role or database name length", owner, len(owner))
+		return r.manageError(reqLogger, instance, originalPatch, errors.NewBadRequest(errStr))
+	}
+	if len(reader) > postgres.MaxIdentifierLength {
+		errStr := fmt.Sprintf("identifier too long, must be <= 63, %s is %d character, must reduce database name length", reader, len(reader))
+		return r.manageError(reqLogger, instance, originalPatch, errors.NewBadRequest(errStr))
+	}
+	if len(writer) > postgres.MaxIdentifierLength {
+		errStr := fmt.Sprintf("identifier too long, must be <= 63, %s is %d character, must reduce database name length", writer, len(writer))
+		return r.manageError(reqLogger, instance, originalPatch, errors.NewBadRequest(errStr))
+	}
+
 	// Create owner role
 	err = r.manageOwnerRole(pg, owner, instance)
 	if err != nil {
@@ -187,14 +205,12 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 	}
 
 	// Create reader role
-	reader := fmt.Sprintf("%s-reader", instance.Spec.Database)
 	err = r.manageReaderRole(pg, reader, instance)
 	if err != nil {
 		return r.manageError(reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
 
 	// Create writer role
-	writer := fmt.Sprintf("%s-writer", instance.Spec.Database)
 	err = r.manageWriterRole(pg, writer, instance)
 	if err != nil {
 		return r.manageError(reqLogger, instance, originalPatch, errors.NewInternalError(err))

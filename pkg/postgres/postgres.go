@@ -8,6 +8,8 @@ import (
 	"github.com/go-logr/logr"
 )
 
+const MaxIdentifierLength = 63
+
 type PG interface {
 	CreateDB(dbname, username string) error
 	IsDatabaseExist(dbname string) (bool, error)
