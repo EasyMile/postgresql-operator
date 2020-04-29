@@ -185,6 +185,7 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 
 	// Create user role if necessary
 	if instance.Spec.RolePrefix != instance.Status.RolePrefix {
+		// Previous role prefix doesn't match new one => need to create new role
 		role, login, err = r.manageCreateUserRole(reqLogger, pgInstance, instance, password)
 		if err != nil {
 			return r.manageError(reqLogger, instance, originalPatch, err)
@@ -417,6 +418,13 @@ func (r *ReconcilePostgresqlUser) manageCreateUserRole(reqLogger logr.Logger, pg
 	// Create new role
 	suffix := utils.GetRandomString(RoleSuffixSize)
 	role := fmt.Sprintf("%s-%s", instance.Spec.RolePrefix, suffix)
+
+	// Check role length
+	if len(role) > postgres.MaxIdentifierLength {
+		errStr := fmt.Sprintf("identifier too long, must be <= 63, %s is %d character, must reduce role prefix length", role, len(role))
+		return "", "", errors.NewBadRequest(errStr)
+	}
+
 	login, err := pgInstance.CreateUserRole(role, password)
 	if err != nil {
 		return "", "", err
