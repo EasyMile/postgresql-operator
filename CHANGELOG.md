@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.1
+
+### Bugs
+
+- Fix possible too long name generated for roles (PostgreSQL only support 63 characters maximum for identifiers)
+
 ## 1.0.0
 
 ### Features
