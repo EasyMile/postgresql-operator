@@ -504,7 +504,7 @@ func (r *ReconcilePostgresqlUser) newSecretForPGUser(instance *postgresqlv1alpha
 			"LOGIN":             []byte(login),
 			"DATABASE":          []byte(instance.Status.PostgresDatabaseName),
 			"HOST":              []byte(pg.GetHost()),
-			"POST":              []byte(fmt.Sprintf("%d", pg.GetPort())),
+			"PORT":              []byte(fmt.Sprintf("%d", pg.GetPort())),
 			"ARGS":              []byte(pg.GetArgs()),
 		},
 	}
