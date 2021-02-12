@@ -234,7 +234,9 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 func (r *ReconcilePostgresqlDatabase) manageDBCreationOrUpdate(pg postgres.PG, instance *postgresqlv1alpha1.PostgresqlDatabase, owner string) error {
 	// Check if database was already created in the past
 	if instance.Status.Database != "" {
+		// Check if database already exists
 		exists, err := pg.IsDatabaseExist(instance.Status.Database)
+		// Check error
 		if err != nil {
 			return err
 		}
@@ -249,10 +251,19 @@ func (r *ReconcilePostgresqlDatabase) manageDBCreationOrUpdate(pg postgres.PG, i
 		}
 	}
 
-	// Create database
-	err := pg.CreateDB(instance.Spec.Database, owner)
+	// Check if database already exists
+	exists, err := pg.IsDatabaseExist(instance.Spec.Database)
+	// Check error
 	if err != nil {
 		return err
+	}
+	// Check if exists
+	if !exists {
+		// Create database
+		err := pg.CreateDB(instance.Spec.Database, owner)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Update status
@@ -473,7 +484,9 @@ func (r *ReconcilePostgresqlDatabase) manageExtensions(pg postgres.PG, instance 
 func (r *ReconcilePostgresqlDatabase) manageReaderRole(pg postgres.PG, reader string, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
 	// Check if role was already created in the past
 	if instance.Status.Roles.Reader != "" {
+		// Check if role doesn't already exists
 		exists, err := pg.IsRoleExist(instance.Status.Roles.Reader)
+		// Check error
 		if err != nil {
 			return err
 		}
@@ -488,9 +501,20 @@ func (r *ReconcilePostgresqlDatabase) manageReaderRole(pg postgres.PG, reader st
 		}
 	}
 
-	err := pg.CreateGroupRole(reader)
+	// Check if role doesn't already exists
+	exists, err := pg.IsRoleExist(reader)
+	// Check error
 	if err != nil {
 		return err
+	}
+	// Check if exists
+	if !exists {
+		// Create it
+		err := pg.CreateGroupRole(reader)
+		// Check error
+		if err != nil {
+			return err
+		}
 	}
 	// Update status
 	instance.Status.Roles.Reader = reader
@@ -500,7 +524,9 @@ func (r *ReconcilePostgresqlDatabase) manageReaderRole(pg postgres.PG, reader st
 func (r *ReconcilePostgresqlDatabase) manageWriterRole(pg postgres.PG, writer string, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
 	// Check if role was already created in the past
 	if instance.Status.Roles.Writer != "" {
+		// Check if role doesn't already exists
 		exists, err := pg.IsRoleExist(instance.Status.Roles.Writer)
+		// Check error
 		if err != nil {
 			return err
 		}
@@ -515,9 +541,20 @@ func (r *ReconcilePostgresqlDatabase) manageWriterRole(pg postgres.PG, writer st
 		}
 	}
 
-	err := pg.CreateGroupRole(writer)
+	// Check if role doesn't already exists
+	exists, err := pg.IsRoleExist(writer)
+	// Check error
 	if err != nil {
 		return err
+	}
+	// Check if exists
+	if !exists {
+		// Create it
+		err := pg.CreateGroupRole(writer)
+		// Check error
+		if err != nil {
+			return err
+		}
 	}
 	// Update status
 	instance.Status.Roles.Writer = writer
@@ -527,7 +564,9 @@ func (r *ReconcilePostgresqlDatabase) manageWriterRole(pg postgres.PG, writer st
 func (r *ReconcilePostgresqlDatabase) manageOwnerRole(pg postgres.PG, owner string, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
 	// Check if role was already created in the past
 	if instance.Status.Roles.Owner != "" {
+		// Check if role doesn't already exists
 		exists, err := pg.IsRoleExist(instance.Status.Roles.Owner)
+		// Check error
 		if err != nil {
 			return err
 		}
@@ -542,9 +581,20 @@ func (r *ReconcilePostgresqlDatabase) manageOwnerRole(pg postgres.PG, owner stri
 		}
 	}
 
-	err := pg.CreateGroupRole(owner)
+	// Check if role doesn't already exists
+	exists, err := pg.IsRoleExist(owner)
+	// Check error
 	if err != nil {
 		return err
+	}
+	// Check if exists
+	if !exists {
+		// Create it
+		err := pg.CreateGroupRole(owner)
+		// Check error
+		if err != nil {
+			return err
+		}
 	}
 	// Update status
 	instance.Status.Roles.Owner = owner
