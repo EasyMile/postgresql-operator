@@ -28,7 +28,7 @@ func (c *pg) IsDatabaseExist(dbname string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer c.close()
+
 	res, err := c.db.Exec(fmt.Sprintf(IsDatabaseExistSQLTemplate, dbname))
 	if err != nil {
 		return false, err
@@ -47,7 +47,6 @@ func (c *pg) RenameDatabase(oldname, newname string) error {
 	if err != nil {
 		return err
 	}
-	defer c.close()
 
 	_, err = c.db.Exec(fmt.Sprintf(RenameDatabaseSQLTemplate, oldname, newname))
 	if err != nil {
@@ -61,7 +60,7 @@ func (c *pg) CreateDB(dbname, role string) error {
 	if err != nil {
 		return err
 	}
-	defer c.close()
+
 	_, err = c.db.Exec(fmt.Sprintf(CreateDbSQLTemplate, dbname))
 	if err != nil {
 		// eat DUPLICATE DATABASE ERROR
@@ -84,7 +83,6 @@ func (c *pg) CreateSchema(db, role, schema string) error {
 	if err != nil {
 		return err
 	}
-	defer c.close()
 
 	_, err = c.db.Exec(fmt.Sprintf(CreateSchemaSQLTemplate, schema, role))
 	if err != nil {
@@ -98,7 +96,7 @@ func (c *pg) DropDatabase(database string) error {
 	if err != nil {
 		return err
 	}
-	defer c.close()
+
 	_, err = c.db.Exec(fmt.Sprintf(DropDatabaseSQLTemplate, database))
 	// Error code 3D000 is returned if database doesn't exist
 	if err != nil {
@@ -119,7 +117,6 @@ func (c *pg) DropExtension(database, extension string, cascade bool) error {
 	if err != nil {
 		return err
 	}
-	defer c.close()
 
 	param := RestrictKeyword
 	if cascade {
@@ -140,7 +137,6 @@ func (c *pg) DropSchema(database, schema string, cascade bool) error {
 	if err != nil {
 		return err
 	}
-	defer c.close()
 
 	param := RestrictKeyword
 	if cascade {
@@ -161,7 +157,6 @@ func (c *pg) CreateExtension(db, extension string) error {
 	if err != nil {
 		return err
 	}
-	defer c.close()
 
 	_, err = c.db.Exec(fmt.Sprintf(CreateExtensionSQLTemplate, extension))
 	if err != nil {
@@ -175,7 +170,6 @@ func (c *pg) SetSchemaPrivileges(db, creator, role, schema, privs string) error 
 	if err != nil {
 		return err
 	}
-	defer c.close()
 
 	// Grant role usage on schema
 	_, err = c.db.Exec(fmt.Sprintf(GrantUsageSchemaSQLTemplate, schema, role))

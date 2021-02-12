@@ -9,6 +9,7 @@ import (
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/pkg/apis/postgresql/v1alpha1"
 	"github.com/easymile/postgresql-operator/pkg/config"
 	"github.com/easymile/postgresql-operator/pkg/controller/utils"
+	"github.com/easymile/postgresql-operator/pkg/postgres"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -121,6 +122,14 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 				return r.manageError(reqLogger, instance, originalPatch, err)
 			}
 		}
+		// Close all saved pools for that pgec
+		err = postgres.CloseAllSavedPoolsForName(
+			utils.CreateNameKeyForSavedPools(instance.Name, instance.Namespace),
+		)
+		// Check error
+		if err != nil {
+			return r.manageError(reqLogger, instance, originalPatch, err)
+		}
 		// Clean finalizer
 		controllerutil.RemoveFinalizer(instance, config.Finalizer)
 		// Update CR
@@ -176,6 +185,17 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 	if err != nil {
 		return r.manageError(reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
+	// Need to check if status hash is the same or not to force renew or not
+	if hash != instance.Status.Hash {
+		err = postgres.CloseAllSavedPoolsForName(
+			utils.CreateNameKeyForSavedPools(instance.Name, instance.Namespace),
+		)
+		// Check error
+		if err != nil {
+			return r.manageError(reqLogger, instance, originalPatch, err)
+		}
+	}
+	// Save new hash
 	instance.Status.Hash = hash
 
 	// Get secret for user/password
@@ -198,7 +218,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 	}
 
 	// Create PG object
-	pg := utils.CreatePgInstance(reqLogger, secret.Data, &instance.Spec)
+	pg := utils.CreatePgInstance(reqLogger, secret.Data, instance)
 
 	// Try to connect
 	err = pg.Ping()

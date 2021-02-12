@@ -27,10 +27,13 @@ func CalculateHash(spec interface{}) (string, error) {
 	return fmt.Sprintf("%x", sha256Bytes), nil
 }
 
-func CreatePgInstance(reqLogger logr.Logger, secretData map[string][]byte, spec *postgresqlv1alpha1.PostgresqlEngineConfigurationSpec) postgres.PG {
+func CreatePgInstance(reqLogger logr.Logger, secretData map[string][]byte, pgec *postgresqlv1alpha1.PostgresqlEngineConfiguration) postgres.PG {
+	spec := pgec.Spec
 	user := string(secretData["user"])
 	password := string(secretData["password"])
+
 	return postgres.NewPG(
+		CreateNameKeyForSavedPools(pgec.Name, pgec.Namespace),
 		spec.Host,
 		user,
 		password,
@@ -46,6 +49,24 @@ func FindSecretPgEngineCfg(cl client.Client, instance *postgresqlv1alpha1.Postgr
 	secret := &corev1.Secret{}
 	err := cl.Get(context.TODO(), types.NamespacedName{Name: instance.Spec.SecretName, Namespace: instance.Namespace}, secret)
 	return secret, err
+}
+
+func CloseDatabaseSavedPoolsForName(instance *postgresqlv1alpha1.PostgresqlDatabase, database string) error {
+	// Try to get namespace from spec
+	namespace := instance.Spec.EngineConfiguration.Namespace
+	if namespace == "" {
+		// Namespace not found, take it from instance namespace
+		namespace = instance.Namespace
+	}
+
+	return postgres.CloseDatabaseSavedPoolsForName(
+		CreateNameKeyForSavedPools(instance.Spec.EngineConfiguration.Name, namespace),
+		database,
+	)
+}
+
+func CreateNameKeyForSavedPools(pgecName, pgecNamespace string) string {
+	return pgecNamespace + "/" + pgecName
 }
 
 func FindPgEngineCfg(cl client.Client, instance *postgresqlv1alpha1.PostgresqlDatabase) (*postgresqlv1alpha1.PostgresqlEngineConfiguration, error) {

@@ -118,12 +118,19 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 		if err != nil {
 			return r.manageError(reqLogger, instance, originalPatch, err)
 		}
+		// Check if should delete database is flagged
 		if shouldDelete {
 			// Drop database
 			err := r.manageDropDatabase(reqLogger, instance)
 			if err != nil {
 				return r.manageError(reqLogger, instance, originalPatch, err)
 			}
+		}
+		// Close saved pools
+		// This is is done twice in the sequence, but function is idempotent => not a problem and should be kept otherwise a pool can survive
+		err = utils.CloseDatabaseSavedPoolsForName(instance, instance.Spec.Database)
+		if err != nil {
+			return r.manageError(reqLogger, instance, originalPatch, err)
 		}
 		// Remove finalizer
 		controllerutil.RemoveFinalizer(instance, config.Finalizer)
@@ -168,7 +175,7 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 	}
 
 	// Create PG instance
-	pg := utils.CreatePgInstance(reqLogger, secret.Data, &pgEngCfg.Spec)
+	pg := utils.CreatePgInstance(reqLogger, secret.Data, pgEngCfg)
 
 	// Create all identifiers now to check length
 	owner := instance.Spec.MasterRole
@@ -248,6 +255,11 @@ func (r *ReconcilePostgresqlDatabase) manageDBCreationOrUpdate(pg postgres.PG, i
 			if err != nil {
 				return err
 			}
+			// Close old saved pools
+			err = utils.CloseDatabaseSavedPoolsForName(instance, instance.Status.Database)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -291,7 +303,7 @@ func (r *ReconcilePostgresqlDatabase) manageDropDatabase(logger logr.Logger, ins
 	}
 
 	// Create PG instance
-	pg := utils.CreatePgInstance(logger, secret.Data, &pgEngCfg.Spec)
+	pg := utils.CreatePgInstance(logger, secret.Data, pgEngCfg)
 
 	// Drop roles first
 
@@ -321,6 +333,13 @@ func (r *ReconcilePostgresqlDatabase) manageDropDatabase(logger logr.Logger, ins
 		}
 		// Clear status
 		instance.Status.Roles.Reader = ""
+	}
+
+	// Close saved pools for this database
+	// This is is done twice in the sequence, but function is idempotent => not a problem and should be kept otherwise a pool can survive
+	err = utils.CloseDatabaseSavedPoolsForName(instance, instance.Spec.Database)
+	if err != nil {
+		return err
 	}
 
 	// Drop database
