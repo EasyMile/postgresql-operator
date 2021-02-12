@@ -177,7 +177,7 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	// Create pg instance
-	pgInstance := utils.CreatePgInstance(reqLogger, pgEngineSecret.Data, &pgEngineCfg.Spec)
+	pgInstance := utils.CreatePgInstance(reqLogger, pgEngineSecret.Data, pgEngineCfg)
 
 	role := instance.Status.PostgresRole
 	login := instance.Status.PostgresLogin
@@ -369,7 +369,7 @@ func (r *ReconcilePostgresqlUser) manageDeletion(reqLogger logr.Logger, instance
 	}
 
 	// Create pg instance
-	pgInstance := utils.CreatePgInstance(reqLogger, pgEngineSecret.Data, &pgEngineCfg.Spec)
+	pgInstance := utils.CreatePgInstance(reqLogger, pgEngineSecret.Data, pgEngineCfg)
 
 	// Prepare database name
 	databaseName := pgDB.Status.Database

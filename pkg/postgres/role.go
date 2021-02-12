@@ -28,7 +28,7 @@ func (c *pg) CreateGroupRole(role string) error {
 	if err != nil {
 		return err
 	}
-	defer c.close()
+
 	_, err = c.db.Exec(fmt.Sprintf(CreateGroupRoleSQLTemplate, role))
 	if err != nil {
 		// Try to cast error
@@ -47,7 +47,7 @@ func (c *pg) CreateUserRole(role, password string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer c.close()
+
 	_, err = c.db.Exec(fmt.Sprintf(CreateUserRoleSQLTemplate, role, password))
 	if err != nil {
 		return "", err
@@ -60,7 +60,7 @@ func (c *pg) GrantRole(role, grantee string) error {
 	if err != nil {
 		return err
 	}
-	defer c.close()
+
 	_, err = c.db.Exec(fmt.Sprintf(GrantRoleSQLTemplate, role, grantee))
 	if err != nil {
 		return err
@@ -73,7 +73,7 @@ func (c *pg) AlterDefaultLoginRole(role, setRole string) error {
 	if err != nil {
 		return err
 	}
-	defer c.close()
+
 	_, err = c.db.Exec(fmt.Sprintf(AlterUserSetRoleSQLTemplate, role, setRole))
 	if err != nil {
 		return err
@@ -86,7 +86,7 @@ func (c *pg) RevokeRole(role, revoked string) error {
 	if err != nil {
 		return err
 	}
-	defer c.close()
+
 	_, err = c.db.Exec(fmt.Sprintf(RevokeRoleSQLTemplate, role, revoked))
 	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
 	if err != nil {
@@ -105,7 +105,6 @@ func (c *pg) DropRole(role, newOwner, database string) error {
 	if err != nil {
 		return err
 	}
-	defer c.close()
 
 	_, err = c.db.Exec(fmt.Sprintf(ReassignObjectsSQLTemplate, role, newOwner))
 	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
@@ -126,12 +125,6 @@ func (c *pg) DropRole(role, newOwner, database string) error {
 		if !ok || pqErr.Code != RoleNotFoundErrorCode {
 			return err
 		}
-	}
-
-	// Close now and connect to default database
-	err = c.close()
-	if err != nil {
-		return err
 	}
 
 	err = c.connect(c.defaultDatabase)
@@ -155,7 +148,7 @@ func (c *pg) UpdatePassword(role, password string) error {
 	if err != nil {
 		return err
 	}
-	defer c.close()
+
 	_, err = c.db.Exec(fmt.Sprintf(UpdatePasswordSQLTemplate, role, password))
 	if err != nil {
 		return err
@@ -169,7 +162,7 @@ func (c *pg) IsRoleExist(role string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer c.close()
+
 	res, err := c.db.Exec(fmt.Sprintf(IsRoleExistSQLTemplate, role))
 	if err != nil {
 		return false, err
@@ -188,7 +181,7 @@ func (c *pg) RenameRole(oldname, newname string) error {
 	if err != nil {
 		return err
 	}
-	defer c.close()
+
 	_, err = c.db.Exec(fmt.Sprintf(RenameRoleSQLTemplate, oldname, newname))
 	if err != nil {
 		return err

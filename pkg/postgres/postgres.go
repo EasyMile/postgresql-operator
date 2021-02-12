@@ -46,9 +46,10 @@ type pg struct {
 	pass            string
 	args            string
 	defaultDatabase string
+	name            string
 }
 
-func NewPG(host, user, password, args, defaultDatabase string, port int, cloudType v1alpha1.ProviderType, logger logr.Logger) PG {
+func NewPG(name, host, user, password, args, defaultDatabase string, port int, cloudType v1alpha1.ProviderType, logger logr.Logger) PG {
 	postgres := &pg{
 		log:             logger,
 		host:            host,
@@ -57,6 +58,7 @@ func NewPG(host, user, password, args, defaultDatabase string, port int, cloudTy
 		pass:            password,
 		args:            args,
 		defaultDatabase: defaultDatabase,
+		name:            name,
 	}
 
 	switch cloudType {
@@ -89,13 +91,24 @@ func (c *pg) GetDefaultDatabase() string {
 	return c.defaultDatabase
 }
 
+func (c *pg) GetName() string {
+	return c.name
+}
+
+func (c *pg) GetPassword() string {
+	return c.pass
+}
+
 func (c *pg) connect(database string) error {
-	pgURL := TemplatePostgresqlURLWithArgs(c.host, c.user, c.pass, c.args, database, c.port)
-	db, err := sql.Open("postgres", pgURL)
+	// Open or create pool
+	db, err := getOrOpenPool(c, database)
+	// Check error
 	if err != nil {
 		return err
 	}
+	// Save db
 	c.db = db
+
 	return nil
 }
 
@@ -108,11 +121,7 @@ func (c *pg) Ping() error {
 	if err != nil {
 		return err
 	}
-	return c.close()
-}
-
-func (c *pg) close() error {
-	return c.db.Close()
+	return nil
 }
 
 func TemplatePostgresqlURLWithArgs(host, user, password, URIArgs, database string, port int) string {
