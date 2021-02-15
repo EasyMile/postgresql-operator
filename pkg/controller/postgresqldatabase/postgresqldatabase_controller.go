@@ -434,11 +434,6 @@ func (r *ReconcilePostgresqlDatabase) manageSchemas(pg postgres.PG, instance *po
 		writer = instance.Status.Roles.Writer
 	)
 	for _, schema := range instance.Spec.Schemas.List {
-		// Check if schema was created. Skip if already added
-		if funk.ContainsString(instance.Status.Schemas, schema) {
-			continue
-		}
-
 		// Create schema
 		err := pg.CreateSchema(instance.Spec.Database, owner, schema)
 		if err != nil {
@@ -455,7 +450,10 @@ func (r *ReconcilePostgresqlDatabase) manageSchemas(pg postgres.PG, instance *po
 			return err
 		}
 
-		instance.Status.Schemas = append(instance.Status.Schemas, schema)
+		// Check if schema was created. Skip if already added
+		if !funk.ContainsString(instance.Status.Schemas, schema) {
+			instance.Status.Schemas = append(instance.Status.Schemas, schema)
+		}
 	}
 	return nil
 }
@@ -485,16 +483,15 @@ func (r *ReconcilePostgresqlDatabase) manageExtensions(pg postgres.PG, instance 
 
 	// Manage extensions creation
 	for _, extension := range instance.Spec.Extensions.List {
-		// Check if extension was added. Skip if already added
-		if funk.ContainsString(instance.Status.Extensions, extension) {
-			continue
-		}
 		// Execute create extension SQL statement
 		err := pg.CreateExtension(instance.Spec.Database, extension)
 		if err != nil {
 			return err
 		}
-		instance.Status.Extensions = append(instance.Status.Extensions, extension)
+		// Check if extension was added. Skip if already added
+		if !funk.ContainsString(instance.Status.Extensions, extension) {
+			instance.Status.Extensions = append(instance.Status.Extensions, extension)
+		}
 	}
 
 	return nil
