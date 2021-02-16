@@ -16,7 +16,7 @@ spec:
       containers:
         - name: postgresql-operator
           # Replace this with the built image name
-          image: easymile/postgresql-operator:1.0.1
+          image: easymile/postgresql-operator:1.1.0
           command:
             - postgresql-operator
           imagePullPolicy: Always
