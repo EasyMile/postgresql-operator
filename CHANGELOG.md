@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.0
+
+### Bugs
+
+- Fix on dev resources
+- Fix autoheal on schema and extensions in databases
+- Fix typo in database user secret
+
+### Features
+
+- Keep all pools in memory to avoid recreating them at each synchronization loop
+- Check if roles and database don't already exist before trying to create them
+
 ## 1.0.1
 
 ### Bugs
