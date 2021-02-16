@@ -250,13 +250,13 @@ func (r *ReconcilePostgresqlDatabase) manageDBCreationOrUpdate(pg postgres.PG, i
 		// Check if "old" already exists and need to be renamed
 		// If needed, rename and let create db do his job
 		if exists && instance.Spec.Database != instance.Status.Database {
-			// Rename
-			err = pg.RenameDatabase(instance.Status.Database, instance.Spec.Database)
+			// Close old saved pools
+			err = utils.CloseDatabaseSavedPoolsForName(instance, instance.Status.Database)
 			if err != nil {
 				return err
 			}
-			// Close old saved pools
-			err = utils.CloseDatabaseSavedPoolsForName(instance, instance.Status.Database)
+			// Rename
+			err = pg.RenameDatabase(instance.Status.Database, instance.Spec.Database)
 			if err != nil {
 				return err
 			}
