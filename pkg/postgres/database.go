@@ -9,12 +9,11 @@ import (
 const (
 	CascadeKeyword                = "CASCADE"
 	RestrictKeyword               = "RESTRICT"
-	CreateDbSQLTemplate           = `CREATE DATABASE "%s"`
+	CreateDbSQLTemplate           = `CREATE DATABASE "%s" WITH OWNER = "%s"`
 	IsDatabaseExistSQLTemplate    = `SELECT 1 FROM pg_database WHERE datname='%s'`
 	RenameDatabaseSQLTemplate     = `ALTER DATABASE "%s" RENAME TO "%s"`
 	CreateSchemaSQLTemplate       = `CREATE SCHEMA IF NOT EXISTS "%s" AUTHORIZATION "%s"`
 	CreateExtensionSQLTemplate    = `CREATE EXTENSION IF NOT EXISTS "%s"`
-	AlterDbOwnerSQLTemplate       = `ALTER DATABASE "%s" OWNER TO "%s"`
 	DropDatabaseSQLTemplate       = `DROP DATABASE "%s"`
 	DropExtensionSQLTemplate      = `DROP EXTENSION IF EXISTS "%s" %s`
 	DropSchemaSQLTemplate         = `DROP SCHEMA IF EXISTS "%s" %s`
@@ -61,7 +60,7 @@ func (c *pg) CreateDB(dbname, role string) error {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(CreateDbSQLTemplate, dbname))
+	_, err = c.db.Exec(fmt.Sprintf(CreateDbSQLTemplate, dbname, role))
 	if err != nil {
 		// eat DUPLICATE DATABASE ERROR
 		// Try to cast error
@@ -71,10 +70,6 @@ func (c *pg) CreateDB(dbname, role string) error {
 		}
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(AlterDbOwnerSQLTemplate, dbname, role))
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
