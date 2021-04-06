@@ -169,9 +169,17 @@ func (r *ReconcilePostgresqlDatabase) Reconcile(request reconcile.Request) (reco
 	}
 
 	// Add finalizer and owners
-	err = r.updateInstance(instance, pgEngCfg)
+	updated, err := r.updateInstance(instance, pgEngCfg)
+	// Check error
 	if err != nil {
 		return r.manageError(reqLogger, instance, originalPatch, err)
+	}
+	// Check if it has been updated in order to stop this reconcile loop here for the moment
+	if updated {
+		return reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: time.Second,
+		}, nil
 	}
 
 	// Create PG instance
@@ -389,7 +397,10 @@ func (r *ReconcilePostgresqlDatabase) getAnyUserLinked(instance *postgresqlv1alp
 	return nil, nil
 }
 
-func (r *ReconcilePostgresqlDatabase) updateInstance(instance *postgresqlv1alpha1.PostgresqlDatabase, pgEngCfg *postgresqlv1alpha1.PostgresqlEngineConfiguration) error {
+func (r *ReconcilePostgresqlDatabase) updateInstance(
+	instance *postgresqlv1alpha1.PostgresqlDatabase,
+	pgEngCfg *postgresqlv1alpha1.PostgresqlEngineConfiguration,
+) (bool, error) {
 	// Deep copy
 	copy := instance.DeepCopy()
 
@@ -398,10 +409,10 @@ func (r *ReconcilePostgresqlDatabase) updateInstance(instance *postgresqlv1alpha
 
 	// Check if update is needed
 	if !reflect.DeepEqual(copy.ObjectMeta, instance.ObjectMeta) {
-		return r.client.Update(context.TODO(), instance)
+		return true, r.client.Update(context.TODO(), instance)
 	}
 
-	return nil
+	return false, nil
 }
 
 func (r *ReconcilePostgresqlDatabase) manageSchemas(pg postgres.PG, instance *postgresqlv1alpha1.PostgresqlDatabase) error {

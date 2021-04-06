@@ -175,9 +175,17 @@ func (r *ReconcilePostgresqlEngineConfiguration) Reconcile(request reconcile.Req
 	}
 
 	// Add default values and/or finalizer if needed
-	err = r.updateInstance(instance)
+	updated, err := r.updateInstance(instance)
+	// Check error
 	if err != nil {
 		return r.manageError(reqLogger, instance, originalPatch, err)
+	}
+	// Check if it has been updated in order to stop this reconcile loop here for the moment
+	if updated {
+		return reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: time.Second,
+		}, nil
 	}
 
 	// Calculate hash for status (this time is to update it in status)
@@ -247,7 +255,7 @@ func (r *ReconcilePostgresqlEngineConfiguration) getAnyDatabaseLinked(instance *
 	return nil, nil
 }
 
-func (r *ReconcilePostgresqlEngineConfiguration) updateInstance(instance *postgresqlv1alpha1.PostgresqlEngineConfiguration) error {
+func (r *ReconcilePostgresqlEngineConfiguration) updateInstance(instance *postgresqlv1alpha1.PostgresqlEngineConfiguration) (bool, error) {
 	// Deep copy
 	copy := instance.DeepCopy()
 
@@ -259,10 +267,10 @@ func (r *ReconcilePostgresqlEngineConfiguration) updateInstance(instance *postgr
 
 	// Check if update is needed
 	if !reflect.DeepEqual(instance, copy) {
-		return r.client.Update(context.TODO(), instance)
+		return true, r.client.Update(context.TODO(), instance)
 	}
 
-	return nil
+	return false, nil
 }
 
 // Add default values here to be saved in reconcile loop in order to help people to debug

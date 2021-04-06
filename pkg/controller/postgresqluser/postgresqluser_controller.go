@@ -171,9 +171,17 @@ func (r *ReconcilePostgresqlUser) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	// Add finalizer and owners
-	err = r.updateInstance(instance)
+	updated, err := r.updateInstance(instance)
+	// Check error
 	if err != nil {
 		return r.manageError(reqLogger, instance, originalPatch, err)
+	}
+	// Check if it has been updated in order to stop this reconcile loop here for the moment
+	if updated {
+		return reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: time.Second,
+		}, nil
 	}
 
 	// Create pg instance
@@ -387,7 +395,7 @@ func (r *ReconcilePostgresqlUser) manageDeletion(reqLogger logr.Logger, instance
 	return nil
 }
 
-func (r *ReconcilePostgresqlUser) updateInstance(instance *postgresqlv1alpha1.PostgresqlUser) error {
+func (r *ReconcilePostgresqlUser) updateInstance(instance *postgresqlv1alpha1.PostgresqlUser) (bool, error) {
 	// Deep copy
 	copy := instance.DeepCopy()
 
@@ -396,10 +404,10 @@ func (r *ReconcilePostgresqlUser) updateInstance(instance *postgresqlv1alpha1.Po
 
 	// Check if update is needed
 	if !reflect.DeepEqual(copy.ObjectMeta, instance.ObjectMeta) {
-		return r.client.Update(context.TODO(), instance)
+		return true, r.client.Update(context.TODO(), instance)
 	}
 
-	return nil
+	return false, nil
 }
 
 func (r *ReconcilePostgresqlUser) manageCreateUserRole(reqLogger logr.Logger, pgInstance postgres.PG, instance *postgresqlv1alpha1.PostgresqlUser, password string) (string, string, error) {
