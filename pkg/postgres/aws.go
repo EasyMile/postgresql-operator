@@ -51,7 +51,7 @@ func (c *awspg) CreateDB(dbname, role string) error {
 		// eat DUPLICATE DATABASE ERROR
 		// Try to cast error
 		pqErr, ok := err.(*pq.Error)
-		if !ok || pqErr.Code != "42P04" {
+		if !ok || pqErr.Code != DuplicateDatbaseErrorCode {
 			return err
 		}
 	}
