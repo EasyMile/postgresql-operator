@@ -20,6 +20,7 @@ const (
 	GrantUsageSchemaSQLTemplate   = `GRANT USAGE ON SCHEMA "%s" TO "%s"`
 	GrantAllTablesSQLTemplate     = `GRANT %s ON ALL TABLES IN SCHEMA "%s" TO "%s"`
 	DefaultPrivsSchemaSQLTemplate = `ALTER DEFAULT PRIVILEGES FOR ROLE "%s" IN SCHEMA "%s" GRANT %s ON TABLES TO "%s"`
+	DuplicateDatbaseErrorCode     = "42P04"
 )
 
 func (c *pg) IsDatabaseExist(dbname string) (bool, error) {
@@ -65,7 +66,7 @@ func (c *pg) CreateDB(dbname, role string) error {
 		// eat DUPLICATE DATABASE ERROR
 		// Try to cast error
 		pqErr, ok := err.(*pq.Error)
-		if !ok || pqErr.Code != "42P04" {
+		if !ok || pqErr.Code != DuplicateDatbaseErrorCode {
 			return err
 		}
 	}

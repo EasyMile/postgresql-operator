@@ -4,10 +4,10 @@ linters-settings:
     min-confidence: 0
   gocyclo:
     # a minimal complexity of function to report it
-    min-complexity: 60
+    min-complexity: 70
   gocognit:
     # minimal code complexity to report
-    min-complexity: 60
+    min-complexity: 70
   goconst:
     # only report strings with the minimum given length
     min-len: 2
