@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1
+
+### Bugs
+
+- Check if errors exist before logging
+- Create database with owner directly to avoid having databases with wrong owner
+- Fix potential race between default values save and current run of reconciler
+
 ## 1.1.0
 
 ### Bugs
