@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.2
+
+### Bugs
+
+- Fix group cannot be used to create a database because admin user isn't in that group
+
 ## 1.1.1
 
 ### Bugs

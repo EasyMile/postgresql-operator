@@ -1,0 +1,155 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: postgresql-operator.v1.1.2
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: PostgresqlDatabase is the Schema for the postgresqldatabases API
+      kind: PostgresqlDatabase
+      name: postgresqldatabases.postgresql.easymile.com
+      version: v1alpha1
+    - description: PostgresqlEngineConfiguration is the Schema for the postgresqlengineconfigurations
+        API
+      kind: PostgresqlEngineConfiguration
+      name: postgresqlengineconfigurations.postgresql.easymile.com
+      version: v1alpha1
+    - description: PostgresqlUser is the Schema for the postgresqlusers API
+      kind: PostgresqlUser
+      name: postgresqlusers.postgresql.easymile.com
+      version: v1alpha1
+  description: Placeholder description
+  displayName: Postgresql Operator
+  install:
+    spec:
+      deployments:
+      - name: postgresql-operator
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              name: postgresql-operator
+          strategy: {}
+          template:
+            metadata:
+              labels:
+                name: postgresql-operator
+            spec:
+              containers:
+              - command:
+                - postgresql-operator
+                env:
+                - name: WATCH_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['olm.targetNamespaces']
+                - name: POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                - name: OPERATOR_NAME
+                  value: postgresql-operator
+                image: easymile/postgresql-operator:1.1.2
+                imagePullPolicy: Always
+                name: postgresql-operator
+                resources: {}
+              serviceAccountName: postgresql-operator
+      permissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          - services
+          - services/finalizers
+          - endpoints
+          - persistentvolumeclaims
+          - events
+          - configmaps
+          - secrets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          - daemonsets
+          - replicasets
+          - statefulsets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
+          verbs:
+          - get
+          - create
+        - apiGroups:
+          - apps
+          resourceNames:
+          - postgresql-operator
+          resources:
+          - deployments/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          verbs:
+          - get
+        - apiGroups:
+          - apps
+          resources:
+          - replicasets
+          - deployments
+          verbs:
+          - get
+        - apiGroups:
+          - postgresql.easymile.com
+          resources:
+          - '*'
+          - postgresqlengineconfigurations
+          - postgresqldatabases
+          - postgresqlusers
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        serviceAccountName: postgresql-operator
+    strategy: deployment
+  installModes:
+  - supported: true
+    type: OwnNamespace
+  - supported: true
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  maturity: alpha
+  provider: {}
+  replaces: postgresql-operator.v0.0.0
+  version: 1.1.2
