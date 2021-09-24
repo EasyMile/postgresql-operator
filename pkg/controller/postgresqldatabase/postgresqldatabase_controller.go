@@ -543,6 +543,14 @@ func (r *ReconcilePostgresqlDatabase) manageReaderRole(pg postgres.PG, reader st
 			return err
 		}
 	}
+
+	// Grant role to current role
+	err = pg.GrantRole(reader, pg.GetUser())
+	// Check error
+	if err != nil {
+		return err
+	}
+
 	// Update status
 	instance.Status.Roles.Reader = reader
 	return nil
@@ -583,6 +591,14 @@ func (r *ReconcilePostgresqlDatabase) manageWriterRole(pg postgres.PG, writer st
 			return err
 		}
 	}
+
+	// Grant role to current role
+	err = pg.GrantRole(writer, pg.GetUser())
+	// Check error
+	if err != nil {
+		return err
+	}
+
 	// Update status
 	instance.Status.Roles.Writer = writer
 	return nil
@@ -623,6 +639,14 @@ func (r *ReconcilePostgresqlDatabase) manageOwnerRole(pg postgres.PG, owner stri
 			return err
 		}
 	}
+
+	// Grant role to current role
+	err = pg.GrantRole(owner, pg.GetUser())
+	// Check error
+	if err != nil {
+		return err
+	}
+
 	// Update status
 	instance.Status.Roles.Owner = owner
 	return nil
