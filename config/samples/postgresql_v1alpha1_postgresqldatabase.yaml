@@ -1,0 +1,52 @@
+apiVersion: postgresql.easymile.com/v1alpha1
+kind: PostgresqlDatabase
+metadata:
+  name: postgresqldatabase-sample
+spec:
+  # Engine configuration link
+  engineConfiguration:
+    # Resource name
+    name: simple
+    # Resource namespace
+    # Will use resource namespace if not set
+    # namespace:
+  # Database name
+  database: databasename
+  # Master role name
+  # Master role name will be used to create top group role.
+  # Database owner and users will be in this group role.
+  # Default is ""
+  masterRole: ""
+  # Should drop on delete ?
+  # Default set to false
+  dropOnDelete: true
+  # Wait for linked resource deletion to accept deletion of the current resource
+  # See documentation for more information
+  # Default set to false
+  waitLinkedResourcesDeletion: true
+  # Schemas
+  schemas:
+    # List of schemas to enable
+    list:
+      - schema1
+    # Should drop on delete ?
+    # Default set to false
+    # If set to false, removing from list won't delete schema from database
+    dropOnDelete: true
+    # Delete schema with cascade
+    # Default set to false
+    # For all elements that have used the deleted schema
+    deleteWithCascade: true
+  # Extensions
+  extensions:
+    # List of extensions to enable
+    list:
+      - uuid-ossp
+    # Should drop on delete ?
+    # Default set to false
+    # If set to false, removing from list won't delete extension from database
+    dropOnDelete: true
+    # Delete extension with cascade
+    # Default set to false
+    # For all elements that have used the deleted extension
+    deleteWithCascade: true

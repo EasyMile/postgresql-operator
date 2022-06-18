@@ -1,0 +1,85 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
+  - postgresqldatabases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
+  - postgresqldatabases/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
+  - postgresqldatabases/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
+  - postgresqlengineconfigurations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
+  - postgresqlengineconfigurations/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
+  - postgresqlengineconfigurations/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
+  - postgresqlusers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
+  - postgresqlusers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
+  - postgresqlusers/status
+  verbs:
+  - get
+  - patch
+  - update

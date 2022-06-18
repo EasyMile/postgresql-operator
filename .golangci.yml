@@ -22,7 +22,6 @@ run:
   # Skip lint on tests files
   tests: false
   timeout: 10m
-  modules-download-mode: vendor
 
 linters:
   enable-all: true
@@ -36,3 +35,20 @@ linters:
     - wsl
     - godox
     - gocritic
+    - wrapcheck
+    - varnamelen
+    - nestif
+    - nosprintfhostport
+    - nilnil
+    - goerr113
+    - ireturn
+    - gci
+    - ifshort
+    - forcetypeassert
+    - exhaustivestruct
+    - exhaustruct
+    - exhaustive
+    - errorlint
+    - cyclop
+    - maintidx
+    - gofumpt
