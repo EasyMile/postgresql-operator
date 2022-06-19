@@ -17,20 +17,34 @@ limitations under the License.
 package postgresql
 
 import (
+	"context"
+	"database/sql"
+	gerrors "errors"
+	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/lib/pq"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1"
+	"github.com/easymile/postgresql-operator/controllers/config"
+	"github.com/easymile/postgresql-operator/controllers/postgresql/postgres"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -40,6 +54,21 @@ import (
 var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
+var ctx context.Context
+var cancel context.CancelFunc
+var generalEventuallyTimeout = 60 * time.Second
+var generalEventuallyInterval = time.Second
+var pgecNamespace = "pgec-ns"
+var pgecName = "pgec-object"
+var pgecSecretName = "pgec-secret"
+var pgdbNamespace = "pgdb-ns"
+var pgdbName = "pgdb-object"
+var pgdbDBName = "super-db"
+var pguNamespace = "pgu-ns"
+var pguName = "pgu-object"
+var postgresUser = "postgres"
+var postgresPassword = "postgres"
+var postgresUrl = "postgresql://postgres:postgres@localhost:5432/?sslmode=disable"
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -51,6 +80,8 @@ func TestAPIs(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
+	ctx, cancel = context.WithCancel(context.TODO())
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -73,10 +104,392 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme: scheme.Scheme,
+	})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(k8sManager).ToNot(BeNil())
+
+	Expect((&PostgresqlEngineConfigurationReconciler{
+		Client:   k8sClient,
+		Log:      logf.Log.WithName("controllers"),
+		Recorder: k8sManager.GetEventRecorderFor("controller"),
+		Scheme:   scheme.Scheme,
+	}).SetupWithManager(k8sManager)).ToNot(HaveOccurred())
+
+	Expect((&PostgresqlDatabaseReconciler{
+		Client:   k8sClient,
+		Log:      logf.Log.WithName("controllers"),
+		Recorder: k8sManager.GetEventRecorderFor("controller"),
+		Scheme:   scheme.Scheme,
+	}).SetupWithManager(k8sManager)).ToNot(HaveOccurred())
+
+	Expect((&PostgresqlUserReconciler{
+		Client:   k8sClient,
+		Log:      logf.Log.WithName("controllers"),
+		Recorder: k8sManager.GetEventRecorderFor("controller"),
+		Scheme:   scheme.Scheme,
+	}).SetupWithManager(k8sManager)).ToNot(HaveOccurred())
+
+	go func() {
+		defer GinkgoRecover()
+		err = k8sManager.Start(ctx)
+		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
+	}()
+
+	Expect(k8sClient.Create(ctx, &corev1.Namespace{
+		ObjectMeta: v1.ObjectMeta{
+			Name: pgecNamespace,
+		},
+	})).ToNot(HaveOccurred())
+
+	Expect(k8sClient.Create(ctx, &corev1.Namespace{
+		ObjectMeta: v1.ObjectMeta{
+			Name: pgdbNamespace,
+		},
+	})).ToNot(HaveOccurred())
+
+	Expect(k8sClient.Create(ctx, &corev1.Namespace{
+		ObjectMeta: v1.ObjectMeta{
+			Name: pguNamespace,
+		},
+	})).ToNot(HaveOccurred())
 }, 60)
 
 var _ = AfterSuite(func() {
+	cancel()
 	By("tearing down the test environment")
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
+
+func cleanupFunction() {
+	// Force delete pgec
+	err := deletePGEC(ctx, k8sClient, pgecName, pgecNamespace)
+	Expect(err).ToNot(HaveOccurred())
+	// Force delete secrets
+	err = deleteSecret(ctx, k8sClient, pgecSecretName, pgecNamespace)
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(deletePGDB(ctx, k8sClient, pgdbName, pgdbNamespace)).ToNot(HaveOccurred())
+	Expect(deleteSQLDB(pgdbDBName)).ToNot(HaveOccurred())
+}
+
+func getSecret(ctx context.Context, cli client.Client, name, namespace string) (*corev1.Secret, error) {
+	sec := &corev1.Secret{}
+	// Get secret
+	err := cli.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, sec)
+
+	return sec, err
+}
+
+func deleteSecret(ctx context.Context, cl client.Client, name, namespace string) error {
+	// Create secret structure
+	secret := &corev1.Secret{}
+	// Delete
+	return deleteObject(ctx, cl, name, namespace, secret)
+}
+
+func deleteObject(
+	ctx context.Context,
+	cl client.Client,
+	name, namespace string,
+	obj controllerutil.Object,
+) error {
+	// Get item
+	err := cl.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, obj)
+	// Check error
+	if err != nil {
+		// Check if error is a not found error
+		if errors.IsNotFound(err) {
+			return nil
+		}
+
+		return err
+	}
+
+	// Delete finalizer
+	controllerutil.RemoveFinalizer(obj, config.Finalizer)
+
+	// Update it
+	err = cl.Update(ctx, obj)
+	// Check error
+	if err != nil {
+		return err
+	}
+
+	// Do the remove
+	err = cl.Delete(ctx, obj)
+	// Check error
+	if err != nil {
+		return err
+	}
+
+	// Get item to force cache clean
+	// Loop until it is cleaned or max try
+	for i := 0; i < 1000; i++ {
+		err = cl.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, obj)
+		// Check error
+		if err != nil {
+			// Check if error is a not found error
+			if errors.IsNotFound(err) {
+				return nil
+			}
+
+			return err
+		}
+		// Check if object is cleaned
+		if obj == nil {
+			return nil
+		}
+	}
+
+	return gerrors.New("object not cleaned")
+}
+
+func setupPGECSecret() *corev1.Secret {
+	// Create secret
+	sec := &corev1.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pgecSecretName,
+			Namespace: pgecNamespace,
+		},
+		StringData: map[string]string{
+			"user":     postgresUser,
+			"password": postgresPassword,
+		},
+	}
+
+	Expect(k8sClient.Create(ctx, sec)).To(Succeed())
+
+	return sec
+}
+
+func setupPGEC(
+	checkInterval string,
+	waitLinkedResourcesDeletion bool,
+) (*postgresqlv1alpha1.PostgresqlEngineConfiguration, *corev1.Secret) {
+	// Create secret
+	sec := setupPGECSecret()
+
+	// Create pgec
+	pgec := &postgresqlv1alpha1.PostgresqlEngineConfiguration{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pgecName,
+			Namespace: pgecNamespace,
+		},
+		Spec: postgresqlv1alpha1.PostgresqlEngineConfigurationSpec{
+			Provider:                    "",
+			Host:                        "localhost",
+			Port:                        5432,
+			URIArgs:                     "sslmode=disable",
+			DefaultDatabase:             "postgres",
+			CheckInterval:               checkInterval,
+			WaitLinkedResourcesDeletion: waitLinkedResourcesDeletion,
+			SecretName:                  pgecSecretName,
+		},
+	}
+
+	// Create
+	Expect(k8sClient.Create(ctx, pgec)).Should(Succeed())
+
+	// Get updated
+	Eventually(
+		func() error {
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgecName,
+				Namespace: pgecNamespace,
+			}, pgec)
+			// Check error
+			if err != nil {
+				return err
+			}
+
+			// Check if status hasn't been updated
+			if pgec.Status.Phase == postgresqlv1alpha1.EngineNoPhase {
+				return gerrors.New("pgec hasn't been updated by operator")
+			}
+
+			// Check if status is ready
+			if !pgec.Status.Ready {
+				return gerrors.New("pgec isn't valid")
+			}
+
+			return nil
+		},
+		generalEventuallyTimeout,
+		generalEventuallyInterval,
+	).
+		Should(Succeed())
+
+	return pgec, sec
+}
+
+func deletePGEC(ctx context.Context, cl client.Client, name, namespace string) error {
+	// Create provider structure
+	prov := &postgresqlv1alpha1.PostgresqlEngineConfiguration{}
+	// Delete
+	return deleteObject(ctx, cl, name, namespace, prov)
+}
+
+func setupPGDB(
+	waitLinkedResourcesDeletion bool,
+) *postgresqlv1alpha1.PostgresqlDatabase {
+	// Create pgdb
+	pgdb := &postgresqlv1alpha1.PostgresqlDatabase{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pgdbName,
+			Namespace: pgdbNamespace,
+		},
+		Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
+			Database:                    pgdbDBName,
+			WaitLinkedResourcesDeletion: waitLinkedResourcesDeletion,
+			EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				Name:      pgecName,
+				Namespace: pgecNamespace,
+			},
+		},
+	}
+
+	// Create
+	Expect(k8sClient.Create(ctx, pgdb)).Should(Succeed())
+
+	// Get updated
+	Eventually(
+		func() error {
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgdbName,
+				Namespace: pgdbNamespace,
+			}, pgdb)
+			// Check error
+			if err != nil {
+				return err
+			}
+
+			// Check if status hasn't been updated
+			if pgdb.Status.Phase == postgresqlv1alpha1.DatabaseNoPhase {
+				return gerrors.New("pgdb hasn't been updated by operator")
+			}
+
+			// Check if status is ready
+			if !pgdb.Status.Ready {
+				return gerrors.New("pgdb isn't valid")
+			}
+
+			return nil
+		},
+		generalEventuallyTimeout,
+		generalEventuallyInterval,
+	).
+		Should(Succeed())
+
+	return pgdb
+}
+
+func deletePGDB(ctx context.Context, cl client.Client, name, namespace string) error {
+	// Create structure
+	st := &postgresqlv1alpha1.PostgresqlDatabase{}
+	// Delete
+	return deleteObject(ctx, cl, name, namespace, st)
+}
+
+func deleteSQLDB(name string) error {
+	// Connect
+	db, err := sql.Open("postgres", postgresUrl)
+	// Check error
+	if err != nil {
+		return err
+	}
+
+	defer func() error {
+		return db.Close()
+	}()
+
+	_, err = db.Exec(fmt.Sprintf(postgres.DropDatabaseSQLTemplate, name))
+	// Error code 3D000 is returned if database doesn't exist
+	if err != nil {
+		// Try to cast error
+		pqErr, ok := err.(*pq.Error)
+		if !ok || pqErr.Code != "3D000" {
+			return err
+		}
+	}
+
+	// Default
+	return nil
+}
+
+func createSQLDB(name, role string) error {
+	// Connect
+	db, err := sql.Open("postgres", postgresUrl)
+	// Check error
+	if err != nil {
+		return err
+	}
+
+	defer func() error {
+		return db.Close()
+	}()
+
+	_, err = db.Exec(fmt.Sprintf(postgres.CreateDBSQLTemplate, name, role))
+	if err != nil {
+		// eat DUPLICATE DATABASE ERROR
+		// Try to cast error
+		pqErr, ok := err.(*pq.Error)
+		if !ok || pqErr.Code != postgres.DuplicateDatabaseErrorCode {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func isSQLDBExists(name string) (bool, error) {
+	// Connect
+	db, err := sql.Open("postgres", postgresUrl)
+	// Check error
+	if err != nil {
+		return false, err
+	}
+
+	defer func() error {
+		return db.Close()
+	}()
+
+	res, err := db.Exec(fmt.Sprintf(postgres.IsDatabaseExistSQLTemplate, name))
+	if err != nil {
+		return false, err
+	}
+	// Get affected rows
+	nb, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	return nb == 1, nil
+}
+
+func isSQLRoleExists(name string) (bool, error) {
+	// Connect
+	db, err := sql.Open("postgres", postgresUrl)
+	// Check error
+	if err != nil {
+		return false, err
+	}
+
+	defer func() error {
+		return db.Close()
+	}()
+
+	res, err := db.Exec(fmt.Sprintf(postgres.IsRoleExistSQLTemplate, name))
+	if err != nil {
+		return false, err
+	}
+	// Get affected rows
+	nb, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	return nb == 1, nil
+}

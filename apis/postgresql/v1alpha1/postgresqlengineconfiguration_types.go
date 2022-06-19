@@ -42,7 +42,10 @@ type PostgresqlEngineConfigurationSpec struct {
 	// Hostname
 	// +required
 	// +kubebuilder:validation:Required
-	Host string `json:"host"`
+	// +kubebuilder:validation:MinLength=1
+	// Must be omitempty to allow required check...
+	// Issue: https://github.com/kubernetes-sigs/controller-tools/issues/599
+	Host string `json:"host,omitempty"`
 	// Port
 	Port int `json:"port,omitempty"`
 	// URI args like sslmode, ...
@@ -56,7 +59,10 @@ type PostgresqlEngineConfigurationSpec struct {
 	// User and password secret
 	// +required
 	// +kubebuilder:validation:Required
-	SecretName string `json:"secretName"`
+	// +kubebuilder:validation:MinLength=1
+	// Must be omitempty to allow required check...
+	// Issue: https://github.com/kubernetes-sigs/controller-tools/issues/599
+	SecretName string `json:"secretName,omitempty"`
 }
 
 type EngineStatusPhase string

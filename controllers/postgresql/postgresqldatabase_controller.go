@@ -75,7 +75,7 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	// Fetch the PostgresqlDatabase instance
 	instance := &postgresqlv1alpha1.PostgresqlDatabase{}
-	err := r.Get(context.TODO(), req.NamespacedName, instance)
+	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -94,30 +94,30 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if !instance.GetDeletionTimestamp().IsZero() {
 		// Deletion in progress detected
 		// Test should delete database
-		shouldDelete, err := r.shouldDropDatabase(instance)
+		shouldDelete, err := r.shouldDropDatabase(ctx, instance)
 		if err != nil {
-			return r.manageError(reqLogger, instance, originalPatch, err)
+			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
 		// Check if should delete database is flagged
 		if shouldDelete {
 			// Drop database
 			err := r.manageDropDatabase(reqLogger, instance)
 			if err != nil {
-				return r.manageError(reqLogger, instance, originalPatch, err)
+				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 			}
 		}
 		// Close saved pools
 		// This is is done twice in the sequence, but function is idempotent => not a problem and should be kept otherwise a pool can survive
 		err = utils.CloseDatabaseSavedPoolsForName(instance, instance.Spec.Database)
 		if err != nil {
-			return r.manageError(reqLogger, instance, originalPatch, err)
+			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
 		// Remove finalizer
 		controllerutil.RemoveFinalizer(instance, config.Finalizer)
 		// Update CR
-		err = r.Update(context.TODO(), instance)
+		err = r.Update(ctx, instance)
 		if err != nil {
-			return r.manageError(reqLogger, instance, originalPatch, err)
+			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
 		// Stop reconcile
 		return ctrl.Result{}, nil
@@ -128,7 +128,7 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Try to find PostgresqlEngineConfiguration CR
 	pgEngCfg, err := utils.FindPgEngineCfg(r.Client, instance)
 	if err != nil {
-		return r.manageError(reqLogger, instance, originalPatch, err)
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
 
 	// Check that postgres engine configuration is ready before continue but only if it is the first time
@@ -146,14 +146,14 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Get secret linked to PostgresqlEngineConfiguration CR
 	secret, err := utils.FindSecretPgEngineCfg(r.Client, pgEngCfg)
 	if err != nil {
-		return r.manageError(reqLogger, instance, originalPatch, err)
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
 
 	// Add finalizer and owners
-	updated, err := r.updateInstance(instance, pgEngCfg)
+	updated, err := r.updateInstance(ctx, instance, pgEngCfg)
 	// Check error
 	if err != nil {
-		return r.manageError(reqLogger, instance, originalPatch, err)
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
 	// Check if it has been updated in order to stop this reconcile loop here for the moment
 	if updated {
@@ -178,56 +178,56 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if len(owner) > postgres.MaxIdentifierLength {
 		errStr := fmt.Sprintf("identifier too long, must be <= 63, %s is %d character, must reduce master role or database name length", owner, len(owner))
 
-		return r.manageError(reqLogger, instance, originalPatch, errors.NewBadRequest(errStr))
+		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewBadRequest(errStr))
 	}
 	if len(reader) > postgres.MaxIdentifierLength {
 		errStr := fmt.Sprintf("identifier too long, must be <= 63, %s is %d character, must reduce database name length", reader, len(reader))
 
-		return r.manageError(reqLogger, instance, originalPatch, errors.NewBadRequest(errStr))
+		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewBadRequest(errStr))
 	}
 	if len(writer) > postgres.MaxIdentifierLength {
 		errStr := fmt.Sprintf("identifier too long, must be <= 63, %s is %d character, must reduce database name length", writer, len(writer))
 
-		return r.manageError(reqLogger, instance, originalPatch, errors.NewBadRequest(errStr))
+		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewBadRequest(errStr))
 	}
 
 	// Create owner role
 	err = r.manageOwnerRole(pg, owner, instance)
 	if err != nil {
-		return r.manageError(reqLogger, instance, originalPatch, errors.NewInternalError(err))
+		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
 
 	// Create or update database
 	err = r.manageDBCreationOrUpdate(pg, instance, owner)
 	if err != nil {
-		return r.manageError(reqLogger, instance, originalPatch, errors.NewInternalError(err))
+		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
 
 	// Create reader role
 	err = r.manageReaderRole(pg, reader, instance)
 	if err != nil {
-		return r.manageError(reqLogger, instance, originalPatch, errors.NewInternalError(err))
+		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
 
 	// Create writer role
 	err = r.manageWriterRole(pg, writer, instance)
 	if err != nil {
-		return r.manageError(reqLogger, instance, originalPatch, errors.NewInternalError(err))
+		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
 
 	// Manage extensions
 	err = r.manageExtensions(pg, instance)
 	if err != nil {
-		return r.manageError(reqLogger, instance, originalPatch, errors.NewInternalError(err))
+		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
 
 	// Manage schema
 	err = r.manageSchemas(pg, instance)
 	if err != nil {
-		return r.manageError(reqLogger, instance, originalPatch, errors.NewInternalError(err))
+		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
 
-	return r.manageSuccess(reqLogger, instance, originalPatch)
+	return r.manageSuccess(ctx, reqLogger, instance, originalPatch)
 }
 
 func (r *PostgresqlDatabaseReconciler) manageDBCreationOrUpdate(pg postgres.PG, instance *postgresqlv1alpha1.PostgresqlDatabase, owner string) error {
@@ -339,11 +339,14 @@ func (r *PostgresqlDatabaseReconciler) manageDropDatabase(logger logr.Logger, in
 	return pg.DropDatabase(instance.Spec.Database)
 }
 
-func (r *PostgresqlDatabaseReconciler) shouldDropDatabase(instance *postgresqlv1alpha1.PostgresqlDatabase) (bool, error) {
+func (r *PostgresqlDatabaseReconciler) shouldDropDatabase(
+	ctx context.Context,
+	instance *postgresqlv1alpha1.PostgresqlDatabase,
+) (bool, error) {
 	// Check if wait linked resources deletion flag is enabled
 	if instance.Spec.WaitLinkedResourcesDeletion {
 		// Check if there are linked resource linked to this
-		existingUser, err := r.getAnyUserLinked(instance)
+		existingUser, err := r.getAnyUserLinked(ctx, instance)
 		if err != nil {
 			return false, err
 		}
@@ -364,11 +367,14 @@ func (r *PostgresqlDatabaseReconciler) shouldDropDatabase(instance *postgresqlv1
 	return false, nil
 }
 
-func (r *PostgresqlDatabaseReconciler) getAnyUserLinked(instance *postgresqlv1alpha1.PostgresqlDatabase) (*postgresqlv1alpha1.PostgresqlUser, error) {
+func (r *PostgresqlDatabaseReconciler) getAnyUserLinked(
+	ctx context.Context,
+	instance *postgresqlv1alpha1.PostgresqlDatabase,
+) (*postgresqlv1alpha1.PostgresqlUser, error) {
 	// Initialize postgres user list
 	userL := postgresqlv1alpha1.PostgresqlUserList{}
 	// Requests for list of users
-	err := r.List(context.TODO(), &userL)
+	err := r.List(ctx, &userL)
 	if err != nil {
 		return nil, err
 	}
@@ -384,6 +390,7 @@ func (r *PostgresqlDatabaseReconciler) getAnyUserLinked(instance *postgresqlv1al
 }
 
 func (r *PostgresqlDatabaseReconciler) updateInstance(
+	ctx context.Context,
 	instance *postgresqlv1alpha1.PostgresqlDatabase,
 	pgEngCfg *postgresqlv1alpha1.PostgresqlEngineConfiguration,
 ) (bool, error) {
@@ -395,7 +402,7 @@ func (r *PostgresqlDatabaseReconciler) updateInstance(
 
 	// Check if update is needed
 	if !reflect.DeepEqual(oCopy.ObjectMeta, instance.ObjectMeta) {
-		return true, r.Update(context.TODO(), instance)
+		return true, r.Update(ctx, instance)
 	}
 
 	return false, nil
@@ -644,7 +651,13 @@ func (r *PostgresqlDatabaseReconciler) manageOwnerRole(pg postgres.PG, owner str
 	return nil
 }
 
-func (r *PostgresqlDatabaseReconciler) manageError(logger logr.Logger, instance *postgresqlv1alpha1.PostgresqlDatabase, originalPatch client.Patch, issue error) (ctrl.Result, error) {
+func (r *PostgresqlDatabaseReconciler) manageError(
+	ctx context.Context,
+	logger logr.Logger,
+	instance *postgresqlv1alpha1.PostgresqlDatabase,
+	originalPatch client.Patch,
+	issue error,
+) (ctrl.Result, error) {
 	logger.Error(issue, "issue raised in reconcile")
 	// Add kubernetes event
 	r.Recorder.Event(instance, "Warning", "ProcessingError", issue.Error())
@@ -655,7 +668,7 @@ func (r *PostgresqlDatabaseReconciler) manageError(logger logr.Logger, instance 
 	instance.Status.Phase = postgresqlv1alpha1.DatabaseFailedPhase
 
 	// Patch status
-	err := r.Status().Patch(context.TODO(), instance, originalPatch)
+	err := r.Status().Patch(ctx, instance, originalPatch)
 	if err != nil {
 		logger.Error(err, "unable to update status")
 	}
@@ -667,14 +680,19 @@ func (r *PostgresqlDatabaseReconciler) manageError(logger logr.Logger, instance 
 	}, nil
 }
 
-func (r *PostgresqlDatabaseReconciler) manageSuccess(logger logr.Logger, instance *postgresqlv1alpha1.PostgresqlDatabase, originalPatch client.Patch) (ctrl.Result, error) {
+func (r *PostgresqlDatabaseReconciler) manageSuccess(
+	ctx context.Context,
+	logger logr.Logger,
+	instance *postgresqlv1alpha1.PostgresqlDatabase,
+	originalPatch client.Patch,
+) (ctrl.Result, error) {
 	// Update status
 	instance.Status.Message = ""
 	instance.Status.Ready = true
 	instance.Status.Phase = postgresqlv1alpha1.DatabaseCreatedPhase
 
 	// Patch status
-	err := r.Status().Patch(context.TODO(), instance, originalPatch)
+	err := r.Status().Patch(ctx, instance, originalPatch)
 	if err != nil {
 		logger.Error(err, "unable to update status")
 

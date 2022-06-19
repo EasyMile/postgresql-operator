@@ -79,7 +79,7 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// Fetch the PostgresqlUser instance
 	instance := &postgresqlv1alpha1.PostgresqlUser{}
-	err := r.Get(context.TODO(), req.NamespacedName, instance)
+	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -99,14 +99,14 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// Deletion detected
 		err = r.manageDeletion(reqLogger, instance)
 		if err != nil {
-			return r.manageError(reqLogger, instance, originalPatch, err)
+			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
 		// Remove finalizer
 		controllerutil.RemoveFinalizer(instance, config.Finalizer)
 		// Update CR
-		err = r.Update(context.TODO(), instance)
+		err = r.Update(ctx, instance)
 		if err != nil {
-			return r.manageError(reqLogger, instance, originalPatch, err)
+			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
 		// Stop reconcile
 		return reconcile.Result{}, nil
@@ -117,7 +117,7 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Find PG Database
 	pgDB, err := utils.FindPgDatabase(r.Client, instance)
 	if err != nil {
-		return r.manageError(reqLogger, instance, originalPatch, err)
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
 
 	// Check that postgres database is ready before continue but only if it is the first time
@@ -135,20 +135,20 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Find PG Engine cfg
 	pgEngineCfg, err := utils.FindPgEngineCfg(r.Client, pgDB)
 	if err != nil {
-		return r.manageError(reqLogger, instance, originalPatch, err)
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
 
 	// Find PG Engine secret
 	pgEngineSecret, err := utils.FindSecretPgEngineCfg(r.Client, pgEngineCfg)
 	if err != nil {
-		return r.manageError(reqLogger, instance, originalPatch, err)
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
 
 	// Add finalizer and owners
-	updated, err := r.updateInstance(instance)
+	updated, err := r.updateInstance(ctx, instance)
 	// Check error
 	if err != nil {
-		return r.manageError(reqLogger, instance, originalPatch, err)
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
 	// Check if it has been updated in order to stop this reconcile loop here for the moment
 	if updated {
@@ -170,7 +170,7 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// Previous role prefix doesn't match new one => need to create new role
 		role, login, err = r.manageCreateUserRole(reqLogger, pgInstance, instance, password)
 		if err != nil {
-			return r.manageError(reqLogger, instance, originalPatch, err)
+			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
 		// Update status
 		instance.Status.PostgresRole = role
@@ -180,14 +180,14 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Check if user was already created and if it is still present in engine
 	exists, err := pgInstance.IsRoleExist(role)
 	if err != nil {
-		return r.manageError(reqLogger, instance, originalPatch, err)
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
 	// Check result
 	if !exists {
 		// Need to create a new user role
 		role, login, err = r.manageCreateUserRole(reqLogger, pgInstance, instance, password)
 		if err != nil {
-			return r.manageError(reqLogger, instance, originalPatch, err)
+			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
 		// Update status with new role and login
 		instance.Status.PostgresRole = role
@@ -211,19 +211,19 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// Revoke old group from potentially old user role
 		err = pgInstance.RevokeRole(instance.Status.PostgresGroup, instance.Status.PostgresRole)
 		if err != nil {
-			return r.manageError(reqLogger, instance, originalPatch, err)
+			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
 	}
 	err = pgInstance.GrantRole(groupRole, role)
 	if err != nil {
-		return r.manageError(reqLogger, instance, originalPatch, err)
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
 
 	// Alter default set role to group role
 	// This is so that objects created by user gets owned by group role
 	err = pgInstance.AlterDefaultLoginRole(role, groupRole)
 	if err != nil {
-		return r.manageError(reqLogger, instance, originalPatch, err)
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
 
 	// Update status
@@ -233,15 +233,15 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Create new secret
 	generatedSecret, err := r.newSecretForPGUser(instance, role, password, login, pgInstance)
 	if err != nil {
-		return r.manageError(reqLogger, instance, originalPatch, err)
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
 
 	// Check if this Secret already exists
 	secrFound := &corev1.Secret{}
-	err = r.Get(context.TODO(), types.NamespacedName{Name: generatedSecret.Name, Namespace: generatedSecret.Namespace}, secrFound)
+	err = r.Get(ctx, types.NamespacedName{Name: generatedSecret.Name, Namespace: generatedSecret.Namespace}, secrFound)
 	// Check if error exists and not a not found error
 	if err != nil && !errors.IsNotFound(err) {
-		return r.manageError(reqLogger, instance, originalPatch, err)
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
 
 	// Check if error exists and if it a not found error
@@ -251,13 +251,13 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// Update password in pg
 		err = pgInstance.UpdatePassword(role, password)
 		if err != nil {
-			return r.manageError(reqLogger, instance, originalPatch, err)
+			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
 		reqLogger.Info("Creating secret", "Secret.Namespace", generatedSecret.Namespace, "Secret.Name", generatedSecret.Name)
 		r.Recorder.Event(instance, "Normal", "Processing", fmt.Sprintf("Creating secret %s for Postgresql User", generatedSecret.Name))
-		err = r.Create(context.TODO(), generatedSecret)
+		err = r.Create(ctx, generatedSecret)
 		if err != nil {
-			return r.manageError(reqLogger, instance, originalPatch, err)
+			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
 
 		// Update status
@@ -267,14 +267,14 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		reqLogger.Info("Updating password in Postgresql Engine")
 		err = pgInstance.UpdatePassword(role, password)
 		if err != nil {
-			return r.manageError(reqLogger, instance, originalPatch, err)
+			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
 
 		// Need to update secret
 		reqLogger.Info("Updating secret because secret has changed", "Secret.Namespace", generatedSecret.Namespace, "Secret.Name", generatedSecret.Name)
-		err = r.updatePGUserSecret(secrFound, generatedSecret)
+		err = r.updatePGUserSecret(ctx, secrFound, generatedSecret)
 		if err != nil {
-			return r.manageError(reqLogger, instance, originalPatch, err)
+			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
 
 		// Update status
@@ -283,14 +283,14 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// Try to parse duration
 		dur, err := time.ParseDuration(instance.Spec.UserPasswordRotationDuration)
 		if err != nil {
-			return r.manageError(reqLogger, instance, originalPatch, err)
+			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
 
 		// Check if is time to change
 		now := time.Now()
 		lastChange, err := time.Parse(time.RFC3339, instance.Status.LastPasswordChangedTime)
 		if err != nil {
-			return r.manageError(reqLogger, instance, originalPatch, err)
+			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
 
 		if now.Sub(lastChange) >= dur {
@@ -300,20 +300,20 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			reqLogger.Info("Updating password in Postgresql Engine")
 			err = pgInstance.UpdatePassword(role, password)
 			if err != nil {
-				return r.manageError(reqLogger, instance, originalPatch, err)
+				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 			}
 			// Need to update secret
 			reqLogger.Info("Updating secret", "Secret.Namespace", generatedSecret.Namespace, "Secret.Name", generatedSecret.Name)
-			err = r.updatePGUserSecret(secrFound, generatedSecret)
+			err = r.updatePGUserSecret(ctx, secrFound, generatedSecret)
 			if err != nil {
-				return r.manageError(reqLogger, instance, originalPatch, err)
+				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 			}
 			// Update status
 			instance.Status.LastPasswordChangedTime = now.Format(time.RFC3339)
 		}
 	}
 
-	return r.manageSuccess(reqLogger, instance, originalPatch)
+	return r.manageSuccess(ctx, reqLogger, instance, originalPatch)
 }
 
 func (r *PostgresqlUserReconciler) manageDeletion(reqLogger logr.Logger, instance *postgresqlv1alpha1.PostgresqlUser) error {
@@ -373,7 +373,10 @@ func (r *PostgresqlUserReconciler) manageDeletion(reqLogger logr.Logger, instanc
 	return nil
 }
 
-func (r *PostgresqlUserReconciler) updateInstance(instance *postgresqlv1alpha1.PostgresqlUser) (bool, error) {
+func (r *PostgresqlUserReconciler) updateInstance(
+	ctx context.Context,
+	instance *postgresqlv1alpha1.PostgresqlUser,
+) (bool, error) {
 	// Deep copy
 	oCopy := instance.DeepCopy()
 
@@ -382,7 +385,7 @@ func (r *PostgresqlUserReconciler) updateInstance(instance *postgresqlv1alpha1.P
 
 	// Check if update is needed
 	if !reflect.DeepEqual(oCopy.ObjectMeta, instance.ObjectMeta) {
-		return true, r.Update(context.TODO(), instance)
+		return true, r.Update(ctx, instance)
 	}
 
 	return false, nil
@@ -420,12 +423,15 @@ func (r *PostgresqlUserReconciler) manageCreateUserRole(reqLogger logr.Logger, p
 	return role, login, nil
 }
 
-func (r *PostgresqlUserReconciler) updatePGUserSecret(foundSecret, newSecret *corev1.Secret) error {
+func (r *PostgresqlUserReconciler) updatePGUserSecret(
+	ctx context.Context,
+	foundSecret, newSecret *corev1.Secret,
+) error {
 	// Update old secret data with new data
 	foundSecret.Data = newSecret.Data
 
 	// Save it
-	err := r.Update(context.TODO(), foundSecret)
+	err := r.Update(ctx, foundSecret)
 	if err != nil {
 		return err
 	}
@@ -506,7 +512,13 @@ func (r *PostgresqlUserReconciler) newSecretForPGUser(instance *postgresqlv1alph
 	return secret, err
 }
 
-func (r *PostgresqlUserReconciler) manageError(logger logr.Logger, instance *postgresqlv1alpha1.PostgresqlUser, originalPatch client.Patch, issue error) (reconcile.Result, error) {
+func (r *PostgresqlUserReconciler) manageError(
+	ctx context.Context,
+	logger logr.Logger,
+	instance *postgresqlv1alpha1.PostgresqlUser,
+	originalPatch client.Patch,
+	issue error,
+) (reconcile.Result, error) {
 	logger.Error(issue, "issue raised in reconcile")
 	// Add kubernetes event
 	r.Recorder.Event(instance, "Warning", "ProcessingError", issue.Error())
@@ -517,7 +529,7 @@ func (r *PostgresqlUserReconciler) manageError(logger logr.Logger, instance *pos
 	instance.Status.Phase = postgresqlv1alpha1.UserFailedPhase
 
 	// Patch status
-	err := r.Status().Patch(context.TODO(), instance, originalPatch)
+	err := r.Status().Patch(ctx, instance, originalPatch)
 	if err != nil {
 		logger.Error(err, "unable to update status")
 	}
@@ -529,14 +541,19 @@ func (r *PostgresqlUserReconciler) manageError(logger logr.Logger, instance *pos
 	}, nil
 }
 
-func (r *PostgresqlUserReconciler) manageSuccess(logger logr.Logger, instance *postgresqlv1alpha1.PostgresqlUser, originalPatch client.Patch) (reconcile.Result, error) {
+func (r *PostgresqlUserReconciler) manageSuccess(
+	ctx context.Context,
+	logger logr.Logger,
+	instance *postgresqlv1alpha1.PostgresqlUser,
+	originalPatch client.Patch,
+) (reconcile.Result, error) {
 	// Update status
 	instance.Status.Message = ""
 	instance.Status.Ready = true
 	instance.Status.Phase = postgresqlv1alpha1.UserCreatedPhase
 
 	// Patch status
-	err := r.Status().Patch(context.TODO(), instance, originalPatch)
+	err := r.Status().Patch(ctx, instance, originalPatch)
 	if err != nil {
 		logger.Error(err, "unable to update status")
 
