@@ -155,7 +155,29 @@ var _ = Describe("Postgresql Engine Configuration tests", func() {
 		// Checks
 		Expect(item.Status.Ready).To(BeTrue())
 		Expect(item.Status.Phase).To(BeEquivalentTo(postgresqlv1alpha1.DatabaseCreatedPhase))
-		// Expect(item.Status.Message).To(Be("\"fake\" not found"))
+		Expect(item.Status.Database).To(BeEquivalentTo(pgdbDBName))
+		Expect(item.Status.Message).To(BeEquivalentTo(""))
+		Expect(item.Status.Roles.Owner).To(BeEquivalentTo(fmt.Sprintf("%s-owner", pgdbDBName)))
+		Expect(item.Status.Roles.Reader).To(BeEquivalentTo(fmt.Sprintf("%s-reader", pgdbDBName)))
+		Expect(item.Status.Roles.Writer).To(BeEquivalentTo(fmt.Sprintf("%s-writer", pgdbDBName)))
+
+		// Check if DB exists
+		exists, err := isSQLDBExists(pgdbDBName)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
+
+		// Check if roles exists
+		ownerRoleExists, ownerRoleErr := isSQLRoleExists(fmt.Sprintf("%s-owner", pgdbDBName))
+		Expect(ownerRoleErr).ToNot(HaveOccurred())
+		Expect(ownerRoleExists).To(BeTrue())
+
+		readerRoleExists, readerRoleErr := isSQLRoleExists(fmt.Sprintf("%s-reader", pgdbDBName))
+		Expect(readerRoleErr).ToNot(HaveOccurred())
+		Expect(readerRoleExists).To(BeTrue())
+
+		writerRoleExists, writerRoleErr := isSQLRoleExists(fmt.Sprintf("%s-writer", pgdbDBName))
+		Expect(writerRoleErr).ToNot(HaveOccurred())
+		Expect(writerRoleExists).To(BeTrue())
 	})
 
 	It("should be ok to set all values (required & optional)", func() {
@@ -221,7 +243,29 @@ var _ = Describe("Postgresql Engine Configuration tests", func() {
 		// Checks
 		Expect(item.Status.Ready).To(BeTrue())
 		Expect(item.Status.Phase).To(BeEquivalentTo(postgresqlv1alpha1.DatabaseCreatedPhase))
-		//Expect(item.Status.Message).To(ContainSubstring("\"fake\" not found"))
+		Expect(item.Status.Database).To(BeEquivalentTo(pgdbDBName))
+		Expect(item.Status.Message).To(BeEquivalentTo(""))
+		Expect(item.Status.Roles.Owner).To(BeEquivalentTo("master"))
+		Expect(item.Status.Roles.Reader).To(BeEquivalentTo(fmt.Sprintf("%s-reader", pgdbDBName)))
+		Expect(item.Status.Roles.Writer).To(BeEquivalentTo(fmt.Sprintf("%s-writer", pgdbDBName)))
+
+		// Check if DB exists
+		exists, err := isSQLDBExists(pgdbDBName)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
+
+		// Check if roles exists
+		ownerRoleExists, ownerRoleErr := isSQLRoleExists("master")
+		Expect(ownerRoleErr).ToNot(HaveOccurred())
+		Expect(ownerRoleExists).To(BeTrue())
+
+		readerRoleExists, readerRoleErr := isSQLRoleExists(fmt.Sprintf("%s-reader", pgdbDBName))
+		Expect(readerRoleErr).ToNot(HaveOccurred())
+		Expect(readerRoleExists).To(BeTrue())
+
+		writerRoleExists, writerRoleErr := isSQLRoleExists(fmt.Sprintf("%s-writer", pgdbDBName))
+		Expect(writerRoleErr).ToNot(HaveOccurred())
+		Expect(writerRoleExists).To(BeTrue())
 	})
 
 	It("should drop database on crd deletion if DropOnDelete set to true", func() {
@@ -284,7 +328,8 @@ var _ = Describe("Postgresql Engine Configuration tests", func() {
 		).Should(Succeed())
 
 		// Check DB exists
-		exists, _ := isSQLDBExists(pgdbDBName)
+		exists, err := isSQLDBExists(pgdbDBName)
+		Expect(err).ToNot(HaveOccurred())
 		Expect(exists).To(BeTrue())
 
 		// Then delete CR
@@ -314,7 +359,8 @@ var _ = Describe("Postgresql Engine Configuration tests", func() {
 		).ShouldNot(Succeed())
 
 		// Check DB does not exists anymore
-		stillExists, _ := isSQLDBExists(pgdbDBName)
+		stillExists, stillErr := isSQLDBExists(pgdbDBName)
+		Expect(stillErr).ToNot(HaveOccurred())
 		Expect(stillExists).To(BeFalse())
 	})
 
@@ -378,7 +424,8 @@ var _ = Describe("Postgresql Engine Configuration tests", func() {
 		).Should(Succeed())
 
 		// Check DB exists
-		exists, _ := isSQLDBExists(pgdbDBName)
+		exists, err := isSQLDBExists(pgdbDBName)
+		Expect(err).ToNot(HaveOccurred())
 		Expect(exists).To(BeTrue())
 
 		// Then delete CR
@@ -408,71 +455,8 @@ var _ = Describe("Postgresql Engine Configuration tests", func() {
 		).ShouldNot(Succeed())
 
 		// Check DB does not exists anymore
-		stillExists, _ := isSQLDBExists(pgdbDBName)
+		stillExists, stillErr := isSQLDBExists(pgdbDBName)
+		Expect(stillErr).ToNot(HaveOccurred())
 		Expect(stillExists).To(BeTrue())
-	})
-
-	It("should set given role to owner and other users", func() {
-		// Create pgec
-		prov, _ := setupPGEC("10s", false)
-
-		// Create pgdb
-		it := &postgresqlv1alpha1.PostgresqlDatabase{
-			ObjectMeta: v1.ObjectMeta{
-				Name:      pgdbName,
-				Namespace: pgdbNamespace,
-			},
-			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
-				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
-					Name:      prov.Name,
-					Namespace: prov.Namespace,
-				},
-				MasterRole:                  "master",
-				DropOnDelete:                false,
-				WaitLinkedResourcesDeletion: false,
-				Schemas: postgresqlv1alpha1.DatabaseModulesList{
-					List:              make([]string, 0),
-					DropOnOnDelete:    false,
-					DeleteWithCascade: false,
-				},
-				Extensions: postgresqlv1alpha1.DatabaseModulesList{
-					List:              make([]string, 0),
-					DropOnOnDelete:    false,
-					DeleteWithCascade: false,
-				},
-			},
-		}
-
-		// First create CR
-		Expect(k8sClient.Create(ctx, it)).Should(Succeed())
-
-		item := &postgresqlv1alpha1.PostgresqlDatabase{}
-		Eventually(
-			func() error {
-				// Check if status hasn't been updated
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      pgdbName,
-					Namespace: pgdbNamespace,
-				}, item)
-				// Check error
-				if err != nil {
-					return err
-				}
-
-				// Check if status hasn't been updated
-				if item.Status.Phase == postgresqlv1alpha1.DatabaseNoPhase {
-					return errors.New("pgdb hasn't been updated by operator")
-				}
-
-				return nil
-			},
-			generalEventuallyTimeout,
-			generalEventuallyInterval,
-		).Should(Succeed())
-
-		Expect(item.Status.Roles.Owner).To(BeEquivalentTo("master"))
-		Expect(item.Status.Roles.Reader).To(BeEquivalentTo(fmt.Sprintf("%s-reader", pgdbDBName)))
-		Expect(item.Status.Roles.Writer).To(BeEquivalentTo(fmt.Sprintf("%s-writer", pgdbDBName)))
 	})
 })
