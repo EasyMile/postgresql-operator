@@ -104,4 +104,375 @@ var _ = Describe("Postgresql Engine Configuration tests", func() {
 		Expect(item.Status.Phase).To(BeEquivalentTo(postgresqlv1alpha1.EngineFailedPhase))
 		Expect(item.Status.Message).To(ContainSubstring("\"fake\" not found"))
 	})
+
+	It("should be ok to set only required values", func() {
+		// Create pgec
+		prov, _ := setupPGEC("10s", false)
+
+		// Create pgdb
+		it := &postgresqlv1alpha1.PostgresqlDatabase{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      pgdbName,
+				Namespace: pgdbNamespace,
+			},
+			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
+				Database: pgdbDBName,
+				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+					Name:      prov.Name,
+					Namespace: prov.Namespace,
+				},
+			},
+		}
+
+		// Create provider
+		Expect(k8sClient.Create(ctx, it)).Should(Succeed())
+
+		item := &postgresqlv1alpha1.PostgresqlDatabase{}
+		// Get updated pgdb
+		Eventually(
+			func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgdbName,
+					Namespace: pgdbNamespace,
+				}, item)
+				// Check error
+				if err != nil {
+					return err
+				}
+
+				// Check if status hasn't been updated
+				if item.Status.Phase == postgresqlv1alpha1.DatabaseNoPhase {
+					return errors.New("pgdb hasn't been updated by operator")
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).
+			Should(Succeed())
+
+		// Checks
+		Expect(item.Status.Ready).To(BeTrue())
+		Expect(item.Status.Phase).To(BeEquivalentTo(postgresqlv1alpha1.DatabaseCreatedPhase))
+		// Expect(item.Status.Message).To(Be("\"fake\" not found"))
+	})
+
+	It("should be ok to set all values (required & optional)", func() {
+		// Create pgec
+		prov, _ := setupPGEC("10s", false)
+
+		// Create pgdb
+		it := &postgresqlv1alpha1.PostgresqlDatabase{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      pgdbName,
+				Namespace: pgdbNamespace,
+			},
+			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
+				Database: pgdbDBName,
+				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+					Name:      prov.Name,
+					Namespace: prov.Namespace,
+				},
+				MasterRole:                  "master",
+				DropOnDelete:                false,
+				WaitLinkedResourcesDeletion: false,
+				Schemas: postgresqlv1alpha1.DatabaseModulesList{
+					List:              make([]string, 0),
+					DropOnOnDelete:    false,
+					DeleteWithCascade: false,
+				},
+				Extensions: postgresqlv1alpha1.DatabaseModulesList{
+					List:              make([]string, 0),
+					DropOnOnDelete:    false,
+					DeleteWithCascade: false,
+				},
+			},
+		}
+
+		// Create provider
+		Expect(k8sClient.Create(ctx, it)).Should(Succeed())
+
+		item := &postgresqlv1alpha1.PostgresqlDatabase{}
+		// Get updated pgdb
+		Eventually(
+			func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgdbName,
+					Namespace: pgdbNamespace,
+				}, item)
+				// Check error
+				if err != nil {
+					return err
+				}
+
+				// Check if status hasn't been updated
+				if item.Status.Phase == postgresqlv1alpha1.DatabaseNoPhase {
+					return errors.New("pgdb hasn't been updated by operator")
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).
+			Should(Succeed())
+
+		// Checks
+		Expect(item.Status.Ready).To(BeTrue())
+		Expect(item.Status.Phase).To(BeEquivalentTo(postgresqlv1alpha1.DatabaseCreatedPhase))
+		//Expect(item.Status.Message).To(ContainSubstring("\"fake\" not found"))
+	})
+
+	It("should drop database on crd deletion if DropOnDelete set to true", func() {
+		// Create pgec
+		prov, _ := setupPGEC("10s", false)
+
+		// Create pgdb
+		it := &postgresqlv1alpha1.PostgresqlDatabase{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      pgdbName,
+				Namespace: pgdbNamespace,
+			},
+			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
+				Database: pgdbDBName,
+				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+					Name:      prov.Name,
+					Namespace: prov.Namespace,
+				},
+				MasterRole:                  "master",
+				DropOnDelete:                true,
+				WaitLinkedResourcesDeletion: false,
+				Schemas: postgresqlv1alpha1.DatabaseModulesList{
+					List:              make([]string, 0),
+					DropOnOnDelete:    false,
+					DeleteWithCascade: false,
+				},
+				Extensions: postgresqlv1alpha1.DatabaseModulesList{
+					List:              make([]string, 0),
+					DropOnOnDelete:    false,
+					DeleteWithCascade: false,
+				},
+			},
+		}
+
+		// First create CR
+		Expect(k8sClient.Create(ctx, it)).Should(Succeed())
+
+		item := &postgresqlv1alpha1.PostgresqlDatabase{}
+		Eventually(
+			func() error {
+				// Check if status hasn't been updated
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgdbName,
+					Namespace: pgdbNamespace,
+				}, item)
+				// Check error
+				if err != nil {
+					return err
+				}
+
+				// Check if status hasn't been updated
+				if item.Status.Phase == postgresqlv1alpha1.DatabaseNoPhase {
+					return errors.New("pgdb hasn't been updated by operator")
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
+
+		// Check DB exists
+		exists, _ := isSQLDBExists(pgdbDBName)
+		Expect(exists).To(BeTrue())
+
+		// Then delete CR
+		Expect(k8sClient.Delete(ctx, it)).Should(Succeed())
+
+		Eventually(
+			func() error {
+				// Check if status hasn't been updated
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgdbName,
+					Namespace: pgdbNamespace,
+				}, item)
+				// Check error
+				if err != nil {
+					return err
+				}
+
+				// Check if status hasn't been updated
+				if item.Status.Phase == postgresqlv1alpha1.DatabaseNoPhase {
+					return errors.New("pgdb hasn't been updated by operator")
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).ShouldNot(Succeed())
+
+		// Check DB does not exists anymore
+		stillExists, _ := isSQLDBExists(pgdbDBName)
+		Expect(stillExists).To(BeFalse())
+	})
+
+	It("should keep database on crd deletion if DropOnDelete set to false", func() {
+		// Create pgec
+		prov, _ := setupPGEC("10s", false)
+
+		// Create pgdb
+		it := &postgresqlv1alpha1.PostgresqlDatabase{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      pgdbName,
+				Namespace: pgdbNamespace,
+			},
+			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
+				Database: pgdbDBName,
+				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+					Name:      prov.Name,
+					Namespace: prov.Namespace,
+				},
+				MasterRole:                  "master",
+				DropOnDelete:                false,
+				WaitLinkedResourcesDeletion: false,
+				Schemas: postgresqlv1alpha1.DatabaseModulesList{
+					List:              make([]string, 0),
+					DropOnOnDelete:    false,
+					DeleteWithCascade: false,
+				},
+				Extensions: postgresqlv1alpha1.DatabaseModulesList{
+					List:              make([]string, 0),
+					DropOnOnDelete:    false,
+					DeleteWithCascade: false,
+				},
+			},
+		}
+
+		// First create CR
+		Expect(k8sClient.Create(ctx, it)).Should(Succeed())
+
+		item := &postgresqlv1alpha1.PostgresqlDatabase{}
+		Eventually(
+			func() error {
+				// Check if status hasn't been updated
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgdbName,
+					Namespace: pgdbNamespace,
+				}, item)
+				// Check error
+				if err != nil {
+					return err
+				}
+
+				// Check if status hasn't been updated
+				if item.Status.Phase == postgresqlv1alpha1.DatabaseNoPhase {
+					return errors.New("pgdb hasn't been updated by operator")
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
+
+		// Check DB exists
+		exists, _ := isSQLDBExists(pgdbDBName)
+		Expect(exists).To(BeTrue())
+
+		// Then delete CR
+		Expect(k8sClient.Delete(ctx, it)).Should(Succeed())
+
+		Eventually(
+			func() error {
+				// Check if status hasn't been updated
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgdbName,
+					Namespace: pgdbNamespace,
+				}, item)
+				// Check error
+				if err != nil {
+					return err
+				}
+
+				// Check if status hasn't been updated
+				if item.Status.Phase == postgresqlv1alpha1.DatabaseNoPhase {
+					return errors.New("pgdb hasn't been updated by operator")
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).ShouldNot(Succeed())
+
+		// Check DB does not exists anymore
+		stillExists, _ := isSQLDBExists(pgdbDBName)
+		Expect(stillExists).To(BeTrue())
+	})
+
+	It("should set given role to owner and other users", func() {
+		// Create pgec
+		prov, _ := setupPGEC("10s", false)
+
+		// Create pgdb
+		it := &postgresqlv1alpha1.PostgresqlDatabase{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      pgdbName,
+				Namespace: pgdbNamespace,
+			},
+			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
+				Database: pgdbDBName,
+				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+					Name:      prov.Name,
+					Namespace: prov.Namespace,
+				},
+				MasterRole:                  "master",
+				DropOnDelete:                false,
+				WaitLinkedResourcesDeletion: false,
+				Schemas: postgresqlv1alpha1.DatabaseModulesList{
+					List:              make([]string, 0),
+					DropOnOnDelete:    false,
+					DeleteWithCascade: false,
+				},
+				Extensions: postgresqlv1alpha1.DatabaseModulesList{
+					List:              make([]string, 0),
+					DropOnOnDelete:    false,
+					DeleteWithCascade: false,
+				},
+			},
+		}
+
+		// First create CR
+		Expect(k8sClient.Create(ctx, it)).Should(Succeed())
+
+		item := &postgresqlv1alpha1.PostgresqlDatabase{}
+		Eventually(
+			func() error {
+				// Check if status hasn't been updated
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgdbName,
+					Namespace: pgdbNamespace,
+				}, item)
+				// Check error
+				if err != nil {
+					return err
+				}
+
+				// Check if status hasn't been updated
+				if item.Status.Phase == postgresqlv1alpha1.DatabaseNoPhase {
+					return errors.New("pgdb hasn't been updated by operator")
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
+
+		Expect(item.Status.Roles.Owner).To(BeEquivalentTo("master"))
+		Expect(item.Status.Roles.Reader).To(BeEquivalentTo(fmt.Sprintf("%s-reader", pgdbDBName)))
+		Expect(item.Status.Roles.Writer).To(BeEquivalentTo(fmt.Sprintf("%s-writer", pgdbDBName)))
+	})
 })
