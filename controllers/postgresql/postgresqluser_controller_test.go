@@ -27,7 +27,7 @@ var _ = Describe("PostgresqlUser tests", func() {
 		// TODO
 	})
 
-	It("should be ok to change privileges", func() {
+	It("should be ok to change privileges (OWNER -> READ)", func() {
 		// TODO
 	})
 
@@ -40,6 +40,10 @@ var _ = Describe("PostgresqlUser tests", func() {
 	})
 
 	It("should be ok to regenerate a secret that been edited (known field edited)", func() {
+		// TODO
+	})
+
+	It("should be ok to remove an external user", func() {
 		// TODO
 	})
 })
