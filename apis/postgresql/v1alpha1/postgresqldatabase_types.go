@@ -33,9 +33,8 @@ type PostgresqlDatabaseSpec struct {
 	// Database name
 	// +required
 	// +kubebuilder:validation:Required
-	// Must be omitempty to allow required check...
-	// Issue: https://github.com/kubernetes-sigs/controller-tools/issues/599
-	Database string `json:"database,omitempty"`
+	// +kubebuilder:validation:MinLength=1
+	Database string `json:"database"`
 	// Master role name will be used to create top group role.
 	// Database owner and users will be in this group role.
 	// +optional
@@ -55,9 +54,7 @@ type PostgresqlDatabaseSpec struct {
 	// Postgresql Engine Configuration link
 	// +required
 	// +kubebuilder:validation:Required
-	// Must be omitempty to allow required check...
-	// Issue: https://github.com/kubernetes-sigs/controller-tools/issues/599
-	EngineConfiguration *CRLink `json:"engineConfiguration,omitempty"`
+	EngineConfiguration *CRLink `json:"engineConfiguration"`
 }
 
 type DatabaseModulesList struct {

@@ -45,7 +45,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: PostgresqlUser is the Schema for the postgresqlusers API
+        description: PostgresqlUser is the Schema for the postgresqlusers API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -60,7 +60,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: PostgresqlUserSpec defines the desired state of PostgresqlUser
+            description: PostgresqlUserSpec defines the desired state of PostgresqlUser.
             properties:
               database:
                 description: Postgresql Database
@@ -76,6 +76,7 @@ spec:
                 type: object
               generatedSecretNamePrefix:
                 description: Generated secret name prefix
+                minLength: 1
                 type: string
               privileges:
                 description: User privileges
@@ -86,6 +87,7 @@ spec:
                 type: string
               rolePrefix:
                 description: User role
+                minLength: 1
                 type: string
               userPasswordRotationDuration:
                 description: User password rotation duration
@@ -93,10 +95,11 @@ spec:
             required:
             - database
             - generatedSecretNamePrefix
+            - privileges
             - rolePrefix
             type: object
           status:
-            description: PostgresqlUserStatus defines the observed state of PostgresqlUser
+            description: PostgresqlUserStatus defines the observed state of PostgresqlUser.
             properties:
               lastPasswordChangedTime:
                 description: Last password changed time

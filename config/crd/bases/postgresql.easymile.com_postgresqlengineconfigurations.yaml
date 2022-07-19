@@ -34,7 +34,7 @@ spec:
     schema:
       openAPIV3Schema:
         description: PostgresqlEngineConfiguration is the Schema for the postgresqlengineconfigurations
-          API
+          API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -50,7 +50,7 @@ spec:
             type: object
           spec:
             description: PostgresqlEngineConfigurationSpec defines the desired state
-              of PostgresqlEngineConfiguration
+              of PostgresqlEngineConfiguration.
             properties:
               checkInterval:
                 description: Duration between two checks for valid engine
@@ -60,6 +60,7 @@ spec:
                 type: string
               host:
                 description: Hostname
+                minLength: 1
                 type: string
               port:
                 description: Port
@@ -73,6 +74,7 @@ spec:
                 type: string
               secretName:
                 description: User and password secret
+                minLength: 1
                 type: string
               uriArgs:
                 description: URI args like sslmode, ...
@@ -86,7 +88,7 @@ spec:
             type: object
           status:
             description: PostgresqlEngineConfigurationStatus defines the observed
-              state of PostgresqlEngineConfiguration
+              state of PostgresqlEngineConfiguration.
             properties:
               hash:
                 description: Resource Spec hash

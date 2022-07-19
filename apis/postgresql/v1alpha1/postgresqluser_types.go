@@ -39,28 +39,22 @@ type PostgresqlUserSpec struct {
 	// User role
 	// +required
 	// +kubebuilder:validation:Required
-	// Must be omitempty to allow required check...
-	// Issue: https://github.com/kubernetes-sigs/controller-tools/issues/599
-	RolePrefix string `json:"rolePrefix,omitempty"`
+	// +kubebuilder:validation:MinLength=1
+	RolePrefix string `json:"rolePrefix"`
 	// Postgresql Database
 	// +required
 	// +kubebuilder:validation:Required
-	// Must be omitempty to allow required check...
-	// Issue: https://github.com/kubernetes-sigs/controller-tools/issues/599
-	Database *CRLink `json:"database,omitempty"`
+	Database *CRLink `json:"database"`
 	// Generated secret name prefix
 	// +required
 	// +kubebuilder:validation:Required
-	// Must be omitempty to allow required check...
-	// Issue: https://github.com/kubernetes-sigs/controller-tools/issues/599
-	GeneratedSecretNamePrefix string `json:"generatedSecretNamePrefix,omitempty"`
+	// +kubebuilder:validation:MinLength=1
+	GeneratedSecretNamePrefix string `json:"generatedSecretNamePrefix"`
 	// User privileges
 	// +required
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum=OWNER;WRITER;READER
-	// Must be omitempty to allow required check...
-	// Issue: https://github.com/kubernetes-sigs/controller-tools/issues/599
-	Privileges PrivilegesSpecEnum `json:"privileges,omitempty"`
+	Privileges PrivilegesSpecEnum `json:"privileges"`
 	// User password rotation duration
 	// +optional
 	UserPasswordRotationDuration string `json:"userPasswordRotationDuration,omitempty"`

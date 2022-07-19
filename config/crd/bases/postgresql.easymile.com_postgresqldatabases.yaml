@@ -41,7 +41,7 @@ spec:
     schema:
       openAPIV3Schema:
         description: PostgresqlDatabase is the Schema for the postgresqldatabases
-          API
+          API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -56,10 +56,11 @@ spec:
           metadata:
             type: object
           spec:
-            description: PostgresqlDatabaseSpec defines the desired state of PostgresqlDatabase
+            description: PostgresqlDatabaseSpec defines the desired state of PostgresqlDatabase.
             properties:
               database:
                 description: Database name
+                minLength: 1
                 type: string
               dropOnDelete:
                 description: Should drop database on Custom Resource deletion ?
@@ -120,7 +121,7 @@ spec:
             - engineConfiguration
             type: object
           status:
-            description: PostgresqlDatabaseStatus defines the observed state of PostgresqlDatabase
+            description: PostgresqlDatabaseStatus defines the observed state of PostgresqlDatabase.
             properties:
               database:
                 description: Created database
