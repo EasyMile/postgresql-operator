@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = Describe("Postgresql Engine Configuration tests", func() {
+var _ = Describe("PostgresqlDatabase tests", func() {
 	AfterEach(cleanupFunction)
 
 	It("shouldn't accept input without any specs", func() {
@@ -458,5 +458,85 @@ var _ = Describe("Postgresql Engine Configuration tests", func() {
 		stillExists, stillErr := isSQLDBExists(pgdbDBName)
 		Expect(stillErr).ToNot(HaveOccurred())
 		Expect(stillExists).To(BeTrue())
+	})
+
+	It("should be ok to declare 1 schema", func() {
+		// TODO: Create pgdb with a schema
+	})
+
+	It("should be ok to declare 2 schema", func() {
+		// TODO: Create pgdb with 2 schema
+	})
+
+	It("should be ok to declare 1 schema and add another one after", func() {
+		// TODO
+	})
+
+	It("should be ok to remove a schema with drop on delete without cascade", func() {
+		// TODO: Create pgdb with a schema with drop on delete without cascade, update with by removing it and check
+	})
+
+	It("should be ok to remove a schema with drop on delete with cascade", func() {
+		// TODO: Create pgdb with a schema with drop on delete without cascade, update with by removing it and check
+	})
+
+	It("should be ok to declare 2 schema and remove one of the 2", func() {
+		// TODO
+	})
+
+	It("should be ok to declare 1 extension", func() {
+		// TODO: Create pgdb with an extension
+	})
+
+	It("should be ok to declare 1 extension and add another one after", func() {
+		// TODO
+	})
+
+	It("should be ok to declare 2 extensions", func() {
+		// TODO: Create pgdb with 2 extensions
+	})
+
+	It("should be ok to remove an extension with drop on delete without cascade", func() {
+		// TODO: Create pgdb with an extension with drop on delete without cascade, update with by removing it and check
+	})
+
+	It("should be ok to remove an extension with drop on delete with cascade", func() {
+		// TODO: Create pgdb with an extension with drop on delete without cascade, update with by removing it and check
+	})
+
+	It("should be ok to declare 2 extensions and remove one of the 2", func() {
+		// TODO
+	})
+
+	It("should be ok to set a master role directly", func() {
+		// TODO
+	})
+
+	It("should be ok to inject a simple instance and set a master role after", func() {
+		// TODO
+	})
+
+	It("should be ok to inject a simple instance with a master role and change it after", func() {
+		// TODO
+	})
+
+	It("should be ok to rename database", func() {
+		// TODO: create a pgdb, update it with another db name
+	})
+
+	It("should be ok to delete it with wait and nothing linked", func() {
+		// TODO: Create a pgdb with wait, delete pgdb => shouldn't be blocked
+	})
+
+	It("should be ok to delete it without wait and nothing linked", func() {
+		// TODO: Create a pgdb without wait, delete pgdb => shouldn't be blocked
+	})
+
+	It("should be ok to delete it with wait and something linked", func() {
+		// TODO: Create a pgdb with wait, create pgu, delete pgdb => should be blocked
+	})
+
+	It("should be ok to delete it without wait and something linked", func() {
+		// TODO: Create a pgdb without wait, create pgu, delete pgdb => shouldn't be blocked
 	})
 })

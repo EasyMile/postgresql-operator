@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = Describe("Postgresql Engine Configuration tests", func() {
+var _ = Describe("PostgresqlEngineConfiguration tests", func() {
 	AfterEach(cleanupFunction)
 
 	It("shouldn't accept input without any specs", func() {
@@ -690,5 +690,13 @@ var _ = Describe("Postgresql Engine Configuration tests", func() {
 			generalEventuallyTimeout,
 			generalEventuallyInterval,
 		).Should(Succeed())
+	})
+
+	It("should be ok to delete it with wait and something linked", func() {
+		// TODO: Create a pgec with wait, pgdb (consider it ok aka do not test pg db existence), delete pgec => should be blocked
+	})
+
+	It("should be ok to delete it without wait and something linked", func() {
+		// TODO: Create a pgec without wait, pgdb (consider it ok aka do not test pg db existence), delete pgec => shouldn't be blocked
 	})
 })
