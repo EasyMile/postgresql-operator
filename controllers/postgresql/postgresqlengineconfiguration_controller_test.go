@@ -2,6 +2,7 @@ package postgresql
 
 import (
 	"errors"
+	gerrors "errors"
 	"fmt"
 
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1"
@@ -692,11 +693,78 @@ var _ = Describe("PostgresqlEngineConfiguration tests", func() {
 		).Should(Succeed())
 	})
 
-	It("should be ok to delete it with wait and something linked", func() {
-		// TODO: Create a pgec with wait, pgdb (consider it ok aka do not test pg db existence), delete pgec => should be blocked
+	It("should fail to delete it with wait and something linked", func() {
+		// Create pgec
+		prov, _ := setupPGEC("10s", true)
+
+		// Create pgdb associated to pgec
+		setupPGDB(true)
+
+		// Try to delete pgec
+		Expect(k8sClient.Delete(ctx, prov)).ToNot(HaveOccurred())
+
+		pgec := &postgresqlv1alpha1.PostgresqlEngineConfiguration{}
+		Eventually(
+			func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgecName,
+					Namespace: pgecNamespace,
+				}, pgec)
+				// Check error
+				if err != nil {
+					return err
+				}
+
+				// Check if status is no more ready
+				if pgec.Status.Phase != postgresqlv1alpha1.EngineFailedPhase {
+					return gerrors.New("pgec should not be valid anymore")
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
+
+		// Check that deletion is blocked
+		Expect(pgec.Status.Ready).To(BeFalse())
+		Expect(pgec.Status.Phase).To(BeEquivalentTo(postgresqlv1alpha1.EngineFailedPhase))
+		Expect(pgec.Status.Message).To(BeEquivalentTo(
+			fmt.Sprintf("cannot remove resource because found database %s in namespace %s linked to this resource and wait for deletion flag is enabled", pgdbName, pgdbNamespace)))
+
 	})
 
 	It("should be ok to delete it without wait and something linked", func() {
-		// TODO: Create a pgec without wait, pgdb (consider it ok aka do not test pg db existence), delete pgec => shouldn't be blocked
+		// Create pgec
+		prov, _ := setupPGEC("10s", false)
+
+		// Create pgdb associated to pgec
+		setupPGDB(true)
+
+		// Try to delete pgec
+		Expect(k8sClient.Delete(ctx, prov)).ToNot(HaveOccurred())
+
+		pgec := &postgresqlv1alpha1.PostgresqlEngineConfiguration{}
+		Eventually(
+			func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgecName,
+					Namespace: pgecNamespace,
+				}, pgec)
+				// Check if error isn't present
+				if err == nil {
+					return errors.New("should be deleted but not deleted")
+				}
+
+				// Check if error isn't a not found error
+				if err != nil && !apimachineryErrors.IsNotFound(err) {
+					return err
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
 	})
 })

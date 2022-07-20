@@ -215,6 +215,11 @@ func deleteObject(
 	err = cl.Update(ctx, obj)
 	// Check error
 	if err != nil {
+		// Check if error is a not found error
+		if errors.IsNotFound(err) {
+			return nil
+		}
+
 		return err
 	}
 
@@ -222,6 +227,11 @@ func deleteObject(
 	err = cl.Delete(ctx, obj)
 	// Check error
 	if err != nil {
+		// Check if error is a not found error
+		if errors.IsNotFound(err) {
+			return nil
+		}
+
 		return err
 	}
 
