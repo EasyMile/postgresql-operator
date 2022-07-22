@@ -66,6 +66,10 @@ var pgdbName = "pgdb-object"
 var pgdbDBName = "super-db"
 var pguNamespace = "pgu-ns"
 var pguName = "pgu-object"
+var pgdbSchemaName1 = "one_schema"
+var pgdbSchemaName2 = "second_schema"
+var pgdbExtensionName1 = "adminpack"
+var pgdbExtensionName2 = "hstore"
 var postgresUser = "postgres"
 var postgresPassword = "postgres"
 var postgresUrl = "postgresql://postgres:postgres@localhost:5432/?sslmode=disable"
@@ -171,6 +175,7 @@ func cleanupFunction() {
 	err = deleteSecret(ctx, k8sClient, pgecSecretName, pgecNamespace)
 	Expect(err).ToNot(HaveOccurred())
 
+	Expect(deletePGU(ctx, k8sClient, pguName, pguNamespace)).ToNot(HaveOccurred())
 	Expect(deletePGDB(ctx, k8sClient, pgdbName, pgdbNamespace)).ToNot(HaveOccurred())
 	Expect(deleteSQLDB(pgdbDBName)).ToNot(HaveOccurred())
 }
@@ -403,6 +408,13 @@ func deletePGDB(ctx context.Context, cl client.Client, name, namespace string) e
 	return deleteObject(ctx, cl, name, namespace, st)
 }
 
+func deletePGU(ctx context.Context, cl client.Client, name, namespace string) error {
+	// Create structure
+	st := &postgresqlv1alpha1.PostgresqlUser{}
+	// Delete
+	return deleteObject(ctx, cl, name, namespace, st)
+}
+
 func deleteSQLDB(name string) error {
 	// Connect
 	db, err := sql.Open("postgres", postgresUrl)
@@ -415,14 +427,26 @@ func deleteSQLDB(name string) error {
 		return db.Close()
 	}()
 
-	_, err = db.Exec(fmt.Sprintf(postgres.DropDatabaseSQLTemplate, name))
-	// Error code 3D000 is returned if database doesn't exist
-	if err != nil {
+	// Try to delete
+	for i := 0; i < 1000; i++ {
+		_, err = db.Exec(fmt.Sprintf(postgres.DropDatabaseSQLTemplate, name))
+		if err == nil {
+			return nil
+		}
+
 		// Try to cast error
+		// Error code 3D000 is returned if database doesn't exist
+		// Error code 55006 is returned if there are connections still open
 		pqErr, ok := err.(*pq.Error)
-		if !ok || pqErr.Code != "3D000" {
+
+		if !ok || (pqErr.Code != "3D000" && pqErr.Code != "55006") {
 			return err
 		}
+
+		if pqErr.Code == "3D000" {
+			return nil
+		}
+
 	}
 
 	// Default
@@ -477,6 +501,71 @@ func isSQLDBExists(name string) (bool, error) {
 	}
 
 	return nb == 1, nil
+}
+
+func deleteSQLRole(role, newOwner string) error {
+	db, err := sql.Open("postgres", postgresUrl)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Exec(fmt.Sprintf(postgres.ReassignObjectsSQLTemplate, role, newOwner))
+	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
+	if err != nil {
+		// Try to cast error
+		pqErr, ok := err.(*pq.Error)
+		if !ok || pqErr.Code != postgres.RoleNotFoundErrorCode {
+			return err
+		}
+	}
+
+	// We previously assigned all objects to the operator's role so DROP OWNED BY will drop privileges of role
+	_, err = db.Exec(fmt.Sprintf(postgres.DropOwnedBySQLTemplate, role))
+	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
+	if err != nil {
+		// Try to cast error
+		pqErr, ok := err.(*pq.Error)
+		if !ok || pqErr.Code != postgres.RoleNotFoundErrorCode {
+			return err
+		}
+	}
+
+	_, err = db.Exec(fmt.Sprintf(postgres.DropRoleSQLTemplate, role))
+	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
+	if err != nil {
+		// Try to cast error
+		pqErr, ok := err.(*pq.Error)
+		if !ok || pqErr.Code != postgres.RoleNotFoundErrorCode {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func createSQLRole(role string) error {
+	// Connect
+	db, err := sql.Open("postgres", postgresUrl)
+	// Check error
+	if err != nil {
+		return err
+	}
+
+	defer func() error {
+		return db.Close()
+	}()
+
+	_, err = db.Exec(fmt.Sprintf(postgres.CreateGroupRoleSQLTemplate, role))
+	if err != nil {
+		// eat DUPLICATE ROLE ERROR
+		// Try to cast error
+		pqErr, ok := err.(*pq.Error)
+		if !ok || pqErr.Code != postgres.DuplicateRoleErrorCode {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func isSQLRoleExists(name string) (bool, error) {
