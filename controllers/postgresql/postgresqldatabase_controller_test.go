@@ -1790,9 +1790,6 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 	})
 
 	It("should be ok to rename database", func() {
-		//TODO: check why not working (--> may be cause of active connections)
-		Skip("not working, see todo")
-
 		// Create pgec
 		prov, _ := setupPGEC("10s", false)
 
@@ -1839,6 +1836,10 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		).
 			Should(Succeed())
 
+		Expect(item.Status.Ready).To(BeTrue())
+		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
+		Expect(item.Status.Database).To(Equal(pgdbDBName + "-old"))
+
 		// Change database name
 		item.Spec.Database = pgdbDBName
 		Expect(k8sClient.Update(ctx, item)).Should(Succeed())
@@ -1867,6 +1868,20 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			generalEventuallyInterval,
 		).
 			Should(Succeed())
+
+		Expect(updatedItem.Status.Ready).To(BeTrue())
+		Expect(updatedItem.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
+		Expect(updatedItem.Status.Database).To(Equal(pgdbDBName))
+
+		// Check if DB exists
+		exists, err := isSQLDBExists(pgdbDBName)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
+
+		// Check old one DB does not exists
+		oldExists, oldErr := isSQLDBExists(pgdbDBName + "-old")
+		Expect(oldErr).ToNot(HaveOccurred())
+		Expect(oldExists).To(BeFalse())
 
 	})
 
