@@ -13,7 +13,9 @@ const (
 	IsDatabaseExistSQLTemplate    = `SELECT 1 FROM pg_database WHERE datname='%s'`
 	RenameDatabaseSQLTemplate     = `ALTER DATABASE "%s" RENAME TO "%s"`
 	CreateSchemaSQLTemplate       = `CREATE SCHEMA IF NOT EXISTS "%s" AUTHORIZATION "%s"`
+	IsSchemaExistSQLTemplate      = `SELECT 1 FROM information_schema.schemata WHERE schema_name='%s'`
 	CreateExtensionSQLTemplate    = `CREATE EXTENSION IF NOT EXISTS "%s"`
+	IsExtensionExistSQLTemplate   = `SELECT 1 FROM pg_extension WHERE extname='%s'`
 	DropDatabaseSQLTemplate       = `DROP DATABASE "%s"`
 	DropExtensionSQLTemplate      = `DROP EXTENSION IF EXISTS "%s" %s`
 	DropSchemaSQLTemplate         = `DROP SCHEMA IF EXISTS "%s" %s`

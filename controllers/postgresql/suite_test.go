@@ -73,6 +73,7 @@ var pgdbExtensionName2 = "hstore"
 var postgresUser = "postgres"
 var postgresPassword = "postgres"
 var postgresUrl = "postgresql://postgres:postgres@localhost:5432/?sslmode=disable"
+var postgresUrlToDB = "postgresql://postgres:postgres@localhost:5432/" + pgdbDBName + "?sslmode=disable"
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -581,6 +582,56 @@ func isSQLRoleExists(name string) (bool, error) {
 	}()
 
 	res, err := db.Exec(fmt.Sprintf(postgres.IsRoleExistSQLTemplate, name))
+	if err != nil {
+		return false, err
+	}
+	// Get affected rows
+	nb, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	return nb == 1, nil
+}
+
+func isSQLSchemaExists(name string) (bool, error) {
+	// Connect
+	db, err := sql.Open("postgres", postgresUrlToDB)
+	// Check error
+	if err != nil {
+		return false, err
+	}
+
+	defer func() error {
+		return db.Close()
+	}()
+
+	res, err := db.Exec(fmt.Sprintf(postgres.IsSchemaExistSQLTemplate, name))
+	if err != nil {
+		return false, err
+	}
+	// Get affected rows
+	nb, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	return nb == 1, nil
+}
+
+func isSQLExtensionExists(name string) (bool, error) {
+	// Connect
+	db, err := sql.Open("postgres", postgresUrlToDB)
+	// Check error
+	if err != nil {
+		return false, err
+	}
+
+	defer func() error {
+		return db.Close()
+	}()
+
+	res, err := db.Exec(fmt.Sprintf(postgres.IsExtensionExistSQLTemplate, name))
 	if err != nil {
 		return false, err
 	}

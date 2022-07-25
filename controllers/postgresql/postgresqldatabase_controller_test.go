@@ -627,7 +627,10 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		Expect(len(item.Status.Schemas)).To(BeEquivalentTo(1))
 		Expect(item.Status.Schemas).To(ContainElement(pgdbSchemaName1))
 
-		// TODO: check schema is present in sql db
+		// Check schema exists in sql db
+		exists, err := isSQLSchemaExists(pgdbSchemaName1)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
 	})
 
 	It("should be ok to declare 2 schema", func() {
@@ -688,7 +691,14 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		Expect(len(item.Status.Schemas)).To(BeEquivalentTo(2))
 		Expect(item.Status.Schemas).To(ContainElements(pgdbSchemaName1, pgdbSchemaName2))
 
-		// TODO: check schema are present in sql db
+		// Check schema exist in sql db
+		firstExists, firstErr := isSQLSchemaExists(pgdbSchemaName1)
+		Expect(firstErr).ToNot(HaveOccurred())
+		Expect(firstExists).To(BeTrue())
+
+		secondExists, secondErr := isSQLSchemaExists(pgdbSchemaName2)
+		Expect(secondErr).ToNot(HaveOccurred())
+		Expect(secondExists).To(BeTrue())
 	})
 
 	It("should be ok to declare 1 schema and add another one after", func() {
@@ -775,7 +785,15 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		Expect(updatedItem.Status.Ready).To(BeTrue())
 
-		// TODO: check schema are present in sql db
+		// Check first schema exist in sql db
+		firstExists, firstErr := isSQLSchemaExists(pgdbSchemaName1)
+		Expect(firstErr).ToNot(HaveOccurred())
+		Expect(firstExists).To(BeTrue())
+
+		// Check second schema exist in sql db
+		secondExists, secondErr := isSQLSchemaExists(pgdbSchemaName2)
+		Expect(secondErr).ToNot(HaveOccurred())
+		Expect(secondExists).To(BeTrue())
 	})
 
 	It("should be ok to remove a schema with drop on delete without cascade", func() {
@@ -830,6 +848,12 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		).
 			Should(Succeed())
 
+		Expect(item.Status.Schemas).To(ContainElement(pgdbSchemaName1))
+		// Schema should be in sql db
+		exists, err := isSQLSchemaExists(pgdbSchemaName1)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
+
 		// Then remove schema from pgdb
 		item.Spec.Schemas.List = make([]string, 0)
 
@@ -861,8 +885,11 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		Expect(updatedItem.Status.Ready).To(BeTrue())
-
-		// TODO: check schema is not in sql db
+		Expect(updatedItem.Status.Schemas).To(BeEmpty())
+		// Schema should not be in sql db anymore
+		stillExists, stillErr := isSQLSchemaExists(pgdbSchemaName1)
+		Expect(stillErr).ToNot(HaveOccurred())
+		Expect(stillExists).To(BeFalse())
 	})
 
 	It("should be ok to remove a schema with drop on delete with cascade", func() {
@@ -917,6 +944,12 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		).
 			Should(Succeed())
 
+		Expect(item.Status.Schemas).To(ContainElement(pgdbSchemaName1))
+		// Schema should be in sql db
+		exists, err := isSQLSchemaExists(pgdbSchemaName1)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
+
 		// Then remove schema from pgdb
 		item.Spec.Schemas.List = make([]string, 0)
 
@@ -949,7 +982,11 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		Expect(updatedItem.Status.Ready).To(BeTrue())
 
-		// TODO: check schema is not in sql db
+		Expect(updatedItem.Status.Schemas).To(BeEmpty())
+		// Schema should not be in sql db anymore
+		stillExists, stillErr := isSQLSchemaExists(pgdbSchemaName1)
+		Expect(stillErr).ToNot(HaveOccurred())
+		Expect(stillExists).To(BeFalse())
 	})
 
 	It("should be ok to declare 2 schema and remove one of the 2", func() {
@@ -969,7 +1006,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 					Namespace: prov.Namespace,
 				},
 				Schemas: postgresqlv1alpha1.DatabaseModulesList{
-					List:              []string{pgdbSchemaName1, pgdbExtensionName2},
+					List:              []string{pgdbSchemaName1, pgdbSchemaName2},
 					DropOnOnDelete:    true,
 					DeleteWithCascade: false,
 				},
@@ -1036,7 +1073,14 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		Expect(updatedItem.Status.Ready).To(BeTrue())
 
-		// TODO: check schema in sql db
+		// Schema should be in sql db
+		firstExists, firstErr := isSQLSchemaExists(pgdbSchemaName1)
+		Expect(firstErr).ToNot(HaveOccurred())
+		Expect(firstExists).To(BeTrue())
+
+		secondExists, secondErr := isSQLSchemaExists(pgdbSchemaName2)
+		Expect(secondErr).ToNot(HaveOccurred())
+		Expect(secondExists).To(BeFalse())
 	})
 
 	It("should be ok to declare 1 extension", func() {
@@ -1098,7 +1142,10 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		Expect(len(item.Status.Extensions)).To(BeEquivalentTo(1))
 		Expect(item.Status.Extensions).To(ContainElement(pgdbExtensionName1))
 
-		// TODO: check extension is present in sql db
+		// Check extension exists in sql db
+		exists, err := isSQLExtensionExists(pgdbExtensionName1)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
 	})
 
 	It("should be ok to declare 1 extension and add another one after", func() {
@@ -1185,7 +1232,14 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		// Checks
 		Expect(updatedItem.Status.Ready).To(BeTrue())
 
-		// TODO: check extension is present in sql db
+		// Check extensions exist in sql db
+		firstExists, firstErr := isSQLExtensionExists(pgdbExtensionName1)
+		Expect(firstErr).ToNot(HaveOccurred())
+		Expect(firstExists).To(BeTrue())
+
+		secondExists, secondErr := isSQLExtensionExists(pgdbExtensionName2)
+		Expect(secondErr).ToNot(HaveOccurred())
+		Expect(secondExists).To(BeTrue())
 
 	})
 
@@ -1248,7 +1302,14 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		Expect(len(item.Status.Extensions)).To(BeEquivalentTo(2))
 		Expect(item.Status.Extensions).To(ContainElements(pgdbExtensionName1, pgdbExtensionName2))
 
-		// TODO: check extension are present in sql db
+		// Check extensions exist in sql db
+		firstExists, firstErr := isSQLExtensionExists(pgdbExtensionName1)
+		Expect(firstErr).ToNot(HaveOccurred())
+		Expect(firstExists).To(BeTrue())
+
+		secondExists, secondErr := isSQLExtensionExists(pgdbExtensionName2)
+		Expect(secondErr).ToNot(HaveOccurred())
+		Expect(secondExists).To(BeTrue())
 	})
 
 	It("should be ok to remove an extension with drop on delete without cascade", func() {
@@ -1335,8 +1396,12 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		Expect(updatedItem.Status.Ready).To(BeTrue())
+		Expect(updatedItem.Status.Schemas).To(BeEmpty())
 
-		// TODO: check extension is not in sql db
+		// Check extensions exist in sql db
+		exists, err := isSQLExtensionExists(pgdbExtensionName1)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeFalse())
 	})
 
 	It("should be ok to remove an extension with drop on delete with cascade", func() {
@@ -1423,8 +1488,12 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		Expect(updatedItem.Status.Ready).To(BeTrue())
+		Expect(updatedItem.Status.Schemas).To(BeEmpty())
 
-		// TODO: check extension is not in sql db
+		// Check extensions exist in sql db
+		exists, err := isSQLExtensionExists(pgdbExtensionName1)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeFalse())
 	})
 
 	It("should be ok to declare 2 extensions and remove one of the 2", func() {
@@ -1511,8 +1580,12 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		Expect(updatedItem.Status.Ready).To(BeTrue())
+		Expect(updatedItem.Status.Schemas).To(ContainElement(pgdbExtensionName1))
 
-		// TODO: check extension in sql db
+		// Check extensions exist in sql db
+		exists, err := isSQLExtensionExists(pgdbExtensionName1)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
 	})
 
 	It("should be ok to set a master role directly", func() {
