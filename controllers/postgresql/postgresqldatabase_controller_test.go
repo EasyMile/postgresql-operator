@@ -512,10 +512,6 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		Expect(item.Status.Ready).To(BeTrue())
 		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
 		Expect(item.Status.Roles.Owner).To(Equal(sqlRole))
-
-		// Cleanup role
-		errDelete := deleteSQLRole(sqlRole, postgresUser)
-		Expect(errDelete).ToNot(HaveOccurred())
 	})
 
 	It("should be ok to have a pgdb referencing an existing editor role", func() {
@@ -1625,10 +1621,6 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		ownerRoleExists, ownerRoleErr := isSQLRoleExists("super-owner")
 		Expect(ownerRoleErr).ToNot(HaveOccurred())
 		Expect(ownerRoleExists).To(BeTrue())
-
-		// Cleanup role
-		errDelete := deleteSQLRole("super-owner", postgresUser)
-		Expect(errDelete).ToNot(HaveOccurred())
 	})
 
 	It("should be ok to inject a simple instance and set a master role after", func() {

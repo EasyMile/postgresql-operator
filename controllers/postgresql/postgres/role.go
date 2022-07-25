@@ -18,6 +18,7 @@ const (
 	ReassignObjectsSQLTemplate     = `REASSIGN OWNED BY "%s" TO "%s"`
 	IsRoleExistSQLTemplate         = `SELECT 1 FROM pg_roles WHERE rolname='%s'`
 	RenameRoleSQLTemplate          = `ALTER ROLE "%s" RENAME TO "%s"`
+	GetAllCreatedRolesSQLTemplate  = `SELECT rolname FROM pg_roles WHERE rolname NOT LIKE 'pg_%' AND rolname != 'postgres'`
 	DuplicateRoleErrorCode         = "42710"
 	RoleNotFoundErrorCode          = "42704"
 	InvalidGrantOperationErrorCode = "0LP01"
@@ -137,9 +138,11 @@ func (c *pg) DropRole(role, newOwner, database string) error {
 	if err != nil {
 		return err
 	}
+	println("Executing: " + fmt.Sprintf(DropRoleSQLTemplate, role))
 	_, err = c.db.Exec(fmt.Sprintf(DropRoleSQLTemplate, role))
 	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
 	if err != nil {
+		println("Errors: " + err.Error())
 		// Try to cast error
 		pqErr, ok := err.(*pq.Error)
 		if !ok || pqErr.Code != RoleNotFoundErrorCode {

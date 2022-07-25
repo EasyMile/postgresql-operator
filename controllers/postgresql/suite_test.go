@@ -179,6 +179,7 @@ func cleanupFunction() {
 	Expect(deletePGU(ctx, k8sClient, pguName, pguNamespace)).ToNot(HaveOccurred())
 	Expect(deletePGDB(ctx, k8sClient, pgdbName, pgdbNamespace)).ToNot(HaveOccurred())
 	Expect(deleteSQLDB(pgdbDBName)).ToNot(HaveOccurred())
+	Expect(deleteSQLRoles()).ToNot(HaveOccurred())
 }
 
 func getSecret(ctx context.Context, cli client.Client, name, namespace string) (*corev1.Secret, error) {
@@ -504,39 +505,26 @@ func isSQLDBExists(name string) (bool, error) {
 	return nb == 1, nil
 }
 
-func deleteSQLRole(role, newOwner string) error {
+func deleteSQLRoles() error {
 	db, err := sql.Open("postgres", postgresUrl)
 	if err != nil {
 		return err
 	}
 
-	_, err = db.Exec(fmt.Sprintf(postgres.ReassignObjectsSQLTemplate, role, newOwner))
-	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
+	res, err := db.Query(postgres.GetAllCreatedRolesSQLTemplate)
 	if err != nil {
-		// Try to cast error
-		pqErr, ok := err.(*pq.Error)
-		if !ok || pqErr.Code != postgres.RoleNotFoundErrorCode {
-			return err
-		}
+		return err
 	}
 
-	// We previously assigned all objects to the operator's role so DROP OWNED BY will drop privileges of role
-	_, err = db.Exec(fmt.Sprintf(postgres.DropOwnedBySQLTemplate, role))
-	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
-	if err != nil {
-		// Try to cast error
-		pqErr, ok := err.(*pq.Error)
-		if !ok || pqErr.Code != postgres.RoleNotFoundErrorCode {
+	var role string
+	for res.Next() {
+		err = res.Scan(&role)
+		if err != nil {
 			return err
 		}
-	}
 
-	_, err = db.Exec(fmt.Sprintf(postgres.DropRoleSQLTemplate, role))
-	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
-	if err != nil {
-		// Try to cast error
-		pqErr, ok := err.(*pq.Error)
-		if !ok || pqErr.Code != postgres.RoleNotFoundErrorCode {
+		_, err = db.Exec(fmt.Sprintf(postgres.DropRoleSQLTemplate, role))
+		if err != nil {
 			return err
 		}
 	}
