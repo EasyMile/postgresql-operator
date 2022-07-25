@@ -68,8 +68,8 @@ var pguNamespace = "pgu-ns"
 var pguName = "pgu-object"
 var pgdbSchemaName1 = "one_schema"
 var pgdbSchemaName2 = "second_schema"
-var pgdbExtensionName1 = "adminpack"
-var pgdbExtensionName2 = "hstore"
+var pgdbExtensionName1 = "uuid-ossp"
+var pgdbExtensionName2 = "cube"
 var postgresUser = "postgres"
 var postgresPassword = "postgres"
 var postgresUrl = "postgresql://postgres:postgres@localhost:5432/?sslmode=disable"
@@ -642,4 +642,24 @@ func isSQLExtensionExists(name string) (bool, error) {
 	}
 
 	return nb == 1, nil
+}
+
+func createTableInSchema(schema, table string) error {
+	// Connect
+	db, err := sql.Open("postgres", postgresUrlToDB)
+	// Check error
+	if err != nil {
+		return err
+	}
+
+	defer func() error {
+		return db.Close()
+	}()
+
+	_, err = db.Exec(fmt.Sprintf(postgres.CreateTableInSchemaTemplate, schema, table))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -103,7 +103,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		// Checks
 		Expect(item.Status.Ready).To(BeFalse())
-		Expect(item.Status.Phase).To(BeEquivalentTo(postgresqlv1alpha1.EngineFailedPhase))
+		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseFailedPhase))
 		Expect(item.Status.Message).To(ContainSubstring("\"fake\" not found"))
 	})
 
@@ -156,12 +156,12 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		// Checks
 		Expect(item.Status.Ready).To(BeTrue())
-		Expect(item.Status.Phase).To(BeEquivalentTo(postgresqlv1alpha1.DatabaseCreatedPhase))
-		Expect(item.Status.Database).To(BeEquivalentTo(pgdbDBName))
-		Expect(item.Status.Message).To(BeEquivalentTo(""))
-		Expect(item.Status.Roles.Owner).To(BeEquivalentTo(fmt.Sprintf("%s-owner", pgdbDBName)))
-		Expect(item.Status.Roles.Reader).To(BeEquivalentTo(fmt.Sprintf("%s-reader", pgdbDBName)))
-		Expect(item.Status.Roles.Writer).To(BeEquivalentTo(fmt.Sprintf("%s-writer", pgdbDBName)))
+		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
+		Expect(item.Status.Database).To(Equal(pgdbDBName))
+		Expect(item.Status.Message).To(BeEmpty())
+		Expect(item.Status.Roles.Owner).To(Equal(fmt.Sprintf("%s-owner", pgdbDBName)))
+		Expect(item.Status.Roles.Reader).To(Equal(fmt.Sprintf("%s-reader", pgdbDBName)))
+		Expect(item.Status.Roles.Writer).To(Equal(fmt.Sprintf("%s-writer", pgdbDBName)))
 
 		// Check if DB exists
 		exists, err := isSQLDBExists(pgdbDBName)
@@ -244,12 +244,12 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		// Checks
 		Expect(item.Status.Ready).To(BeTrue())
-		Expect(item.Status.Phase).To(BeEquivalentTo(postgresqlv1alpha1.DatabaseCreatedPhase))
-		Expect(item.Status.Database).To(BeEquivalentTo(pgdbDBName))
-		Expect(item.Status.Message).To(BeEquivalentTo(""))
-		Expect(item.Status.Roles.Owner).To(BeEquivalentTo("master"))
-		Expect(item.Status.Roles.Reader).To(BeEquivalentTo(fmt.Sprintf("%s-reader", pgdbDBName)))
-		Expect(item.Status.Roles.Writer).To(BeEquivalentTo(fmt.Sprintf("%s-writer", pgdbDBName)))
+		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
+		Expect(item.Status.Database).To(Equal(pgdbDBName))
+		Expect(item.Status.Message).To(BeEmpty())
+		Expect(item.Status.Roles.Owner).To(Equal("master"))
+		Expect(item.Status.Roles.Reader).To(Equal(fmt.Sprintf("%s-reader", pgdbDBName)))
+		Expect(item.Status.Roles.Writer).To(Equal(fmt.Sprintf("%s-writer", pgdbDBName)))
 
 		// Check if DB exists
 		exists, err := isSQLDBExists(pgdbDBName)
@@ -451,14 +451,15 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		// Checks
 		Expect(item.Status.Ready).To(BeTrue())
-		Expect(item.Status.Phase).To(BeEquivalentTo(postgresqlv1alpha1.DatabaseCreatedPhase))
-		Expect(item.Status.Database).To(BeEquivalentTo(pgdbDBName))
-		Expect(item.Status.Message).To(BeEquivalentTo(""))
+		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
+		Expect(item.Status.Database).To(Equal(pgdbDBName))
+		Expect(item.Status.Message).To(BeEmpty())
 	})
 
 	It("should be ok to have a pgdb referencing an existing master role", func() {
 		// Create SQL role
-		errRole := createSQLRole("super-role")
+		sqlRole := "super-role"
+		errRole := createSQLRole(sqlRole)
 		Expect(errRole).ToNot(HaveOccurred())
 
 		// Create pgec
@@ -476,7 +477,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
-				MasterRole: "super-role",
+				MasterRole: sqlRole,
 			},
 		}
 
@@ -508,65 +509,30 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		).
 			Should(Succeed())
 
-		Expect(item.Status.Roles.Owner).To(BeEquivalentTo("super-role"))
+		Expect(item.Status.Ready).To(BeTrue())
+		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
+		Expect(item.Status.Roles.Owner).To(Equal(sqlRole))
 
 		// Cleanup role
-		errDelete := deleteSQLRole("super-role", postgresUser)
+		errDelete := deleteSQLRole(sqlRole, postgresUser)
 		Expect(errDelete).ToNot(HaveOccurred())
 	})
 
 	It("should be ok to have a pgdb referencing an existing editor role", func() {
 		// Create SQL role
-		errRole := createSQLRole(fmt.Sprintf("%s-writer", pgdbDBName))
+		sqlRole := fmt.Sprintf("%s-writer", pgdbDBName) // -> This is default writer role name used by pgdb
+		errRole := createSQLRole(sqlRole)
 		Expect(errRole).ToNot(HaveOccurred())
 
 		// Create pgec
-		prov, _ := setupPGEC("10s", false)
+		setupPGEC("10s", false)
 
 		// Create pgdb
-		it := &postgresqlv1alpha1.PostgresqlDatabase{
-			ObjectMeta: v1.ObjectMeta{
-				Name:      pgdbName,
-				Namespace: pgdbNamespace,
-			},
-			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
-				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
-					Name:      prov.Name,
-					Namespace: prov.Namespace,
-				},
-			},
-		}
+		item := setupPGDB(true)
 
-		// Create provider
-		Expect(k8sClient.Create(ctx, it)).Should(Succeed())
-
-		item := &postgresqlv1alpha1.PostgresqlDatabase{}
-		// Get updated pgdb
-		Eventually(
-			func() error {
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      pgdbName,
-					Namespace: pgdbNamespace,
-				}, item)
-				// Check error
-				if err != nil {
-					return err
-				}
-
-				// Check if status hasn't been updated
-				if item.Status.Phase == postgresqlv1alpha1.DatabaseNoPhase {
-					return errors.New("pgdb hasn't been updated by operator")
-				}
-
-				return nil
-			},
-			generalEventuallyTimeout,
-			generalEventuallyInterval,
-		).
-			Should(Succeed())
-
-		Expect(item.Status.Roles.Writer).To(BeEquivalentTo(fmt.Sprintf("%s-writer", pgdbDBName)))
+		Expect(item.Status.Ready).To(BeTrue())
+		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
+		Expect(item.Status.Roles.Writer).To(Equal(sqlRole))
 	})
 
 	It("should be ok to declare 1 schema", func() {
@@ -587,8 +553,8 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 				},
 				Schemas: postgresqlv1alpha1.DatabaseModulesList{
 					List:              []string{pgdbSchemaName1},
-					DropOnOnDelete:    false,
-					DeleteWithCascade: false,
+					DropOnOnDelete:    true,
+					DeleteWithCascade: true,
 				},
 			},
 		}
@@ -623,8 +589,8 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		// Checks
 		Expect(item.Status.Ready).To(BeTrue())
-		Expect(item.Status.Phase).To(BeEquivalentTo(postgresqlv1alpha1.DatabaseCreatedPhase))
-		Expect(len(item.Status.Schemas)).To(BeEquivalentTo(1))
+		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
+		Expect(len(item.Status.Schemas)).To(Equal(1))
 		Expect(item.Status.Schemas).To(ContainElement(pgdbSchemaName1))
 
 		// Check schema exists in sql db
@@ -651,8 +617,8 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 				},
 				Schemas: postgresqlv1alpha1.DatabaseModulesList{
 					List:              []string{pgdbSchemaName1, pgdbSchemaName2},
-					DropOnOnDelete:    false,
-					DeleteWithCascade: false,
+					DropOnOnDelete:    true,
+					DeleteWithCascade: true,
 				},
 			},
 		}
@@ -687,8 +653,8 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		// Checks
 		Expect(item.Status.Ready).To(BeTrue())
-		Expect(item.Status.Phase).To(BeEquivalentTo(postgresqlv1alpha1.DatabaseCreatedPhase))
-		Expect(len(item.Status.Schemas)).To(BeEquivalentTo(2))
+		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
+		Expect(len(item.Status.Schemas)).To(Equal(2))
 		Expect(item.Status.Schemas).To(ContainElements(pgdbSchemaName1, pgdbSchemaName2))
 
 		// Check schema exist in sql db
@@ -719,8 +685,8 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 				},
 				Schemas: postgresqlv1alpha1.DatabaseModulesList{
 					List:              []string{pgdbSchemaName1},
-					DropOnOnDelete:    false,
-					DeleteWithCascade: false,
+					DropOnOnDelete:    true,
+					DeleteWithCascade: true,
 				},
 			},
 		}
@@ -784,6 +750,8 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		Expect(updatedItem.Status.Ready).To(BeTrue())
+		Expect(len(updatedItem.Status.Schemas)).To(Equal(2))
+		Expect(updatedItem.Status.Schemas).To(ContainElements(pgdbSchemaName1, pgdbSchemaName2))
 
 		// Check first schema exist in sql db
 		firstExists, firstErr := isSQLSchemaExists(pgdbSchemaName1)
@@ -848,7 +816,9 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		).
 			Should(Succeed())
 
+		Expect(len(item.Status.Schemas)).To(Equal(1))
 		Expect(item.Status.Schemas).To(ContainElement(pgdbSchemaName1))
+
 		// Schema should be in sql db
 		exists, err := isSQLSchemaExists(pgdbSchemaName1)
 		Expect(err).ToNot(HaveOccurred())
@@ -886,6 +856,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		Expect(updatedItem.Status.Ready).To(BeTrue())
 		Expect(updatedItem.Status.Schemas).To(BeEmpty())
+
 		// Schema should not be in sql db anymore
 		stillExists, stillErr := isSQLSchemaExists(pgdbSchemaName1)
 		Expect(stillErr).ToNot(HaveOccurred())
@@ -944,11 +915,17 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		).
 			Should(Succeed())
 
+		Expect(len(item.Status.Schemas)).To(Equal(1))
 		Expect(item.Status.Schemas).To(ContainElement(pgdbSchemaName1))
+
 		// Schema should be in sql db
 		exists, err := isSQLSchemaExists(pgdbSchemaName1)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(exists).To(BeTrue())
+
+		// Add table to schema
+		tableName := "tt"
+		createTableInSchema(pgdbSchemaName1, tableName)
 
 		// Then remove schema from pgdb
 		item.Spec.Schemas.List = make([]string, 0)
@@ -981,8 +958,8 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		Expect(updatedItem.Status.Ready).To(BeTrue())
-
 		Expect(updatedItem.Status.Schemas).To(BeEmpty())
+
 		// Schema should not be in sql db anymore
 		stillExists, stillErr := isSQLSchemaExists(pgdbSchemaName1)
 		Expect(stillErr).ToNot(HaveOccurred())
@@ -1008,7 +985,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 				Schemas: postgresqlv1alpha1.DatabaseModulesList{
 					List:              []string{pgdbSchemaName1, pgdbSchemaName2},
 					DropOnOnDelete:    true,
-					DeleteWithCascade: false,
+					DeleteWithCascade: true,
 				},
 			},
 		}
@@ -1041,8 +1018,8 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		).
 			Should(Succeed())
 
-		// Then remove schema from pgdb
-		item.Spec.Schemas.List = []string{pgdbSchemaName1}
+		// Then remove last schema from pgdb
+		item.Spec.Schemas.List = item.Spec.Schemas.List[:len(item.Spec.Schemas.List)-1]
 
 		Expect(k8sClient.Update(ctx, item)).Should(Succeed())
 
@@ -1073,7 +1050,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		Expect(updatedItem.Status.Ready).To(BeTrue())
 
-		// Schema should be in sql db
+		// First schema should still be in sql db, second should be gone
 		firstExists, firstErr := isSQLSchemaExists(pgdbSchemaName1)
 		Expect(firstErr).ToNot(HaveOccurred())
 		Expect(firstExists).To(BeTrue())
@@ -1136,10 +1113,10 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		// Checks
-		Expect(item.Status.Message).To(BeEquivalentTo(""))
+		Expect(item.Status.Message).To(BeEmpty())
 		Expect(item.Status.Ready).To(BeTrue())
-		Expect(item.Status.Phase).To(BeEquivalentTo(postgresqlv1alpha1.DatabaseCreatedPhase))
-		Expect(len(item.Status.Extensions)).To(BeEquivalentTo(1))
+		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
+		Expect(len(item.Status.Extensions)).To(Equal(1))
 		Expect(item.Status.Extensions).To(ContainElement(pgdbExtensionName1))
 
 		// Check extension exists in sql db
@@ -1217,7 +1194,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 					return err
 				}
 
-				// Check if extensions has been updated in pgdb
+				// Check if extensions have been updated in pgdb
 				if !reflect.DeepEqual(updatedItem.Status.Extensions, []string{pgdbExtensionName1, pgdbExtensionName2}) {
 					return errors.New("pgdb hasn't been updated by operator")
 				}
@@ -1231,6 +1208,8 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		// Checks
 		Expect(updatedItem.Status.Ready).To(BeTrue())
+		Expect(len(updatedItem.Status.Extensions)).To(Equal(2))
+		Expect(updatedItem.Status.Extensions).To(ContainElements(pgdbExtensionName1, pgdbExtensionName2))
 
 		// Check extensions exist in sql db
 		firstExists, firstErr := isSQLExtensionExists(pgdbExtensionName1)
@@ -1296,10 +1275,10 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		// Checks
-		Expect(item.Status.Message).To(BeEquivalentTo(""))
+		Expect(item.Status.Message).To(BeEmpty())
 		Expect(item.Status.Ready).To(BeTrue())
-		Expect(item.Status.Phase).To(BeEquivalentTo(postgresqlv1alpha1.DatabaseCreatedPhase))
-		Expect(len(item.Status.Extensions)).To(BeEquivalentTo(2))
+		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
+		Expect(len(item.Status.Extensions)).To(Equal(2))
 		Expect(item.Status.Extensions).To(ContainElements(pgdbExtensionName1, pgdbExtensionName2))
 
 		// Check extensions exist in sql db
@@ -1396,9 +1375,9 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		Expect(updatedItem.Status.Ready).To(BeTrue())
-		Expect(updatedItem.Status.Schemas).To(BeEmpty())
+		Expect(updatedItem.Status.Extensions).To(BeEmpty())
 
-		// Check extensions exist in sql db
+		// Check extension does not exist anymore in sql db
 		exists, err := isSQLExtensionExists(pgdbExtensionName1)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(exists).To(BeFalse())
@@ -1488,9 +1467,9 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		Expect(updatedItem.Status.Ready).To(BeTrue())
-		Expect(updatedItem.Status.Schemas).To(BeEmpty())
+		Expect(updatedItem.Status.Extensions).To(BeEmpty())
 
-		// Check extensions exist in sql db
+		// Check extensions does not exist anymore in sql db
 		exists, err := isSQLExtensionExists(pgdbExtensionName1)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(exists).To(BeFalse())
@@ -1549,7 +1528,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		// Then remove one extension from pgdb
-		item.Spec.Extensions.List = []string{pgdbExtensionName1}
+		item.Spec.Extensions.List = item.Spec.Extensions.List[:len(item.Spec.Extensions.List)-1]
 
 		Expect(k8sClient.Update(ctx, item)).Should(Succeed())
 
@@ -1580,7 +1559,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		Expect(updatedItem.Status.Ready).To(BeTrue())
-		Expect(updatedItem.Status.Schemas).To(ContainElement(pgdbExtensionName1))
+		Expect(updatedItem.Status.Extensions).To(ContainElement(pgdbExtensionName1))
 
 		// Check extensions exist in sql db
 		exists, err := isSQLExtensionExists(pgdbExtensionName1)
@@ -1638,9 +1617,9 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		// Checks
 		Expect(item.Status.Ready).To(BeTrue())
-		Expect(item.Status.Phase).To(BeEquivalentTo(postgresqlv1alpha1.DatabaseCreatedPhase))
-		Expect(item.Status.Database).To(BeEquivalentTo(pgdbDBName))
-		Expect(item.Status.Roles.Owner).To(BeEquivalentTo("super-owner"))
+		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
+		Expect(item.Status.Database).To(Equal(pgdbDBName))
+		Expect(item.Status.Roles.Owner).To(Equal("super-owner"))
 
 		// Check if roles exists
 		ownerRoleExists, ownerRoleErr := isSQLRoleExists("super-owner")
@@ -1700,7 +1679,8 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		// Update role for pgdb
-		item.Spec.MasterRole = "super-owner"
+		masterRole := "super-owner"
+		item.Spec.MasterRole = masterRole
 		Expect(k8sClient.Update(ctx, item)).Should(Succeed())
 
 		// Wait for update
@@ -1718,7 +1698,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 				}
 
 				// Check if extensions has been updated in pgdb
-				if updatedItem.Status.Roles.Owner == "super-owner" {
+				if updatedItem.Status.Roles.Owner != masterRole {
 					return errors.New("pgdb hasn't been updated by operator")
 				}
 
@@ -1730,6 +1710,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		Expect(updatedItem.Status.Ready).To(BeTrue())
+		Expect(updatedItem.Status.Roles.Owner).To(Equal(masterRole))
 	})
 
 	It("should be ok to inject a simple instance with a master role and change it after", func() {
@@ -1781,7 +1762,8 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		// Then change master role
-		item.Spec.MasterRole = "master-bis"
+		masterRoleBis := "master-bis"
+		item.Spec.MasterRole = masterRoleBis
 
 		Expect(k8sClient.Update(ctx, item)).Should(Succeed())
 
@@ -1800,7 +1782,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 				}
 
 				// Check if extensions has been updated in pgdb
-				if updatedItem.Status.Roles.Owner == "master-bis" {
+				if updatedItem.Status.Roles.Owner != masterRoleBis {
 					return errors.New("pgdb hasn't been updated by operator")
 				}
 
@@ -1812,6 +1794,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		Expect(updatedItem.Status.Ready).To(BeTrue())
+		Expect(updatedItem.Status.Roles.Owner).To(Equal(masterRoleBis))
 	})
 
 	It("should be ok to rename database", func() {
@@ -2003,7 +1986,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 				}
 
 				// Check if status hasn't been updated
-				if createdUser.Status.Phase == postgresqlv1alpha1.UserCreatedPhase {
+				if createdUser.Status.Phase == postgresqlv1alpha1.UserNoPhase {
 					return errors.New("user hasn't been updated by operator")
 				}
 
@@ -2042,8 +2025,8 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		// Check that deletion is blocked
 		Expect(pgdb.Status.Ready).To(BeFalse())
-		Expect(pgdb.Status.Phase).To(BeEquivalentTo(postgresqlv1alpha1.EngineFailedPhase))
-		Expect(pgdb.Status.Message).To(BeEquivalentTo(
+		Expect(pgdb.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseFailedPhase))
+		Expect(pgdb.Status.Message).To(Equal(
 			fmt.Sprintf("cannot remove resource because found user %s in namespace %s linked to this resource and wait for deletion flag is enabled", pguName, pguNamespace)))
 	})
 
@@ -2088,7 +2071,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 				}
 
 				// Check if status hasn't been updated
-				if createdUser.Status.Phase == postgresqlv1alpha1.UserCreatedPhase {
+				if createdUser.Status.Phase == postgresqlv1alpha1.UserNoPhase {
 					return errors.New("user hasn't been updated by operator")
 				}
 
