@@ -410,6 +410,54 @@ func deletePGDB(ctx context.Context, cl client.Client, name, namespace string) e
 	return deleteObject(ctx, cl, name, namespace, st)
 }
 
+func setupPGU() *postgresqlv1alpha1.PostgresqlUser {
+	// Create pgu
+	item := &postgresqlv1alpha1.PostgresqlUser{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pguName,
+			Namespace: pguNamespace,
+		},
+		Spec: postgresqlv1alpha1.PostgresqlUserSpec{
+			RolePrefix: "pgu",
+			Database: &postgresqlv1alpha1.CRLink{
+				Name:      pgdbName,
+				Namespace: pgdbNamespace,
+			},
+			GeneratedSecretNamePrefix: "pgu",
+			Privileges:                postgresqlv1alpha1.OwnerPrivilege,
+		},
+	}
+
+	// Create
+	Expect(k8sClient.Create(ctx, item)).Should(Succeed())
+
+	// Get created
+	Eventually(
+		func() error {
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pguName,
+				Namespace: pguNamespace,
+			}, item)
+			// Check error
+			if err != nil {
+				return err
+			}
+
+			// Check if status hasn't been updated
+			if item.Status.Phase == postgresqlv1alpha1.UserNoPhase {
+				return gerrors.New("pgu hasn't been updated by operator")
+			}
+
+			return nil
+		},
+		generalEventuallyTimeout,
+		generalEventuallyInterval,
+	).
+		Should(Succeed())
+
+	return item
+}
+
 func deletePGU(ctx context.Context, cl client.Client, name, namespace string) error {
 	// Create structure
 	st := &postgresqlv1alpha1.PostgresqlUser{}
@@ -650,4 +698,29 @@ func createTableInSchema(schema, table string) error {
 	}
 
 	return nil
+}
+
+func isSQLUserMemberOf(user, group string) (bool, error) {
+	// Connect
+	db, err := sql.Open("postgres", postgresUrl)
+	// Check error
+	if err != nil {
+		return false, err
+	}
+
+	defer func() error {
+		return db.Close()
+	}()
+
+	res, err := db.Exec(fmt.Sprintf(postgres.IsMemberOfSQLTemplate, user, group))
+	if err != nil {
+		return false, err
+	}
+	// Get affected rows
+	nb, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	return nb == 1, nil
 }
