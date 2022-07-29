@@ -724,3 +724,13 @@ func isSQLUserMemberOf(user, group string) (bool, error) {
 
 	return nb == 1, nil
 }
+
+func checkRoleInSQLDb(user, role string) {
+	roleExists, roleErr := isSQLRoleExists(role)
+	Expect(roleErr).ToNot(HaveOccurred())
+	Expect(roleExists).To(BeTrue())
+
+	memberOf, memberOfErr := isSQLUserMemberOf(user, role)
+	Expect(memberOfErr).ToNot(HaveOccurred())
+	Expect(memberOf).To(BeTrue())
+}

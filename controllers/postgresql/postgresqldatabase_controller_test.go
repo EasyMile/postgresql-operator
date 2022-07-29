@@ -155,31 +155,27 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		// Checks
+		ownerRole := fmt.Sprintf("%s-owner", pgdbDBName)
+		readerRole := fmt.Sprintf("%s-reader", pgdbDBName)
+		writerRole := fmt.Sprintf("%s-writer", pgdbDBName)
+
 		Expect(item.Status.Ready).To(BeTrue())
 		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
 		Expect(item.Status.Database).To(Equal(pgdbDBName))
 		Expect(item.Status.Message).To(BeEmpty())
-		Expect(item.Status.Roles.Owner).To(Equal(fmt.Sprintf("%s-owner", pgdbDBName)))
-		Expect(item.Status.Roles.Reader).To(Equal(fmt.Sprintf("%s-reader", pgdbDBName)))
-		Expect(item.Status.Roles.Writer).To(Equal(fmt.Sprintf("%s-writer", pgdbDBName)))
+		Expect(item.Status.Roles.Owner).To(Equal(ownerRole))
+		Expect(item.Status.Roles.Reader).To(Equal(readerRole))
+		Expect(item.Status.Roles.Writer).To(Equal(writerRole))
 
 		// Check if DB exists
 		exists, err := isSQLDBExists(pgdbDBName)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(exists).To(BeTrue())
 
-		// Check if roles exists
-		ownerRoleExists, ownerRoleErr := isSQLRoleExists(fmt.Sprintf("%s-owner", pgdbDBName))
-		Expect(ownerRoleErr).ToNot(HaveOccurred())
-		Expect(ownerRoleExists).To(BeTrue())
-
-		readerRoleExists, readerRoleErr := isSQLRoleExists(fmt.Sprintf("%s-reader", pgdbDBName))
-		Expect(readerRoleErr).ToNot(HaveOccurred())
-		Expect(readerRoleExists).To(BeTrue())
-
-		writerRoleExists, writerRoleErr := isSQLRoleExists(fmt.Sprintf("%s-writer", pgdbDBName))
-		Expect(writerRoleErr).ToNot(HaveOccurred())
-		Expect(writerRoleExists).To(BeTrue())
+		// Check if roles exists and are granted to default user
+		checkRoleInSQLDb(postgresUser, ownerRole)
+		checkRoleInSQLDb(postgresUser, readerRole)
+		checkRoleInSQLDb(postgresUser, writerRole)
 	})
 
 	It("should be ok to set all values (required & optional)", func() {
@@ -243,31 +239,27 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		// Checks
+		ownerRole := "master"
+		readerRole := fmt.Sprintf("%s-reader", pgdbDBName)
+		writerRole := fmt.Sprintf("%s-writer", pgdbDBName)
+
 		Expect(item.Status.Ready).To(BeTrue())
 		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
 		Expect(item.Status.Database).To(Equal(pgdbDBName))
 		Expect(item.Status.Message).To(BeEmpty())
-		Expect(item.Status.Roles.Owner).To(Equal("master"))
-		Expect(item.Status.Roles.Reader).To(Equal(fmt.Sprintf("%s-reader", pgdbDBName)))
-		Expect(item.Status.Roles.Writer).To(Equal(fmt.Sprintf("%s-writer", pgdbDBName)))
+		Expect(item.Status.Roles.Owner).To(Equal(ownerRole))
+		Expect(item.Status.Roles.Reader).To(Equal(readerRole))
+		Expect(item.Status.Roles.Writer).To(Equal(writerRole))
 
 		// Check if DB exists
 		exists, err := isSQLDBExists(pgdbDBName)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(exists).To(BeTrue())
 
-		// Check if roles exists
-		ownerRoleExists, ownerRoleErr := isSQLRoleExists("master")
-		Expect(ownerRoleErr).ToNot(HaveOccurred())
-		Expect(ownerRoleExists).To(BeTrue())
-
-		readerRoleExists, readerRoleErr := isSQLRoleExists(fmt.Sprintf("%s-reader", pgdbDBName))
-		Expect(readerRoleErr).ToNot(HaveOccurred())
-		Expect(readerRoleExists).To(BeTrue())
-
-		writerRoleExists, writerRoleErr := isSQLRoleExists(fmt.Sprintf("%s-writer", pgdbDBName))
-		Expect(writerRoleErr).ToNot(HaveOccurred())
-		Expect(writerRoleExists).To(BeTrue())
+		// Check if roles exists and are granted to default user
+		checkRoleInSQLDb(postgresUser, ownerRole)
+		checkRoleInSQLDb(postgresUser, readerRole)
+		checkRoleInSQLDb(postgresUser, writerRole)
 	})
 
 	It("should drop database on crd deletion if DropOnDelete set to true", func() {
@@ -512,6 +504,9 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		Expect(item.Status.Ready).To(BeTrue())
 		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
 		Expect(item.Status.Roles.Owner).To(Equal(sqlRole))
+
+		// Check owner role in DB
+		checkRoleInSQLDb(postgresUser, sqlRole)
 	})
 
 	It("should be ok to have a pgdb referencing an existing editor role", func() {
@@ -529,6 +524,9 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		Expect(item.Status.Ready).To(BeTrue())
 		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
 		Expect(item.Status.Roles.Writer).To(Equal(sqlRole))
+
+		// Check writer role in DB
+		checkRoleInSQLDb(postgresUser, sqlRole)
 	})
 
 	It("should be ok to declare 1 schema", func() {
@@ -1564,6 +1562,9 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 	})
 
 	It("should be ok to set a master role directly", func() {
+		// Given
+		masterRole := "super-owner"
+
 		// Create pgec
 		prov, _ := setupPGEC("10s", false)
 
@@ -1579,7 +1580,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
-				MasterRole: "super-owner",
+				MasterRole: masterRole,
 			},
 		}
 
@@ -1615,12 +1616,15 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		Expect(item.Status.Ready).To(BeTrue())
 		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
 		Expect(item.Status.Database).To(Equal(pgdbDBName))
-		Expect(item.Status.Roles.Owner).To(Equal("super-owner"))
+		Expect(item.Status.Roles.Owner).To(Equal(masterRole))
 
 		// Check if roles exists
-		ownerRoleExists, ownerRoleErr := isSQLRoleExists("super-owner")
+		ownerRoleExists, ownerRoleErr := isSQLRoleExists(masterRole)
 		Expect(ownerRoleErr).ToNot(HaveOccurred())
 		Expect(ownerRoleExists).To(BeTrue())
+
+		// Check if default user has owner role in DB
+		checkRoleInSQLDb(postgresUser, masterRole)
 	})
 
 	It("should be ok to inject a simple instance and set a master role after", func() {
@@ -1703,6 +1707,14 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		Expect(updatedItem.Status.Ready).To(BeTrue())
 		Expect(updatedItem.Status.Roles.Owner).To(Equal(masterRole))
+
+		// Check if roles exists
+		ownerRoleExists, ownerRoleErr := isSQLRoleExists(masterRole)
+		Expect(ownerRoleErr).ToNot(HaveOccurred())
+		Expect(ownerRoleExists).To(BeTrue())
+
+		// Check if default user has owner role in DB
+		checkRoleInSQLDb(postgresUser, masterRole)
 	})
 
 	It("should be ok to inject a simple instance with a master role and change it after", func() {
@@ -1787,6 +1799,14 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		Expect(updatedItem.Status.Ready).To(BeTrue())
 		Expect(updatedItem.Status.Roles.Owner).To(Equal(masterRoleBis))
+
+		// Check if roles exists
+		ownerRoleExists, ownerRoleErr := isSQLRoleExists(masterRoleBis)
+		Expect(ownerRoleErr).ToNot(HaveOccurred())
+		Expect(ownerRoleExists).To(BeTrue())
+
+		// Check if default user has owner role in DB
+		checkRoleInSQLDb(postgresUser, masterRoleBis)
 	})
 
 	It("should be ok to rename database", func() {
