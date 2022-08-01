@@ -18,8 +18,6 @@ const (
 	ReassignObjectsSQLTemplate     = `REASSIGN OWNED BY "%s" TO "%s"`
 	IsRoleExistSQLTemplate         = `SELECT 1 FROM pg_roles WHERE rolname='%s'`
 	RenameRoleSQLTemplate          = `ALTER ROLE "%s" RENAME TO "%s"`
-	GetAllCreatedRolesSQLTemplate  = `SELECT rolname FROM pg_roles WHERE rolname NOT LIKE 'pg\_%' AND rolname != 'postgres'`
-	IsMemberOfSQLTemplate          = `SELECT 1 FROM pg_roles WHERE pg_has_role( '%s', oid, 'member') AND rolname = '%s'`
 	DuplicateRoleErrorCode         = "42710"
 	RoleNotFoundErrorCode          = "42704"
 	InvalidGrantOperationErrorCode = "0LP01"

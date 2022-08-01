@@ -112,7 +112,7 @@ var _ = Describe("PostgresqlUser tests", func() {
 
 	It("should be ok to set only required values", func() {
 		// Setup pgec
-		setupPGEC("10s", false)
+		pgec, _ := setupPGEC("10s", false)
 
 		// Setup pgdb
 		pgdb := setupPGDB(true)
@@ -181,11 +181,16 @@ var _ = Describe("PostgresqlUser tests", func() {
 		isMember, err := isSQLUserMemberOf(item.Status.PostgresRole, pgdb.Status.Roles.Owner)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(isMember).To(BeTrue())
+
+		// Check secret values
+		secretName := fmt.Sprintf("%s-%s", item.Spec.GeneratedSecretNamePrefix, pguName)
+		secretNamespace := pguNamespace
+		checkSecretValues(secretName, secretNamespace, "pgu", pgec)
 	})
 
 	It("should be ok to set all values (required & optional)", func() {
 		// Setup pgec
-		setupPGEC("10s", false)
+		pgec, _ := setupPGEC("10s", false)
 
 		// Setup pgdb
 		pgdb := setupPGDB(true)
@@ -255,11 +260,16 @@ var _ = Describe("PostgresqlUser tests", func() {
 		isMember, err := isSQLUserMemberOf(item.Status.PostgresRole, pgdb.Status.Roles.Owner)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(isMember).To(BeTrue())
+
+		// Check secret values
+		secretName := fmt.Sprintf("%s-%s", item.Spec.GeneratedSecretNamePrefix, pguName)
+		secretNamespace := pguNamespace
+		checkSecretValues(secretName, secretNamespace, "pgu", pgec)
 	})
 
 	It("should be ok to change role prefix", func() {
 		// Setup pgec
-		setupPGEC("10s", false)
+		pgec, _ := setupPGEC("10s", false)
 
 		// Setup pgdb
 		pgdb := setupPGDB(true)
@@ -307,66 +317,35 @@ var _ = Describe("PostgresqlUser tests", func() {
 		Expect(updatedItem.Status.PostgresRole).To(ContainSubstring(fmt.Sprintf("%s-", pguNewRolePrefix)))
 
 		// Check if user exists
-		postgresRoleExists, postgresRoleErr := isSQLRoleExists(updatedItem.Status.PostgresRole)
-		Expect(postgresRoleErr).ToNot(HaveOccurred())
-		Expect(postgresRoleExists).To(BeTrue())
+		exists, err := isSQLRoleExists(updatedItem.Status.PostgresRole)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
 
 		// Check user is in correct group
 		isMember, err := isSQLUserMemberOf(updatedItem.Status.PostgresRole, pgdb.Status.Roles.Owner)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(isMember).To(BeTrue())
+
+		// Check previous user does not exist anymore
+		exists, err = isSQLRoleExists(item.Status.PostgresRole)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeFalse())
+
+		// Check secret values
+		secretName := fmt.Sprintf("%s-%s", item.Spec.GeneratedSecretNamePrefix, pguName)
+		secretNamespace := pguNamespace
+		checkSecretValues(secretName, secretNamespace, pguNewRolePrefix, pgec)
 	})
 
 	It("should be ok to change privileges (OWNER -> READ)", func() {
 		// Setup pgec
-		setupPGEC("10s", false)
+		pgec, _ := setupPGEC("10s", false)
 
 		// Setup pgdb
 		pgdb := setupPGDB(true)
 
-		it := &postgresqlv1alpha1.PostgresqlUser{
-			ObjectMeta: v1.ObjectMeta{
-				Name:      pguName,
-				Namespace: pguNamespace,
-			},
-			Spec: postgresqlv1alpha1.PostgresqlUserSpec{
-				RolePrefix: "pgu",
-				Database: &postgresqlv1alpha1.CRLink{
-					Name:      pgdbName,
-					Namespace: pgdbNamespace,
-				},
-				GeneratedSecretNamePrefix: "pgu",
-				Privileges:                postgresqlv1alpha1.OwnerPrivilege,
-			},
-		}
-
-		// Create user
-		Expect(k8sClient.Create(ctx, it)).Should(Succeed())
-
-		item := &postgresqlv1alpha1.PostgresqlUser{}
-		// Get updated user
-		Eventually(
-			func() error {
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      pguName,
-					Namespace: pguNamespace,
-				}, item)
-				// Check error
-				if err != nil {
-					return err
-				}
-
-				// Check if status hasn't been updated
-				if item.Status.Phase == postgresqlv1alpha1.UserNoPhase {
-					return errors.New("pgu hasn't been updated by operator")
-				}
-
-				return nil
-			},
-			generalEventuallyTimeout,
-			generalEventuallyInterval,
-		).
-			Should(Succeed())
+		// Setup PGU
+		item := setupPGU()
 
 		// Change role prefix
 		item.Spec.Privileges = postgresqlv1alpha1.ReaderPrivilege
@@ -408,11 +387,16 @@ var _ = Describe("PostgresqlUser tests", func() {
 		isMember, err := isSQLUserMemberOf(item.Status.PostgresRole, pgdb.Status.Roles.Reader)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(isMember).To(BeTrue())
+
+		// Check secret values
+		secretName := fmt.Sprintf("%s-%s", item.Spec.GeneratedSecretNamePrefix, pguName)
+		secretNamespace := pguNamespace
+		checkSecretValues(secretName, secretNamespace, "pgu", pgec)
 	})
 
 	It("should be ok to regenerate a secret that have been removed", func() {
 		// Setup pgec
-		setupPGEC("10s", false)
+		pgec, _ := setupPGEC("10s", false)
 
 		// Setup pgdb
 		setupPGDB(true)
@@ -488,11 +472,16 @@ var _ = Describe("PostgresqlUser tests", func() {
 		Expect(secret.Data["POSTGRES_URL_ARGS"]).ToNot(Equal(renewedSecret.Data["POSTGRES_URL_ARGS"]))
 		Expect(secret.Data["PASSWORD"]).ToNot(Equal(renewedSecret.Data["PASSWORD"]))
 
+		// Check all secret values
+		secretName := fmt.Sprintf("%s-%s", item.Spec.GeneratedSecretNamePrefix, pguName)
+		secretNamespace := pguNamespace
+		checkSecretValues(secretName, secretNamespace, "pgu", pgec)
+
 	})
 
 	It("should be ok to regenerate a secret that have been edited (key removed)", func() {
 		// Setup pgec
-		setupPGEC("10s", false)
+		pgec, _ := setupPGEC("10s", false)
 
 		// Setup pgdb
 		setupPGDB(true)
@@ -572,11 +561,16 @@ var _ = Describe("PostgresqlUser tests", func() {
 		Expect(secret.Data["POSTGRES_URL"]).ToNot(Equal(renewedSecret.Data["POSTGRES_URL"]))
 		Expect(secret.Data["POSTGRES_URL_ARGS"]).ToNot(Equal(renewedSecret.Data["POSTGRES_URL_ARGS"]))
 		Expect(secret.Data["PASSWORD"]).ToNot(Equal(renewedSecret.Data["PASSWORD"]))
+
+		// Check all secret values
+		secretName := fmt.Sprintf("%s-%s", item.Spec.GeneratedSecretNamePrefix, pguName)
+		secretNamespace := pguNamespace
+		checkSecretValues(secretName, secretNamespace, "pgu", pgec)
 	})
 
 	It("should be ok to regenerate a secret that been edited (known field edited)", func() {
 		// Setup pgec
-		setupPGEC("10s", false)
+		pgec, _ := setupPGEC("10s", false)
 
 		// Setup pgdb
 		setupPGDB(true)
@@ -655,6 +649,11 @@ var _ = Describe("PostgresqlUser tests", func() {
 		Expect(secret.Data["POSTGRES_URL"]).ToNot(Equal(renewedSecret.Data["POSTGRES_URL"]))
 		Expect(secret.Data["POSTGRES_URL_ARGS"]).ToNot(Equal(renewedSecret.Data["POSTGRES_URL_ARGS"]))
 		Expect(secret.Data["PASSWORD"]).ToNot(Equal(renewedSecret.Data["PASSWORD"]))
+
+		// Check all secret values
+		secretName := fmt.Sprintf("%s-%s", item.Spec.GeneratedSecretNamePrefix, pguName)
+		secretNamespace := pguNamespace
+		checkSecretValues(secretName, secretNamespace, "pgu", pgec)
 	})
 
 	It("should be ok to remove a user", func() {

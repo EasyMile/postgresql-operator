@@ -176,6 +176,11 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		checkRoleInSQLDb(postgresUser, ownerRole)
 		checkRoleInSQLDb(postgresUser, readerRole)
 		checkRoleInSQLDb(postgresUser, writerRole)
+
+		// Check DB ownership
+		isOwner, err := isRoleOwnerofSQLDB(pgdbDBName, ownerRole)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(isOwner).To(BeTrue())
 	})
 
 	It("should be ok to set all values (required & optional)", func() {
@@ -446,6 +451,16 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
 		Expect(item.Status.Database).To(Equal(pgdbDBName))
 		Expect(item.Status.Message).To(BeEmpty())
+
+		// Check if roles exists and are granted to default user
+		ownerRole := fmt.Sprintf("%s-owner", pgdbDBName)
+		checkRoleInSQLDb(postgresUser, ownerRole)
+
+		readerRole := fmt.Sprintf("%s-reader", pgdbDBName)
+		checkRoleInSQLDb(postgresUser, readerRole)
+
+		writerRole := fmt.Sprintf("%s-writer", pgdbDBName)
+		checkRoleInSQLDb(postgresUser, writerRole)
 	})
 
 	It("should be ok to have a pgdb referencing an existing master role", func() {
@@ -507,6 +522,11 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		// Check owner role in DB
 		checkRoleInSQLDb(postgresUser, sqlRole)
+
+		// Check DB ownership
+		isOwner, err := isRoleOwnerofSQLDB(pgdbDBName, sqlRole)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(isOwner).To(BeTrue())
 	})
 
 	It("should be ok to have a pgdb referencing an existing editor role", func() {
@@ -713,6 +733,11 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		).
 			Should(Succeed())
 
+		// Check schema exist in sql db
+		exists, err := isSQLSchemaExists(pgdbSchemaName1)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
+
 		// Add one more schema
 		item.Spec.Schemas.List = append(item.Spec.Schemas.List, pgdbSchemaName2)
 
@@ -747,15 +772,15 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		Expect(len(updatedItem.Status.Schemas)).To(Equal(2))
 		Expect(updatedItem.Status.Schemas).To(ContainElements(pgdbSchemaName1, pgdbSchemaName2))
 
-		// Check first schema exist in sql db
-		firstExists, firstErr := isSQLSchemaExists(pgdbSchemaName1)
-		Expect(firstErr).ToNot(HaveOccurred())
-		Expect(firstExists).To(BeTrue())
+		// Check first schema still exists in sql db
+		exists, err = isSQLSchemaExists(pgdbSchemaName1)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
 
-		// Check second schema exist in sql db
-		secondExists, secondErr := isSQLSchemaExists(pgdbSchemaName2)
-		Expect(secondErr).ToNot(HaveOccurred())
-		Expect(secondExists).To(BeTrue())
+		// Check second schema exists in sql db
+		exists, err = isSQLSchemaExists(pgdbSchemaName2)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
 	})
 
 	It("should be ok to remove a schema with drop on delete without cascade", func() {
@@ -1625,6 +1650,11 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		// Check if default user has owner role in DB
 		checkRoleInSQLDb(postgresUser, masterRole)
+
+		// Check DB ownership
+		isOwner, err := isRoleOwnerofSQLDB(pgdbDBName, masterRole)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(isOwner).To(BeTrue())
 	})
 
 	It("should be ok to inject a simple instance and set a master role after", func() {
@@ -1708,13 +1738,24 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		Expect(updatedItem.Status.Ready).To(BeTrue())
 		Expect(updatedItem.Status.Roles.Owner).To(Equal(masterRole))
 
-		// Check if roles exists
-		ownerRoleExists, ownerRoleErr := isSQLRoleExists(masterRole)
-		Expect(ownerRoleErr).ToNot(HaveOccurred())
-		Expect(ownerRoleExists).To(BeTrue())
+		// Check if new roles exists
+		exists, err := isSQLRoleExists(masterRole)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
+
+		// Check old role does not exist anymore
+		ownerRole := fmt.Sprintf("%s-owner", pgdbDBName)
+		exists, err = isSQLRoleExists(ownerRole)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeFalse())
 
 		// Check if default user has owner role in DB
 		checkRoleInSQLDb(postgresUser, masterRole)
+
+		// Check DB ownership
+		isOwner, err := isRoleOwnerofSQLDB(pgdbDBName, masterRole)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(isOwner).To(BeTrue())
 	})
 
 	It("should be ok to inject a simple instance with a master role and change it after", func() {
@@ -1807,6 +1848,11 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		// Check if default user has owner role in DB
 		checkRoleInSQLDb(postgresUser, masterRoleBis)
+
+		// Check DB ownership
+		isOwner, err := isRoleOwnerofSQLDB(pgdbDBName, masterRoleBis)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(isOwner).To(BeTrue())
 	})
 
 	It("should be ok to rename database", func() {
@@ -1937,6 +1983,11 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			generalEventuallyTimeout,
 			generalEventuallyInterval,
 		).Should(Succeed())
+
+		// Check DB does not exists anymore
+		exists, err := isSQLDBExists(pgdbDBName)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeFalse())
 	})
 
 	It("should be ok to delete it without wait and nothing linked", func() {
@@ -1981,48 +2032,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		it := setupPGDB(true)
 
 		// Create user
-		user := &postgresqlv1alpha1.PostgresqlUser{
-			ObjectMeta: v1.ObjectMeta{
-				Name:      pguName,
-				Namespace: pguNamespace,
-			},
-			Spec: postgresqlv1alpha1.PostgresqlUserSpec{
-				RolePrefix: "userprefix",
-				Database: &postgresqlv1alpha1.CRLink{
-					Name:      it.Name,
-					Namespace: it.Namespace,
-				},
-				GeneratedSecretNamePrefix: "secretprefix",
-				Privileges:                postgresqlv1alpha1.WriterPrivilege,
-			},
-		}
-
-		// Create user
-		Expect(k8sClient.Create(ctx, user)).Should(Succeed())
-
-		createdUser := &postgresqlv1alpha1.PostgresqlUser{}
-		Eventually(
-			func() error {
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      pguName,
-					Namespace: pguNamespace,
-				}, createdUser)
-				// Check error
-				if err != nil {
-					return err
-				}
-
-				// Check if status hasn't been updated
-				if createdUser.Status.Phase == postgresqlv1alpha1.UserNoPhase {
-					return errors.New("user hasn't been updated by operator")
-				}
-
-				return nil
-			},
-			generalEventuallyTimeout,
-			generalEventuallyInterval,
-		).
-			Should(Succeed())
+		setupPGU()
 
 		// Try to delete pgdb
 		Expect(k8sClient.Delete(ctx, it)).Should(Succeed())
@@ -2055,6 +2065,11 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		Expect(pgdb.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseFailedPhase))
 		Expect(pgdb.Status.Message).To(Equal(
 			fmt.Sprintf("cannot remove resource because found user %s in namespace %s linked to this resource and wait for deletion flag is enabled", pguName, pguNamespace)))
+
+		// Check DB has not been deleted
+		exists, err := isSQLDBExists(pgdbDBName)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
 	})
 
 	It("should be ok to delete it without wait and something linked", func() {
@@ -2065,49 +2080,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		it := setupPGDB(false)
 
 		// Create user
-		user := &postgresqlv1alpha1.PostgresqlUser{
-			ObjectMeta: v1.ObjectMeta{
-				Name:      pguName,
-				Namespace: pguNamespace,
-			},
-			Spec: postgresqlv1alpha1.PostgresqlUserSpec{
-				RolePrefix: "userprefix",
-				Database: &postgresqlv1alpha1.CRLink{
-					Name:      it.Name,
-					Namespace: it.Namespace,
-				},
-				GeneratedSecretNamePrefix: "secretprefix",
-				Privileges:                postgresqlv1alpha1.WriterPrivilege,
-			},
-		}
-
-		// Create user
-		Expect(k8sClient.Create(ctx, user)).Should(Succeed())
-
-		createdUser := &postgresqlv1alpha1.PostgresqlUser{}
-		// Get updated pgdb
-		Eventually(
-			func() error {
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      pguName,
-					Namespace: pguNamespace,
-				}, createdUser)
-				// Check error
-				if err != nil {
-					return err
-				}
-
-				// Check if status hasn't been updated
-				if createdUser.Status.Phase == postgresqlv1alpha1.UserNoPhase {
-					return errors.New("user hasn't been updated by operator")
-				}
-
-				return nil
-			},
-			generalEventuallyTimeout,
-			generalEventuallyInterval,
-		).
-			Should(Succeed())
+		setupPGU()
 
 		// Try to delete pgdb
 		Expect(k8sClient.Delete(ctx, it)).Should(Succeed())
@@ -2134,5 +2107,10 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			generalEventuallyTimeout,
 			generalEventuallyInterval,
 		).Should(Succeed())
+
+		// Check DB does not exists anymore
+		exists, err := isSQLDBExists(pgdbDBName)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeFalse())
 	})
 })

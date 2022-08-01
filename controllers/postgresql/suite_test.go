@@ -178,7 +178,7 @@ func cleanupFunction() {
 
 	Expect(deletePGU(ctx, k8sClient, pguName, pguNamespace)).ToNot(HaveOccurred())
 	Expect(deletePGDB(ctx, k8sClient, pgdbName, pgdbNamespace)).ToNot(HaveOccurred())
-	Expect(deleteSQLDB(pgdbDBName)).ToNot(HaveOccurred())
+	Expect(deleteSQLDBs(pgdbDBName)).ToNot(HaveOccurred())
 	Expect(deleteSQLRoles()).ToNot(HaveOccurred())
 }
 
@@ -365,6 +365,7 @@ func setupPGDB(
 				Name:      pgecName,
 				Namespace: pgecNamespace,
 			},
+			DropOnDelete: true,
 		},
 	}
 
@@ -465,10 +466,11 @@ func deletePGU(ctx context.Context, cl client.Client, name, namespace string) er
 	return deleteObject(ctx, cl, name, namespace, st)
 }
 
-func deleteSQLDB(name string) error {
-	// Connect
+func deleteSQLDBs(name string) error {
+	// Query template
+	GetAllCreatedSQLDBTemplate := "SELECT datname FROM pg_database WHERE datname LIKE '%" + name + "%';"
+
 	db, err := sql.Open("postgres", postgresUrl)
-	// Check error
 	if err != nil {
 		return err
 	}
@@ -477,26 +479,34 @@ func deleteSQLDB(name string) error {
 		return db.Close()
 	}()
 
-	// Try to delete
-	for i := 0; i < 1000; i++ {
-		_, err = db.Exec(fmt.Sprintf(postgres.DropDatabaseSQLTemplate, name))
-		if err == nil {
-			return nil
-		}
+	res, err := db.Query(GetAllCreatedSQLDBTemplate)
+	if err != nil {
+		return err
+	}
 
-		// Try to cast error
-		// Error code 3D000 is returned if database doesn't exist
-		// Error code 55006 is returned if there are connections still open
-		pqErr, ok := err.(*pq.Error)
-
-		if !ok || (pqErr.Code != "3D000" && pqErr.Code != "55006") {
+	var dbname string
+	for res.Next() {
+		err = res.Scan(&dbname)
+		if err != nil {
 			return err
 		}
 
-		if pqErr.Code == "3D000" {
-			return nil
-		}
+		// Try to delete
+		for i := 0; i < 1000; i++ {
+			_, err = db.Exec(fmt.Sprintf(postgres.DropDatabaseSQLTemplate, dbname))
+			if err == nil {
+				break
+			}
 
+			// Try to cast error
+			// Error code 3D000 is returned if database doesn't exist
+			// Error code 55006 is returned if there are connections still open
+			pqErr, ok := err.(*pq.Error)
+
+			if !ok || (pqErr.Code != "3D000" && pqErr.Code != "55006") {
+				return err
+			}
+		}
 	}
 
 	// Default
@@ -554,12 +564,15 @@ func isSQLDBExists(name string) (bool, error) {
 }
 
 func deleteSQLRoles() error {
+	// Query template
+	GetAllCreatedRolesSQLTemplate := `SELECT rolname FROM pg_roles WHERE rolname NOT LIKE 'pg\_%' AND rolname != 'postgres'`
+
 	db, err := sql.Open("postgres", postgresUrl)
 	if err != nil {
 		return err
 	}
 
-	res, err := db.Query(postgres.GetAllCreatedRolesSQLTemplate)
+	res, err := db.Query(GetAllCreatedRolesSQLTemplate)
 	if err != nil {
 		return err
 	}
@@ -631,6 +644,9 @@ func isSQLRoleExists(name string) (bool, error) {
 }
 
 func isSQLSchemaExists(name string) (bool, error) {
+	// Query template
+	IsSchemaExistSQLTemplate := `SELECT 1 FROM information_schema.schemata WHERE schema_name='%s'`
+
 	// Connect
 	db, err := sql.Open("postgres", postgresUrlToDB)
 	// Check error
@@ -642,7 +658,7 @@ func isSQLSchemaExists(name string) (bool, error) {
 		return db.Close()
 	}()
 
-	res, err := db.Exec(fmt.Sprintf(postgres.IsSchemaExistSQLTemplate, name))
+	res, err := db.Exec(fmt.Sprintf(IsSchemaExistSQLTemplate, name))
 	if err != nil {
 		return false, err
 	}
@@ -656,6 +672,9 @@ func isSQLSchemaExists(name string) (bool, error) {
 }
 
 func isSQLExtensionExists(name string) (bool, error) {
+	// Query template
+	IsExtensionExistSQLTemplate := `SELECT 1 FROM pg_extension WHERE extname='%s'`
+
 	// Connect
 	db, err := sql.Open("postgres", postgresUrlToDB)
 	// Check error
@@ -667,7 +686,7 @@ func isSQLExtensionExists(name string) (bool, error) {
 		return db.Close()
 	}()
 
-	res, err := db.Exec(fmt.Sprintf(postgres.IsExtensionExistSQLTemplate, name))
+	res, err := db.Exec(fmt.Sprintf(IsExtensionExistSQLTemplate, name))
 	if err != nil {
 		return false, err
 	}
@@ -681,6 +700,9 @@ func isSQLExtensionExists(name string) (bool, error) {
 }
 
 func createTableInSchema(schema, table string) error {
+	// Query template
+	CreateTableInSchemaTemplate := `CREATE TABLE %s.%s()`
+
 	// Connect
 	db, err := sql.Open("postgres", postgresUrlToDB)
 	// Check error
@@ -692,7 +714,7 @@ func createTableInSchema(schema, table string) error {
 		return db.Close()
 	}()
 
-	_, err = db.Exec(fmt.Sprintf(postgres.CreateTableInSchemaTemplate, schema, table))
+	_, err = db.Exec(fmt.Sprintf(CreateTableInSchemaTemplate, schema, table))
 	if err != nil {
 		return err
 	}
@@ -701,6 +723,9 @@ func createTableInSchema(schema, table string) error {
 }
 
 func isSQLUserMemberOf(user, group string) (bool, error) {
+	// Query template
+	IsMemberOfSQLTemplate := `SELECT 1 FROM pg_roles WHERE pg_has_role( '%s', oid, 'member') AND rolname = '%s'`
+
 	// Connect
 	db, err := sql.Open("postgres", postgresUrl)
 	// Check error
@@ -712,7 +737,7 @@ func isSQLUserMemberOf(user, group string) (bool, error) {
 		return db.Close()
 	}()
 
-	res, err := db.Exec(fmt.Sprintf(postgres.IsMemberOfSQLTemplate, user, group))
+	res, err := db.Exec(fmt.Sprintf(IsMemberOfSQLTemplate, user, group))
 	if err != nil {
 		return false, err
 	}
@@ -733,4 +758,51 @@ func checkRoleInSQLDb(user, role string) {
 	memberOf, memberOfErr := isSQLUserMemberOf(user, role)
 	Expect(memberOfErr).ToNot(HaveOccurred())
 	Expect(memberOf).To(BeTrue())
+}
+
+func isRoleOwnerofSQLDB(dbname, role string) (bool, error) {
+	// Query template
+	IsRoleOwnerOfDbSQLTemplate := `SELECT 1 FROM pg_catalog.pg_database d WHERE d.datname = '%s' AND pg_catalog.pg_get_userbyid(d.datdba) = '%s';`
+
+	// Connect
+	db, err := sql.Open("postgres", postgresUrl)
+	// Check error
+	if err != nil {
+		return false, err
+	}
+
+	defer func() error {
+		return db.Close()
+	}()
+
+	res, err := db.Exec(fmt.Sprintf(IsRoleOwnerOfDbSQLTemplate, dbname, role))
+	if err != nil {
+		return false, err
+	}
+	// Get affected rows
+	nb, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	return nb == 1, nil
+}
+
+func checkSecretValues(name, namespace, rolePrefix string, pgec *postgresqlv1alpha1.PostgresqlEngineConfiguration) {
+	secret := &corev1.Secret{}
+	err := k8sClient.Get(ctx, types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}, secret)
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(string(secret.Data["POSTGRES_URL"])).To(Equal(fmt.Sprintf("postgresql://%s:%s@localhost:5432/%s", secret.Data["LOGIN"], secret.Data["PASSWORD"], pgdbDBName)))
+	Expect(string(secret.Data["POSTGRES_URL_ARGS"])).To(Equal(fmt.Sprintf("%s?%s", secret.Data["POSTGRES_URL"], secret.Data["ARGS"])))
+	Expect(string(secret.Data["ROLE"])).To(MatchRegexp(fmt.Sprintf("%s-.+", rolePrefix)))
+	Expect(secret.Data["PASSWORD"]).ToNot(BeEmpty())
+	Expect(string(secret.Data["LOGIN"])).To(MatchRegexp(fmt.Sprintf("%s-.+", rolePrefix)))
+	Expect(string(secret.Data["DATABASE"])).To(Equal(pgdbDBName))
+	Expect(string(secret.Data["HOST"])).To(Equal(pgec.Spec.Host))
+	Expect(string(secret.Data["PORT"])).To(Equal(fmt.Sprint(pgec.Spec.Port)))
+	Expect(string(secret.Data["ARGS"])).To(Equal(pgec.Spec.URIArgs))
 }
