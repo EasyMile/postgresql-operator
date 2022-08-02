@@ -9,7 +9,7 @@ import (
 const (
 	maxOpenConnections = 5
 	maxIdleConnections = 1
-	maxLifeTimeSecond  = 60 * time.Second // nolint: revive
+	maxLifeTimeSecond  = 60 * time.Second
 )
 
 // Pool saved structure per postgres engine configuration.
@@ -189,7 +189,7 @@ func CloseAllSavedPoolsForName(name string) error {
 	}
 	// Check error
 	if err != nil {
-		return nil
+		return err
 	}
 
 	// Clean main entry
