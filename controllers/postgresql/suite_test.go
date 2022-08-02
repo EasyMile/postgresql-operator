@@ -788,7 +788,7 @@ func isRoleOwnerofSQLDB(dbname, role string) (bool, error) {
 	return nb == 1, nil
 }
 
-func checkSecretValues(name, namespace, rolePrefix string, pgec *postgresqlv1alpha1.PostgresqlEngineConfiguration) {
+func checkPGUSecretValues(name, namespace, rolePrefix string, pgec *postgresqlv1alpha1.PostgresqlEngineConfiguration) {
 	secret := &corev1.Secret{}
 	err := k8sClient.Get(ctx, types.NamespacedName{
 		Name:      name,

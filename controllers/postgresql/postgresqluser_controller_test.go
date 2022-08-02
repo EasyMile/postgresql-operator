@@ -185,7 +185,7 @@ var _ = Describe("PostgresqlUser tests", func() {
 		// Check secret values
 		secretName := fmt.Sprintf("%s-%s", item.Spec.GeneratedSecretNamePrefix, pguName)
 		secretNamespace := pguNamespace
-		checkSecretValues(secretName, secretNamespace, "pgu", pgec)
+		checkPGUSecretValues(secretName, secretNamespace, "pgu", pgec)
 	})
 
 	It("should be ok to set all values (required & optional)", func() {
@@ -264,7 +264,7 @@ var _ = Describe("PostgresqlUser tests", func() {
 		// Check secret values
 		secretName := fmt.Sprintf("%s-%s", item.Spec.GeneratedSecretNamePrefix, pguName)
 		secretNamespace := pguNamespace
-		checkSecretValues(secretName, secretNamespace, "pgu", pgec)
+		checkPGUSecretValues(secretName, secretNamespace, "pgu", pgec)
 	})
 
 	It("should be ok to change role prefix", func() {
@@ -334,7 +334,7 @@ var _ = Describe("PostgresqlUser tests", func() {
 		// Check secret values
 		secretName := fmt.Sprintf("%s-%s", item.Spec.GeneratedSecretNamePrefix, pguName)
 		secretNamespace := pguNamespace
-		checkSecretValues(secretName, secretNamespace, pguNewRolePrefix, pgec)
+		checkPGUSecretValues(secretName, secretNamespace, pguNewRolePrefix, pgec)
 	})
 
 	It("should be ok to change privileges (OWNER -> READ)", func() {
@@ -391,7 +391,7 @@ var _ = Describe("PostgresqlUser tests", func() {
 		// Check secret values
 		secretName := fmt.Sprintf("%s-%s", item.Spec.GeneratedSecretNamePrefix, pguName)
 		secretNamespace := pguNamespace
-		checkSecretValues(secretName, secretNamespace, "pgu", pgec)
+		checkPGUSecretValues(secretName, secretNamespace, "pgu", pgec)
 	})
 
 	It("should be ok to regenerate a secret that have been removed", func() {
@@ -475,7 +475,7 @@ var _ = Describe("PostgresqlUser tests", func() {
 		// Check all secret values
 		secretName := fmt.Sprintf("%s-%s", item.Spec.GeneratedSecretNamePrefix, pguName)
 		secretNamespace := pguNamespace
-		checkSecretValues(secretName, secretNamespace, "pgu", pgec)
+		checkPGUSecretValues(secretName, secretNamespace, "pgu", pgec)
 
 	})
 
@@ -565,7 +565,7 @@ var _ = Describe("PostgresqlUser tests", func() {
 		// Check all secret values
 		secretName := fmt.Sprintf("%s-%s", item.Spec.GeneratedSecretNamePrefix, pguName)
 		secretNamespace := pguNamespace
-		checkSecretValues(secretName, secretNamespace, "pgu", pgec)
+		checkPGUSecretValues(secretName, secretNamespace, "pgu", pgec)
 	})
 
 	It("should be ok to regenerate a secret that been edited (known field edited)", func() {
@@ -653,7 +653,7 @@ var _ = Describe("PostgresqlUser tests", func() {
 		// Check all secret values
 		secretName := fmt.Sprintf("%s-%s", item.Spec.GeneratedSecretNamePrefix, pguName)
 		secretNamespace := pguNamespace
-		checkSecretValues(secretName, secretNamespace, "pgu", pgec)
+		checkPGUSecretValues(secretName, secretNamespace, "pgu", pgec)
 	})
 
 	It("should be ok to remove a user", func() {
