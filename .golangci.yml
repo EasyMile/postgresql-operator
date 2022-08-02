@@ -52,3 +52,10 @@ linters:
     - cyclop
     - maintidx
     - gofumpt
+    - scopelint
+    - interfacer
+    - golint
+    - rowserrcheck
+    - sqlclosecheck
+    - structcheck
+    - wastedassign
