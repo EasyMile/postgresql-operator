@@ -1,174 +1,286 @@
-## Copied and modified from Keycloak-operator
+# VERSION defines the project version for the bundle.
+# Update this value when you upgrade the version of your project.
+# To re-generate a bundle for another specific version without changing the standard setup, you can:
+# - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
+# - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
+VERSION ?= 2.0.0
 
-# Other contants
-NAMESPACE=postgresql
-PROJECT=postgresql-operator
-PKG=github.com/easymile/postgresql-operator
-OPERATOR_SDK_VERSION=v0.15.2
-OPERATOR_SDK_DOWNLOAD_URL=https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION)/operator-sdk-$(OPERATOR_SDK_VERSION)-x86_64-linux-gnu
-MINIKUBE_DOWNLOAD_URL=https://storage.googleapis.com/minikube/releases/v1.7.3/minikube-linux-amd64
-KUBECTL_DOWNLOAD_URL=https://storage.googleapis.com/kubernetes-release/release/v1.16.0/bin/linux/amd64/kubectl
+# CHANNELS define the bundle channels used in the bundle.
+# Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
+# To re-generate a bundle for other specific channels without changing the standard setup, you can:
+# - use the CHANNELS as arg of the bundle target (e.g make bundle CHANNELS=candidate,fast,stable)
+# - use environment variables to overwrite this value (e.g export CHANNELS="candidate,fast,stable")
+ifneq ($(origin CHANNELS), undefined)
+BUNDLE_CHANNELS := --channels=$(CHANNELS)
+endif
 
-# Compile constants
-COMPILE_TARGET=./tmp/_output/bin/$(PROJECT)
-GOOS=linux
-GOARCH=amd64
-CGO_ENABLED=0
+# DEFAULT_CHANNEL defines the default channel used in the bundle.
+# Add a new line here if you would like to change its default config. (E.g DEFAULT_CHANNEL = "stable")
+# To re-generate a bundle for any other default channel without changing the default setup, you can:
+# - use the DEFAULT_CHANNEL as arg of the bundle target (e.g make bundle DEFAULT_CHANNEL=stable)
+# - use environment variables to overwrite this value (e.g export DEFAULT_CHANNEL="stable")
+ifneq ($(origin DEFAULT_CHANNEL), undefined)
+BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
+endif
+BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
-.DEFAULT_GOAL := code/check
+# IMAGE_TAG_BASE defines the docker.io namespace and part of the image name for remote images.
+# This variable is used to construct full image tags for bundle and catalog images.
+#
+# For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
+# easymile.com/postgresql-operator-bundle:$VERSION and easymile.com/postgresql-operator-catalog:$VERSION.
+IMAGE_TAG_BASE ?= easymile.com/postgresql-operator
 
-##############################
-# Release                    #
-##############################
+# BUNDLE_IMG defines the image:tag used for the bundle.
+# You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
+BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
 
-.PHONY: release/olm-catalog
-release/olm-catalog:
-	@echo Making OLM Catalog for release
-	@operator-sdk generate csv --csv-channel alpha --csv-version $(version) --update-crds
+# BUNDLE_GEN_FLAGS are the flags passed to the operator-sdk generate bundle command
+BUNDLE_GEN_FLAGS ?= -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 
-.PHONY: release/docker
-release/docker: code/docker
-	@echo Releasing docker image
-	@docker push easymile/postgresql-operator:$(version)
+# USE_IMAGE_DIGESTS defines if images are resolved via tags or digests
+# You can enable this value if you would like to use SHA Based Digests
+# To enable set flag to true
+USE_IMAGE_DIGESTS ?= false
+ifeq ($(USE_IMAGE_DIGESTS), true)
+	BUNDLE_GEN_FLAGS += --use-image-digests
+endif
 
-##############################
-# Operator Management        #
-##############################
-.PHONY: cluster/prepare
-cluster/prepare:
-	@echo Preparing cluster
-	@kubectl apply -f deploy/crds/ || true
-	@kubectl create namespace $(NAMESPACE) || true
-	@kubectl apply -f deploy/role.yaml -n $(NAMESPACE) || true
-	@kubectl apply -f deploy/role_binding.yaml -n $(NAMESPACE) || true
-	@kubectl apply -f deploy/service_account.yaml -n $(NAMESPACE) || true
+# Image URL to use all building/pushing image targets
+IMG ?= controller:latest
+# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
+ENVTEST_K8S_VERSION = 1.24.1
 
-.PHONY: cluster/clean
-cluster/clean:
-	@echo Cleaning cluster
-	# Remove all roles, rolebindings and service accounts with the name postgresql-operator
-	@kubectl get roles,rolebindings,serviceaccounts postgresql-operator -n $(NAMESPACE) --no-headers=true -o name | xargs kubectl delete -n $(NAMESPACE)
-	# Remove all CRDS with postgresql.easymile.com in the name
-	@kubectl get crd --no-headers=true -o name | awk '/postgresql.easymile.com/{print $1}' | xargs kubectl delete
-	@kubectl delete namespace $(NAMESPACE)
+# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
+ifeq (,$(shell go env GOBIN))
+GOBIN=$(shell go env GOPATH)/bin
+else
+GOBIN=$(shell go env GOBIN)
+endif
 
-.PHONY: cluster/create/examples
-cluster/create/examples:
-	@echo Setup examples
-	@kubectl create -f deploy/examples/engineconfiguration/engineconfigurationsecret.yaml -n $(NAMESPACE)
-	@kubectl create -f deploy/examples/engineconfiguration/simple.yaml -n $(NAMESPACE)
-	@kubectl create -f deploy/examples/database/simple.yaml -n $(NAMESPACE)
-	@kubectl create -f deploy/examples/user/simple.yaml -n $(NAMESPACE)
+# Setting SHELL to bash allows bash commands to be executed by recipes.
+# This is a requirement for 'setup-envtest.sh' in the test target.
+# Options are set to exit when a recipe line exits non-zero or a piped command fails.
+SHELL = /usr/bin/env bash -o pipefail
+.SHELLFLAGS = -ec
 
-##############################
-# Tests                      #
-##############################
-# FOR THE MOMENT, NO TESTS
-# .PHONY: test/unit
-# test/unit:
-# 	@echo Running tests:
-# 	@go test -v -tags=unit -coverpkg ./... -coverprofile cover-unit.coverprofile -covermode=count ./pkg/...
+.PHONY: all
+all: build
 
-# .PHONY: test/e2e
-# test/e2e: cluster/prepare
-# 	@echo Running tests:
-# 	@touch deploy/empty-init.yaml
-# 	# This is not recommended way or running the tests (see https://github.com/operator-framework/operator-sdk/blob/master/doc/test-framework/writing-e2e-tests.md#running-go-test-directly-not-recommended)
-# 	# However, this way we will have a consistent way of running tests on Travis and locally. The downside
-# 	# is that Operator testing harness downloads things manually using `go mod` when executing the tests.
-# 	# Here is a corresponding Operator SDK call:
-# 	# operator-sdk test  local --go-test-flags "-tags=integration -coverpkg ./... -coverprofile cover-e2e.coverprofile -covermode=count" --namespace ${NAMESPACE} --up-local --debug --verbose ./test/e2e
-# 	go test -tags=integration -coverpkg ./... -coverprofile cover-e2e.coverprofile -covermode=count -mod=vendor ./test/e2e/... -root=$(PWD) -kubeconfig=$(HOME)/.kube/config -globalMan deploy/empty-init.yaml -namespacedMan deploy/empty-init.yaml -v -singleNamespace -parallel=1 -localOperator
+##@ General
 
-# .PHONY: test/coverage/prepare
-# test/coverage/prepare:
-# 	@echo Preparing coverage file:
-# 	@echo "mode: count" > cover-all.coverprofile
-# 	@tail -n +2 cover-unit.coverprofile >> cover-all.coverprofile
-# 	@tail -n +2 cover-e2e.coverprofile >> cover-all.coverprofile
-# 	@echo Running test coverage generation:
-# 	@which cover 2>/dev/null ; if [ $$? -eq 1 ]; then \
-# 		go get golang.org/x/tools/cmd/cover; \
-# 	fi
-# 	@go tool cover -html=cover-all.coverprofile -o cover.html
+# The help target prints out all targets with their descriptions organized
+# beneath their categories. The categories are represented by '##@' and the
+# target descriptions by '##'. The awk commands is responsible for reading the
+# entire set of makefiles included in this invocation, looking for lines of the
+# file as xyz: ## something, and then pretty-format the target and help. Then,
+# if there's a line with ##@ something, that gets pretty-printed as a category.
+# More info on the usage of ANSI control characters for terminal formatting:
+# https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_parameters
+# More info on the awk command:
+# http://linuxcommand.org/lc3_adv_awk.php
 
-# .PHONY: test/coverage
-# test/coverage: test/coverage/prepare
-# 	@go tool cover -html=cover-all.coverprofile -o cover.html
+.PHONY: help
+help: ## Display this help.
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-##############################
-# Local Development          #
-##############################
-.PHONY: setup
-setup: setup/mod code/gen
+##@ Development
 
-.PHONY: setup/mod
-setup/mod:
-	@echo Adding vendor directory
-	go mod vendor
-	@echo setup complete
+.PHONY: manifests
+manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./apis/..." paths="." paths="./controllers/..." output:crd:artifacts:config=config/crd/bases
 
-.PHONY: setup/operator-sdk
-setup/operator-sdk:
-	@echo Installing Operator SDK
-	@curl -Lo operator-sdk ${OPERATOR_SDK_DOWNLOAD_URL} && chmod +x operator-sdk && sudo mv operator-sdk /usr/local/bin/
+.PHONY: generate
+generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./apis/..." paths="." paths="./controllers/..."
 
-.PHONY: code/run
-code/run:
-	@echo Running code using operator-sdk
-	@operator-sdk run --local --namespace=${NAMESPACE}
+.PHONY: fmt
+fmt: ## Run go fmt against code.
+	go fmt ./...
 
-.PHONY: code/compile
-code/compile:
-	@echo Compiling code using go
-	@GOOS=${GOOS} GOARCH=${GOARCH} CGO_ENABLED=${CGO_ENABLED} go build -o=$(COMPILE_TARGET) -mod=vendor ./cmd/manager
+.PHONY: vet
+vet: ## Run go vet against code.
+	go vet ./...
 
-.PHONY: code/docker
-code/docker:
-	@echo Building docker image
-	@operator-sdk build easymile/postgresql-operator:$(version)
+.PHONY: test
+test: manifests generate fmt vet envtest ## Run tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out -timeout 1800s
 
-.PHONY: code/gen
-code/gen:
-	@echo Generating CRD and Kubernetes code using operator-sdk
-	operator-sdk generate k8s
-	operator-sdk generate crds
-	cp deploy/crds/* deploy/helm/postgresql-operator/crds/
+##@ Build
 
-.PHONY: code/check
-code/check:
-	@echo Running go fmt
-	go fmt $$(go list ./... | grep -v /vendor/)
+.PHONY: build
+build: generate fmt vet ## Build manager binary.
+	go build -o bin/manager main.go
+
+.PHONY: run
+run: manifests generate fmt vet ## Run a controller from your host.
+	go run ./main.go
+
+.PHONY: docker-build
+docker-build: test ## Build docker image with the manager.
+	docker build -t ${IMG} .
+
+.PHONY: docker-push
+docker-push: ## Push docker image with the manager.
+	docker push ${IMG}
+
+##@ Deployment
+
+ifndef ignore-not-found
+  ignore-not-found = false
+endif
+
+.PHONY: install
+install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config/crd | kubectl apply -f -
+
+.PHONY: uninstall
+uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+	$(KUSTOMIZE) build config/crd | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
+
+.PHONY: deploy
+deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/default | kubectl apply -f -
+
+.PHONY: undeploy
+undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
+
+##@ Build Dependencies
+
+## Location to install dependencies to
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
+## Tool Binaries
+KUSTOMIZE ?= $(LOCALBIN)/kustomize
+CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
+ENVTEST ?= $(LOCALBIN)/setup-envtest
+
+## Tool Versions
+KUSTOMIZE_VERSION ?= v3.8.7
+CONTROLLER_TOOLS_VERSION ?= v0.9.0
+
+KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
+.PHONY: kustomize
+kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
+$(KUSTOMIZE): $(LOCALBIN)
+	curl -s $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN)
+
+.PHONY: controller-gen
+controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
+$(CONTROLLER_GEN): $(LOCALBIN)
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+
+.PHONY: envtest
+envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
+$(ENVTEST): $(LOCALBIN)
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+.PHONY: bundle
+bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
+	operator-sdk generate kustomize manifests -q
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle $(BUNDLE_GEN_FLAGS)
+	operator-sdk bundle validate ./bundle
+
+.PHONY: bundle-build
+bundle-build: ## Build the bundle image.
+	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+
+.PHONY: bundle-push
+bundle-push: ## Push the bundle image.
+	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
+
+.PHONY: opm
+OPM = ./bin/opm
+opm: ## Download opm locally if necessary.
+ifeq (,$(wildcard $(OPM)))
+ifeq (,$(shell which opm 2>/dev/null))
+	@{ \
+	set -e ;\
+	mkdir -p $(dir $(OPM)) ;\
+	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
+	curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/v1.23.0/$${OS}-$${ARCH}-opm ;\
+	chmod +x $(OPM) ;\
+	}
+else
+OPM = $(shell which opm)
+endif
+endif
+
+# A comma-separated list of bundle images (e.g. make catalog-build BUNDLE_IMGS=example.com/operator-bundle:v0.1.0,example.com/operator-bundle:v0.2.0).
+# These images MUST exist in a registry and be pull-able.
+BUNDLE_IMGS ?= $(BUNDLE_IMG)
+
+# The image tag given to the resulting catalog image (e.g. make catalog-build CATALOG_IMG=example.com/operator-catalog:v0.2.0).
+CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:v$(VERSION)
+
+# Set CATALOG_BASE_IMG to an existing catalog image tag to add $BUNDLE_IMGS to that image.
+ifneq ($(origin CATALOG_BASE_IMG), undefined)
+FROM_INDEX_OPT := --from-index $(CATALOG_BASE_IMG)
+endif
+
+# Build a catalog image by adding bundle images to an empty catalog using the operator package manager tool, 'opm'.
+# This recipe invokes 'opm' in 'semver' bundle add mode. For more information on add modes, see:
+# https://github.com/operator-framework/community-operators/blob/7f1438c/docs/packaging-operator.md#updating-your-existing-operator
+.PHONY: catalog-build
+catalog-build: opm ## Build a catalog image.
+	$(OPM) index add --container-tool docker --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
+
+# Push the catalog image.
+.PHONY: catalog-push
+catalog-push: ## Push a catalog image.
+	$(MAKE) docker-push IMG=$(CATALOG_IMG)
+
+# EasyMile commands
+
 
 HAS_GOLANGCI_LINT := $(shell command -v golangci-lint;)
+HAS_CURL:=$(shell command -v curl;)
+
+.PHONY: down/services
+down/services:
+	@echo "Down services"
+	docker rm -f postgres || true
+
+.PHONY: down/dev-services
+down/dev-services:
+	@echo "Down dev services"
+	kind delete cluster
+
+.PHONY: setup/dev-services
+setup/dev-services:
+	@echo "Setup dev services"
+	kind create cluster
+
+.PHONY: setup/services
+setup/services: down/services
+	@echo "Setup services"
+	docker run -d --rm --name postgres -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e PGDATA=/var/lib/postgresql/data/pgdata -v $(CURDIR)/.run/postgres:/var/lib/postgresql/data postgres:12
+
 .PHONY: code/lint
-code/lint:
-	@echo Running golangci-lint
+code/lint: setup/dep/install
+	golangci-lint run ./...
+
+.PHONY: test/coverage
+test/coverage:
+	cat cover.out | grep -v "mock_" > c.out
+	go tool cover -html=c.out -o coverage.html
+	go tool cover -func c.out
+
+.PHONY: test/all
+test/all: test
+
+.PHONY: setup/dep/install
+setup/dep/install:
 ifndef HAS_GOLANGCI_LINT
 	@echo "=> Installing golangci-lint tool"
-		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.23.6
+ifndef HAS_CURL
+	$(error You must install curl)
 endif
-	golangci-lint run
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.46.2
+endif
 
-##############################
-# CI                         #
-##############################
-.PHONY: setup/travis
-setup/travis: setup/operator-sdk
-	@echo Installing Kubectl
-	@curl -Lo kubectl ${KUBECTL_DOWNLOAD_URL} && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
-	@echo Installing Minikube
-	@curl -Lo minikube ${MINIKUBE_DOWNLOAD_URL} && chmod +x minikube && sudo mv minikube /usr/local/bin/
-	@echo Booting Minikube up, see Travis env. variables for more information
-	@mkdir -p $HOME/.kube $HOME/.minikube
-	@touch $KUBECONFIG
-	@sudo minikube start --vm-driver=none --kubernetes-version=v1.16.0
-	@sudo chown -R travis: /home/travis/.minikube/
-
-# NO TEST FOR THE MOMENT
-# .PHONY: test/goveralls
-# test/goveralls: test/coverage/prepare
-# 	@echo "Preparing goveralls file"
-# 	go get -u github.com/mattn/goveralls
-# 	@echo "Running goveralls"
-# 	@goveralls -v -coverprofile=cover-all.coverprofile -service=travis-ci

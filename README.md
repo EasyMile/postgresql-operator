@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="http://godoc.org/github.com/easymile/postgresql-operator" rel="noopener noreferer" target="_blank"><img src="https://img.shields.io/badge/godoc-reference-blue.svg" alt="Go Doc" /></a>
-  <a href="https://travis-ci.org/EasyMile/postgresql-operator" rel="noopener noreferer" target="_blank"><img src="https://travis-ci.org/EasyMile/postgresql-operator.svg?branch=master" alt="Travis CI" /></a>
+  <a href="https://github.com/easymile/postgresql-operator/actions/workflows/ci.yml" rel="noopener noreferer" target="_blank"><img src="https://github.com/easymile/postgresql-operator/actions/workflows/ci.yml/badge.svg" alt="Github Actions" /></a>
   <a href="https://goreportcard.com/report/github.com/easymile/postgresql-operator" rel="noopener noreferer" target="_blank"><img src="https://goreportcard.com/badge/github.com/easymile/postgresql-operator" alt="Go Report Card" /></a>
   <a href="https://hub.docker.com/r/easymile/postgresql-operator" rel="noopener noreferer" target="_blank"><img src="https://img.shields.io/docker/pulls/easymile/postgresql-operator.svg" alt="Docker Pulls" /></a>
   <a href="https://github.com/easymile/postgresql-operator/blob/master/LICENSE" rel="noopener noreferer" target="_blank"><img src="https://img.shields.io/github/license/easymile/postgresql-operator" alt="GitHub license" /></a>
@@ -35,54 +35,110 @@ Moreover, a single User can only have rights to one Database.
 
 ## How to deploy ?
 
-### Using Helm 3
+### Using Helm
 
 The project has a Helm 3 chart located in `deploy/helm/postgresql-operator`.
 
 It will deploy the operator running the command:
 
 ```bash
-helm install postgresql-operator ./deploy/helm/postgresql-operator
+helm install postgresql-operator ./helm/postgresql-operator
 ```
 
-### Using Helm 2
+## Getting Started
 
-As the chart located in `deploy/helm/postgresql-operator` uses the specific Helm 3 folder called `crd`. The chart can **only** install the operator but not the CRDs.
+You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
+**Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
 
-CRDs have to be installed manually.
+Read how to setup your environment [here](./docs/how-to/setup-local.md)
 
-The procedure is the following:
+### Running on the cluster
 
-- Install CRDs
-  ```bash
-  kubectl apply -f ./deploy/crds/
-  ```
-- Install the chart
-  ```bash
-  helm install postgresql-operator ./deploy/helm/postgresql-operator
-  ```
+1. Install Instances of Custom Resources:
 
-### Using Kubectl
+```sh
+kubectl apply -f config/samples/
+```
 
-The procedure is the following:
+2. Build and push your image to the location specified by `IMG`:
 
-- Install CRDs
-  ```bash
-  kubectl apply -f ./deploy/crds/
-  ```
-- Install operator
-  ```bash
-  kubectl apply -f ./deploy/role_binding.yaml
-  kubectl apply -f ./deploy/role.yaml
-  kubectl apply -f ./deploy/service_account.yaml
-  kubectl apply -f ./deploy/operator.yaml
-  ```
+```sh
+make docker-build docker-push IMG=<some-registry>/postgresql-operator:tag
+```
 
-## Want to contribute ?
+3. Deploy the controller to the cluster with the image specified by `IMG`:
 
-- Read the [CONTRIBUTING guide](./CONTRIBUTING.md)
-- Read how to setup your environment [here](./docs/how-to/setup-local.md)
+```sh
+make deploy IMG=<some-registry>/postgresql-operator:tag
+```
+
+### Uninstall CRDs
+
+To delete the CRDs from the cluster:
+
+```sh
+make uninstall
+```
+
+### Undeploy controller
+
+UnDeploy the controller to the cluster:
+
+```sh
+make undeploy
+```
+
+## Contributing
+
+Read the [CONTRIBUTING guide](./CONTRIBUTING.md)
+
+### How it works
+
+This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
+
+It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/)
+which provides a reconcile function responsible for synchronizing resources untile the desired state is reached on the cluster
+
+### Test It Out
+
+1. Install the CRDs into the cluster:
+
+```sh
+make install
+```
+
+2. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
+
+```sh
+make run
+```
+
+**NOTE:** You can also run this in one step by running: `make install run`
+
+### Modifying the API definitions
+
+If you are editing the API definitions, generate the manifests such as CRs or CRDs using:
+
+```sh
+make manifests
+```
+
+**NOTE:** Run `make --help` for more information on all potential `make` targets
+
+More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
 
 ## License
 
-MIT (See [LICENSE](LICENSE))
+Copyright 2022.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

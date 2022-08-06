@@ -1,0 +1,140 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.9.0
+  creationTimestamp: null
+  name: postgresqlusers.postgresql.easymile.com
+spec:
+  group: postgresql.easymile.com
+  names:
+    kind: PostgresqlUser
+    listKind: PostgresqlUserList
+    plural: postgresqlusers
+    shortNames:
+    - pguser
+    - pgu
+    singular: postgresqluser
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: Generated user role
+      jsonPath: .status.postgresRole
+      name: User role
+      type: string
+    - description: User group
+      jsonPath: .status.postgresGroup
+      name: User group
+      type: string
+    - description: Database
+      jsonPath: .status.postgresDatabaseName
+      name: Database
+      type: string
+    - description: Last time the password was changed
+      jsonPath: .status.lastPasswordChangedTime
+      name: Last Password Change
+      type: date
+    - description: Status phase
+      jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: PostgresqlUser is the Schema for the postgresqlusers API.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: PostgresqlUserSpec defines the desired state of PostgresqlUser.
+            properties:
+              database:
+                description: Postgresql Database
+                properties:
+                  name:
+                    description: Custom resource name
+                    type: string
+                  namespace:
+                    description: Custom resource namespace
+                    type: string
+                required:
+                - name
+                type: object
+              generatedSecretNamePrefix:
+                description: Generated secret name prefix
+                minLength: 1
+                type: string
+              privileges:
+                description: User privileges
+                enum:
+                - OWNER
+                - WRITER
+                - READER
+                type: string
+              rolePrefix:
+                description: User role
+                minLength: 1
+                type: string
+              userPasswordRotationDuration:
+                description: User password rotation duration
+                type: string
+            required:
+            - database
+            - generatedSecretNamePrefix
+            - privileges
+            - rolePrefix
+            type: object
+          status:
+            description: PostgresqlUserStatus defines the observed state of PostgresqlUser.
+            properties:
+              lastPasswordChangedTime:
+                description: Last password changed time
+                type: string
+              message:
+                description: Human-readable message indicating details about current
+                  operator phase or error.
+                type: string
+              phase:
+                description: Current phase of the operator
+                type: string
+              postgresDatabaseName:
+                description: Postgres database name for which user is created
+                type: string
+              postgresGroup:
+                description: Postgres group for user
+                type: string
+              postgresLogin:
+                description: User login
+                type: string
+              postgresRole:
+                description: Postgres role for user
+                type: string
+              ready:
+                description: True if all resources are in a ready state and all work
+                  is done.
+                type: boolean
+              rolePrefix:
+                description: User role used
+                type: string
+            required:
+            - phase
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
