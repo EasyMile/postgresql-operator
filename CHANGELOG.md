@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.0.0
+
+### Feature
+
+- Complete rework and upgrade of operator-sdk to latest version
+
+### Tests
+
+- Add tests for all controllers
+
+### Bugs
+
+- Patch bugs detected with tests
+
 ## 1.1.2
 
 ### Bugs
