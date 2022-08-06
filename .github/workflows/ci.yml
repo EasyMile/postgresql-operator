@@ -76,6 +76,7 @@ jobs:
         with:
           go-version: "^1.18.0"
       - run: make build
+      - run: make docker-build
   test:
     if: |
       (needs.changes.outputs.go == 'true') ||
