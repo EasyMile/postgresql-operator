@@ -25,8 +25,6 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command:
-          - postgresql-operator
           env:
             - name: WATCH_NAMESPACE
               value: {{ .Values.watchNamespace }}
