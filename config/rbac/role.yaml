@@ -13,8 +13,10 @@ rules:
   - create
   - delete
   - get
+  - list
   - patch
   - update
+  - watch
 - apiGroups:
   - postgresql.easymile.com
   resources:
