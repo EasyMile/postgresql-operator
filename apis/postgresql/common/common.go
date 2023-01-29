@@ -1,4 +1,4 @@
-package v1alpha1
+package common
 
 type CRLink struct {
 	// Custom resource name

@@ -1,0 +1,12 @@
+apiVersion: postgresql.easymile.com/v1alpha1
+kind: PostgresqlUserRole
+metadata:
+  name: managed-simple
+spec:
+  mode: MANAGED
+  rolePrefix: "managed-simple"
+  privileges:
+    - privilege: OWNER
+      database:
+        name: simple
+      generatedSecretName: managed-simple

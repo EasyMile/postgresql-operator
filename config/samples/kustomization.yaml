@@ -3,4 +3,6 @@ resources:
 - postgresql_v1alpha1_postgresqlengineconfiguration.yaml
 - postgresql_v1alpha1_postgresqldatabase.yaml
 - postgresql_v1alpha1_postgresqluser.yaml
+- postgresql_v1alpha2_postgresqluser.yaml
+- postgresql_v1alpha1_postgresqluserrole.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

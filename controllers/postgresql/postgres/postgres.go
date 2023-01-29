@@ -10,6 +10,11 @@ import (
 
 const MaxIdentifierLength = 63
 
+type SetRoleOnDatabaseRoleSetting struct {
+	Role     string
+	Database string
+}
+
 type PG interface {
 	CreateDB(dbname, username string) error
 	IsDatabaseExist(dbname string) (bool, error)
@@ -25,10 +30,17 @@ type PG interface {
 	SetSchemaPrivileges(db, creator, role, schema, privs string) error
 	RevokeRole(role, userRole string) error
 	AlterDefaultLoginRole(role, setRole string) error
+	AlterDefaultLoginRoleOnDatabase(role, setRole, database string) error
+	RevokeUserSetRoleOnDatabase(role, database string) error
+	DoesRoleHaveActiveSession(role string) (bool, error)
 	DropDatabase(db string) error
-	DropRole(role, newOwner, database string) error
+	DropRoleAndDropAndChangeOwnedBy(role, newOwner, database string) error
+	ChangeAndDropOwnedBy(role, newOwner, database string) error
+	GetSetRoleOnDatabasesRoleSettings(role string) ([]*SetRoleOnDatabaseRoleSetting, error)
+	DropRole(role string) error
 	DropSchema(database, schema string, cascade bool) error
 	DropExtension(database, extension string, cascade bool) error
+	GetRoleMembership(role string) ([]string, error)
 	GetUser() string
 	GetHost() string
 	GetPort() int

@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/easymile/postgresql-operator/apis/postgresql/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -44,7 +45,7 @@ type PostgresqlUserSpec struct {
 	// Postgresql Database
 	// +required
 	// +kubebuilder:validation:Required
-	Database *CRLink `json:"database"`
+	Database *common.CRLink `json:"database"`
 	// Generated secret name prefix
 	// +required
 	// +kubebuilder:validation:Required
@@ -100,6 +101,7 @@ type PostgresqlUserStatus struct {
 	LastPasswordChangedTime string `json:"lastPasswordChangedTime"`
 }
 
+//+kubebuilder:storageversion
 //+kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=postgresqlusers,scope=Namespaced,shortName=pguser;pgu

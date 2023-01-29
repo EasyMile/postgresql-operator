@@ -1,0 +1,6 @@
+apiVersion: postgresql.easymile.com/v1alpha1
+kind: PostgresqlUserRole
+metadata:
+  name: postgresqluserrole-sample
+spec:
+  # TODO(user): Add fields here

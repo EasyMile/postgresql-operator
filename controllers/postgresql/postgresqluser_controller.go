@@ -362,7 +362,7 @@ func (r *PostgresqlUserReconciler) manageDeletion(reqLogger logr.Logger, instanc
 	databaseName := pgDB.Status.Database
 
 	// Delete role
-	err = pgInstance.DropRole(
+	err = pgInstance.DropRoleAndDropAndChangeOwnedBy(
 		instance.Status.PostgresRole,
 		instance.Status.PostgresGroup,
 		databaseName,
@@ -396,7 +396,7 @@ func (r *PostgresqlUserReconciler) manageCreateUserRole(reqLogger logr.Logger, p
 	// Delete old role if exists
 	if instance.Status.RolePrefix != "" {
 		// Drop old role
-		err := pgInstance.DropRole(
+		err := pgInstance.DropRoleAndDropAndChangeOwnedBy(
 			instance.Status.PostgresRole,
 			instance.Status.PostgresGroup,
 			instance.Status.PostgresDatabaseName,

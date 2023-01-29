@@ -1,0 +1,13 @@
+apiVersion: postgresql.easymile.com/v1alpha1
+kind: PostgresqlUserRole
+metadata:
+  name: managed-simple-rotation
+spec:
+  mode: MANAGED
+  rolePrefix: "managed-simple"
+  userPasswordRotationDuration: 30s
+  privileges:
+    - privilege: OWNER
+      database:
+        name: simple
+      generatedSecretName: managed-simple-rotation

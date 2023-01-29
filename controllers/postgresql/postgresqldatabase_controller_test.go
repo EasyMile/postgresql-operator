@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/easymile/postgresql-operator/apis/postgresql/common"
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -66,7 +67,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      "fake",
 					Namespace: "fake",
 				},
@@ -119,7 +120,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
@@ -195,7 +196,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
@@ -279,7 +280,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
@@ -363,7 +364,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
@@ -480,7 +481,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
@@ -561,7 +562,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
@@ -625,7 +626,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
@@ -693,7 +694,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
@@ -795,7 +796,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
@@ -894,7 +895,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
@@ -997,7 +998,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
@@ -1091,7 +1092,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
@@ -1156,7 +1157,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
@@ -1253,7 +1254,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
@@ -1322,7 +1323,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
@@ -1414,7 +1415,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
@@ -1506,7 +1507,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
@@ -1601,7 +1602,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
@@ -1669,7 +1670,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
@@ -1770,7 +1771,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName,
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},
@@ -1867,7 +1868,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
 				Database: pgdbDBName + "-old",
-				EngineConfiguration: &postgresqlv1alpha1.CRLink{
+				EngineConfiguration: &common.CRLink{
 					Name:      prov.Name,
 					Namespace: prov.Namespace,
 				},

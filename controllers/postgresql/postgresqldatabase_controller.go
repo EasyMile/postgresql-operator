@@ -302,7 +302,7 @@ func (r *PostgresqlDatabaseReconciler) manageDropDatabase(logger logr.Logger, in
 
 	// Drop owner
 	if instance.Status.Roles.Owner != "" {
-		err = pg.DropRole(instance.Status.Roles.Owner, pg.GetUser(), instance.Spec.Database)
+		err = pg.DropRoleAndDropAndChangeOwnedBy(instance.Status.Roles.Owner, pg.GetUser(), instance.Spec.Database)
 		if err != nil {
 			return err
 		}
@@ -311,7 +311,7 @@ func (r *PostgresqlDatabaseReconciler) manageDropDatabase(logger logr.Logger, in
 	}
 	// Drop writer
 	if instance.Status.Roles.Writer != "" {
-		err = pg.DropRole(instance.Status.Roles.Writer, pg.GetUser(), instance.Spec.Database)
+		err = pg.DropRoleAndDropAndChangeOwnedBy(instance.Status.Roles.Writer, pg.GetUser(), instance.Spec.Database)
 		if err != nil {
 			return err
 		}
@@ -320,7 +320,7 @@ func (r *PostgresqlDatabaseReconciler) manageDropDatabase(logger logr.Logger, in
 	}
 	// Drop reader
 	if instance.Status.Roles.Reader != "" {
-		err = pg.DropRole(instance.Status.Roles.Reader, pg.GetUser(), instance.Spec.Database)
+		err = pg.DropRoleAndDropAndChangeOwnedBy(instance.Status.Roles.Reader, pg.GetUser(), instance.Spec.Database)
 		if err != nil {
 			return err
 		}

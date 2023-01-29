@@ -1,0 +1,12 @@
+apiVersion: postgresql.easymile.com/v1alpha1
+kind: PostgresqlUserRole
+metadata:
+  name: postgresqluserrole-sample
+spec:
+  mode: PROVIDED
+  privileges:
+  - privilege: WRITER
+    database:
+      name: simple
+    generatedSecretName: simple1
+  importSecretName: provided-simple

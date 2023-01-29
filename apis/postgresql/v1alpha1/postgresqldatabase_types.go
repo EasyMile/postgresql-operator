@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/easymile/postgresql-operator/apis/postgresql/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -54,7 +55,7 @@ type PostgresqlDatabaseSpec struct {
 	// Postgresql Engine Configuration link
 	// +required
 	// +kubebuilder:validation:Required
-	EngineConfiguration *CRLink `json:"engineConfiguration"`
+	EngineConfiguration *common.CRLink `json:"engineConfiguration"`
 }
 
 type DatabaseModulesList struct {
