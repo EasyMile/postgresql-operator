@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/easymile/postgresql-operator/apis/postgresql/common"
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1"
 	"github.com/easymile/postgresql-operator/controllers/postgresql/postgres"
 	"github.com/go-logr/logr"
@@ -13,6 +14,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// TODO Change signatures to add context
 
 func CalculateHash(spec interface{}) (string, error) {
 	// Json marshal spec
@@ -49,6 +52,13 @@ func CreatePgInstance(
 	)
 }
 
+func GetSecret(ctx context.Context, cl client.Client, name, namespace string) (*corev1.Secret, error) {
+	secret := &corev1.Secret{}
+	err := cl.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, secret)
+
+	return secret, err
+}
+
 func FindSecretPgEngineCfg(cl client.Client, instance *postgresqlv1alpha1.PostgresqlEngineConfiguration) (*corev1.Secret, error) {
 	secret := &corev1.Secret{}
 	err := cl.Get(context.TODO(), types.NamespacedName{Name: instance.Spec.SecretName, Namespace: instance.Namespace}, secret)
@@ -68,6 +78,20 @@ func CloseDatabaseSavedPoolsForName(instance *postgresqlv1alpha1.PostgresqlDatab
 		CreateNameKeyForSavedPools(instance.Spec.EngineConfiguration.Name, namespace),
 		database,
 	)
+}
+
+func CreateNameKey(name, namespace, instanceNamespace string) string {
+	res := ""
+
+	if namespace != "" {
+		res += namespace
+	} else {
+		res += instanceNamespace
+	}
+
+	res += "/" + name
+
+	return res
 }
 
 func CreateNameKeyForSavedPools(pgecName, pgecNamespace string) string {
@@ -102,6 +126,23 @@ func FindPgDatabase(cl client.Client, instance *postgresqlv1alpha1.PostgresqlUse
 	pgDatabase := &postgresqlv1alpha1.PostgresqlDatabase{}
 	err := cl.Get(context.TODO(), client.ObjectKey{
 		Name:      instance.Spec.Database.Name,
+		Namespace: namespace,
+	}, pgDatabase)
+
+	return pgDatabase, err
+}
+
+func FindPgDatabaseFromLink(cl client.Client, link *common.CRLink, instanceNamespace string) (*postgresqlv1alpha1.PostgresqlDatabase, error) {
+	// Try to get namespace from spec
+	namespace := link.Namespace
+	if namespace == "" {
+		// Namespace not found, take it from instance namespace
+		namespace = instanceNamespace
+	}
+
+	pgDatabase := &postgresqlv1alpha1.PostgresqlDatabase{}
+	err := cl.Get(context.TODO(), client.ObjectKey{
+		Name:      link.Name,
 		Namespace: namespace,
 	}, pgDatabase)
 

@@ -42,6 +42,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	"github.com/easymile/postgresql-operator/apis/postgresql/common"
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1"
 	"github.com/easymile/postgresql-operator/controllers/config"
 	"github.com/easymile/postgresql-operator/controllers/postgresql/postgres"
@@ -63,17 +64,34 @@ var pgecName = "pgec-object"
 var pgecSecretName = "pgec-secret"
 var pgdbNamespace = "pgdb-ns"
 var pgdbName = "pgdb-object"
+var pgdbName2 = "pgdb-object2"
 var pgdbDBName = "super-db"
+var pgdbDBName2 = "super-db2"
 var pguNamespace = "pgu-ns"
 var pguName = "pgu-object"
+var pgurNamespace = "pgur-ns"
+var pgurName = "pgur-object"
+var pgurWorkSecretName = "pgur-work-secret"
+var pgurDBSecretName = "pgur-db-secret"
+var pgurDBSecretName2 = "pgur-db-secret2"
+var pgurImportSecretName = "pgu-import-secret"
+var pgurImportUsername = "fake-username"
+var pgurImportPassword = "fake-password"
+var pgurRolePrefix = "role-prefix"
 var pgdbSchemaName1 = "one_schema"
 var pgdbSchemaName2 = "second_schema"
 var pgdbExtensionName1 = "uuid-ossp"
 var pgdbExtensionName2 = "cube"
 var postgresUser = "postgres"
 var postgresPassword = "postgres"
+var postgresUrlTemplate = "postgresql://%s:%s@localhost:5432/postgres?sslmode=disable"
 var postgresUrl = "postgresql://postgres:postgres@localhost:5432/?sslmode=disable"
 var postgresUrlToDB = "postgresql://postgres:postgres@localhost:5432/" + pgdbDBName + "?sslmode=disable"
+var editedSecretName = "updated-secret-name"
+var dbConns = map[string]*struct {
+	tx *sql.Tx
+	db *sql.DB
+}{}
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -136,6 +154,13 @@ var _ = BeforeSuite(func() {
 		Scheme:   scheme.Scheme,
 	}).SetupWithManager(k8sManager)).ToNot(HaveOccurred())
 
+	Expect((&PostgresqlUserRoleReconciler{
+		Client:   k8sClient,
+		Log:      logf.Log.WithName("controllers"),
+		Recorder: k8sManager.GetEventRecorderFor("controller"),
+		Scheme:   scheme.Scheme,
+	}).SetupWithManager(k8sManager)).ToNot(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -159,6 +184,12 @@ var _ = BeforeSuite(func() {
 			Name: pguNamespace,
 		},
 	})).ToNot(HaveOccurred())
+
+	Expect(k8sClient.Create(ctx, &corev1.Namespace{
+		ObjectMeta: v1.ObjectMeta{
+			Name: pgurNamespace,
+		},
+	})).ToNot(HaveOccurred())
 }, 60)
 
 var _ = AfterSuite(func() {
@@ -172,14 +203,32 @@ func cleanupFunction() {
 	// Force delete pgec
 	err := deletePGEC(ctx, k8sClient, pgecName, pgecNamespace)
 	Expect(err).ToNot(HaveOccurred())
-	// Force delete secrets
 	err = deleteSecret(ctx, k8sClient, pgecSecretName, pgecNamespace)
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(deletePGU(ctx, k8sClient, pguName, pguNamespace)).ToNot(HaveOccurred())
+	Expect(deletePGUR(ctx, k8sClient, pgurName, pgurNamespace)).ToNot(HaveOccurred())
 	Expect(deletePGDB(ctx, k8sClient, pgdbName, pgdbNamespace)).ToNot(HaveOccurred())
+	Expect(deletePGDB(ctx, k8sClient, pgdbName2, pgdbNamespace)).ToNot(HaveOccurred())
 	Expect(deleteSQLDBs(pgdbDBName)).ToNot(HaveOccurred())
+	Expect(deleteSQLDBs(pgdbDBName2)).ToNot(HaveOccurred())
 	Expect(deleteSQLRoles()).ToNot(HaveOccurred())
+
+	// Force delete secrets
+	err = deleteSecret(ctx, k8sClient, pgurImportSecretName, pgurNamespace)
+	Expect(err).ToNot(HaveOccurred())
+	err = deleteSecret(ctx, k8sClient, pgurDBSecretName, pgurNamespace)
+	Expect(err).ToNot(HaveOccurred())
+	err = deleteSecret(ctx, k8sClient, pgurDBSecretName2, pgurNamespace)
+	Expect(err).ToNot(HaveOccurred())
+	err = deleteSecret(ctx, k8sClient, pgurWorkSecretName, pgurNamespace)
+	Expect(err).ToNot(HaveOccurred())
+	err = deleteSecret(ctx, k8sClient, editedSecretName, pgurNamespace)
+	Expect(err).ToNot(HaveOccurred())
+
+	for k, _ := range dbConns {
+		disconnectConnFromKey(k)
+	}
 }
 
 func getSecret(ctx context.Context, cli client.Client, name, namespace string) (*corev1.Secret, error) {
@@ -282,6 +331,158 @@ func setupPGECSecret() *corev1.Secret {
 	return sec
 }
 
+func setupPGURImportSecret() *corev1.Secret {
+	// Create secret
+	sec := &corev1.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pgurImportSecretName,
+			Namespace: pgurNamespace,
+		},
+		StringData: map[string]string{
+			"USERNAME": pgurImportUsername,
+			"PASSWORD": pgurImportPassword,
+		},
+	}
+
+	Expect(k8sClient.Create(ctx, sec)).To(Succeed())
+
+	return sec
+}
+
+func setupProvidedPGUR() *postgresqlv1alpha1.PostgresqlUserRole {
+	it := &postgresqlv1alpha1.PostgresqlUserRole{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pgurName,
+			Namespace: pgurNamespace,
+		},
+		Spec: postgresqlv1alpha1.PostgresqlUserRoleSpec{
+			Mode:                    postgresqlv1alpha1.ProvidedMode,
+			ImportSecretName:        pgurImportSecretName,
+			WorkGeneratedSecretName: pgurWorkSecretName,
+			Privileges: []*postgresqlv1alpha1.PostgresqlUserRolePrivilege{
+				{
+					Privilege:           postgresqlv1alpha1.OwnerPrivilege,
+					Database:            &common.CRLink{Name: pgdbName, Namespace: pgdbNamespace},
+					GeneratedSecretName: pgurDBSecretName,
+				},
+			},
+		},
+	}
+
+	return setupSavePGURInternal(it)
+}
+
+func setupProvidedPGURWith2Databases() *postgresqlv1alpha1.PostgresqlUserRole {
+	it := &postgresqlv1alpha1.PostgresqlUserRole{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pgurName,
+			Namespace: pgurNamespace,
+		},
+		Spec: postgresqlv1alpha1.PostgresqlUserRoleSpec{
+			Mode:                    postgresqlv1alpha1.ProvidedMode,
+			ImportSecretName:        pgurImportSecretName,
+			WorkGeneratedSecretName: pgurWorkSecretName,
+			Privileges: []*postgresqlv1alpha1.PostgresqlUserRolePrivilege{
+				{
+					Privilege:           postgresqlv1alpha1.OwnerPrivilege,
+					Database:            &common.CRLink{Name: pgdbName, Namespace: pgdbNamespace},
+					GeneratedSecretName: pgurDBSecretName,
+				},
+				{
+					Privilege:           postgresqlv1alpha1.WriterPrivilege,
+					Database:            &common.CRLink{Name: pgdbName2, Namespace: pgdbNamespace},
+					GeneratedSecretName: pgurDBSecretName2,
+				},
+			},
+		},
+	}
+
+	return setupSavePGURInternal(it)
+}
+
+func setupManagedPGUR(userPasswordRotationDuration string) *postgresqlv1alpha1.PostgresqlUserRole {
+	it := &postgresqlv1alpha1.PostgresqlUserRole{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pgurName,
+			Namespace: pgurNamespace,
+		},
+		Spec: postgresqlv1alpha1.PostgresqlUserRoleSpec{
+			Mode:                         postgresqlv1alpha1.ManagedMode,
+			RolePrefix:                   pgurRolePrefix,
+			WorkGeneratedSecretName:      pgurWorkSecretName,
+			UserPasswordRotationDuration: userPasswordRotationDuration,
+			Privileges: []*postgresqlv1alpha1.PostgresqlUserRolePrivilege{
+				{
+					Privilege:           postgresqlv1alpha1.OwnerPrivilege,
+					Database:            &common.CRLink{Name: pgdbName, Namespace: pgdbNamespace},
+					GeneratedSecretName: pgurDBSecretName,
+				},
+			},
+		},
+	}
+
+	return setupSavePGURInternal(it)
+}
+
+func setupManagedPGURWith2Databases() *postgresqlv1alpha1.PostgresqlUserRole {
+	it := &postgresqlv1alpha1.PostgresqlUserRole{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pgurName,
+			Namespace: pgurNamespace,
+		},
+		Spec: postgresqlv1alpha1.PostgresqlUserRoleSpec{
+			Mode:                    postgresqlv1alpha1.ManagedMode,
+			RolePrefix:              pgurRolePrefix,
+			WorkGeneratedSecretName: pgurWorkSecretName,
+			Privileges: []*postgresqlv1alpha1.PostgresqlUserRolePrivilege{
+				{
+					Privilege:           postgresqlv1alpha1.OwnerPrivilege,
+					Database:            &common.CRLink{Name: pgdbName, Namespace: pgdbNamespace},
+					GeneratedSecretName: pgurDBSecretName,
+				},
+				{
+					Privilege:           postgresqlv1alpha1.WriterPrivilege,
+					Database:            &common.CRLink{Name: pgdbName2, Namespace: pgdbNamespace},
+					GeneratedSecretName: pgurDBSecretName2,
+				},
+			},
+		},
+	}
+
+	return setupSavePGURInternal(it)
+}
+
+func setupSavePGURInternal(it *postgresqlv1alpha1.PostgresqlUserRole) *postgresqlv1alpha1.PostgresqlUserRole {
+	// Create user
+	Expect(k8sClient.Create(ctx, it)).Should(Succeed())
+
+	// Get updated user
+	Eventually(
+		func() error {
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      it.Name,
+				Namespace: it.Namespace,
+			}, it)
+			// Check error
+			if err != nil {
+				return err
+			}
+
+			// Check if status hasn't been updated
+			if it.Status.Phase == postgresqlv1alpha1.UserRoleNoPhase {
+				return gerrors.New("pgur hasn't been updated by operator")
+			}
+
+			return nil
+		},
+		generalEventuallyTimeout,
+		generalEventuallyInterval,
+	).
+		Should(Succeed())
+
+	return it
+}
+
 func setupPGEC(
 	checkInterval string,
 	waitLinkedResourcesDeletion bool,
@@ -352,16 +553,28 @@ func deletePGEC(ctx context.Context, cl client.Client, name, namespace string) e
 func setupPGDB(
 	waitLinkedResourcesDeletion bool,
 ) *postgresqlv1alpha1.PostgresqlDatabase {
+	return setupSavePGDBInternal(waitLinkedResourcesDeletion, pgdbName, pgdbDBName)
+}
+
+func setupPGDB2() *postgresqlv1alpha1.PostgresqlDatabase {
+	return setupSavePGDBInternal(false, pgdbName2, pgdbDBName2)
+}
+
+func setupSavePGDBInternal(
+	waitLinkedResourcesDeletion bool,
+	name string,
+	dbName string,
+) *postgresqlv1alpha1.PostgresqlDatabase {
 	// Create pgdb
 	pgdb := &postgresqlv1alpha1.PostgresqlDatabase{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      pgdbName,
+			Name:      name,
 			Namespace: pgdbNamespace,
 		},
 		Spec: postgresqlv1alpha1.PostgresqlDatabaseSpec{
-			Database:                    pgdbDBName,
+			Database:                    dbName,
 			WaitLinkedResourcesDeletion: waitLinkedResourcesDeletion,
-			EngineConfiguration: &postgresqlv1alpha1.CRLink{
+			EngineConfiguration: &common.CRLink{
 				Name:      pgecName,
 				Namespace: pgecNamespace,
 			},
@@ -376,7 +589,7 @@ func setupPGDB(
 	Eventually(
 		func() error {
 			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      pgdbName,
+				Name:      name,
 				Namespace: pgdbNamespace,
 			}, pgdb)
 			// Check error
@@ -420,7 +633,7 @@ func setupPGU() *postgresqlv1alpha1.PostgresqlUser {
 		},
 		Spec: postgresqlv1alpha1.PostgresqlUserSpec{
 			RolePrefix: "pgu",
-			Database: &postgresqlv1alpha1.CRLink{
+			Database: &common.CRLink{
 				Name:      pgdbName,
 				Namespace: pgdbNamespace,
 			},
@@ -462,6 +675,13 @@ func setupPGU() *postgresqlv1alpha1.PostgresqlUser {
 func deletePGU(ctx context.Context, cl client.Client, name, namespace string) error {
 	// Create structure
 	st := &postgresqlv1alpha1.PostgresqlUser{}
+	// Delete
+	return deleteObject(ctx, cl, name, namespace, st)
+}
+
+func deletePGUR(ctx context.Context, cl client.Client, name, namespace string) error {
+	// Create structure
+	st := &postgresqlv1alpha1.PostgresqlUserRole{}
 	// Delete
 	return deleteObject(ctx, cl, name, namespace, st)
 }
@@ -760,6 +980,53 @@ func checkRoleInSQLDb(user, role string) {
 	Expect(memberOf).To(BeTrue())
 }
 
+func connectAs(username, password string) (string, error) {
+	u := fmt.Sprintf(postgresUrlTemplate, username, password)
+	// Connect
+	db, err := sql.Open("postgres", u)
+	// Check error
+	if err != nil {
+		return "", err
+	}
+
+	tx, err := db.Begin()
+	// Check error
+	if err != nil {
+		return "", err
+	}
+
+	// Save
+	dbConns[u] = &struct {
+		tx *sql.Tx
+		db *sql.DB
+	}{
+		tx: tx,
+		db: db,
+	}
+
+	return u, nil
+}
+
+func disconnectConnFromKey(key string) error {
+	if dbConns[key] == nil {
+		return nil
+	}
+
+	err := dbConns[key].tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	err = dbConns[key].db.Close()
+	if err != nil {
+		return err
+	}
+
+	delete(dbConns, key)
+
+	return nil
+}
+
 func isRoleOwnerofSQLDB(dbname, role string) (bool, error) {
 	// Query template
 	IsRoleOwnerOfDbSQLTemplate := `SELECT 1 FROM pg_catalog.pg_database d WHERE d.datname = '%s' AND pg_catalog.pg_get_userbyid(d.datdba) = '%s';`
@@ -788,6 +1055,59 @@ func isRoleOwnerofSQLDB(dbname, role string) (bool, error) {
 	return nb == 1, nil
 }
 
+func isSetRoleOnDatabasesRoleSettingsExists(username, databaseInput, groupRole string) (bool, error) {
+	GetRoleSettingsSQLTemplate := `SELECT pg_catalog.split_part(pg_catalog.unnest(setconfig), '=', 1) as parameter_type, pg_catalog.split_part(pg_catalog.unnest(setconfig), '=', 2) as parameter_value, d.datname as database FROM pg_catalog.pg_roles r JOIN pg_catalog.pg_db_role_setting c ON (c.setrole = r.oid) JOIN pg_catalog.pg_database d ON (d.oid = c.setdatabase) WHERE r.rolcanlogin AND r.rolname='%s'`
+
+	// Connect
+	db, err := sql.Open("postgres", postgresUrl)
+	// Check error
+	if err != nil {
+		return false, err
+	}
+
+	defer func() error {
+		return db.Close()
+	}()
+
+	rows, err := db.Query(fmt.Sprintf(GetRoleSettingsSQLTemplate, username))
+	if err != nil {
+		return false, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		parameterType := ""
+		parameterValue := ""
+		database := ""
+		// Scan
+		err = rows.Scan(&parameterType, &parameterValue, &database)
+		// Check error
+		if err != nil {
+			return false, err
+		}
+
+		// Check parameter type
+		if parameterType != "role" {
+			// Ignore
+			continue
+		}
+
+		if database == databaseInput && parameterValue == groupRole {
+			return true, nil
+		}
+	}
+
+	// Rows error
+	err = rows.Err()
+	// Check error
+	if err != nil {
+		return false, err
+	}
+
+	return false, nil
+}
+
 func checkPGUSecretValues(name, namespace, rolePrefix string, pgec *postgresqlv1alpha1.PostgresqlEngineConfiguration) {
 	secret := &corev1.Secret{}
 	err := k8sClient.Get(ctx, types.NamespacedName{
@@ -802,6 +1122,27 @@ func checkPGUSecretValues(name, namespace, rolePrefix string, pgec *postgresqlv1
 	Expect(secret.Data["PASSWORD"]).ToNot(BeEmpty())
 	Expect(string(secret.Data["LOGIN"])).To(MatchRegexp(fmt.Sprintf("%s-.+", rolePrefix)))
 	Expect(string(secret.Data["DATABASE"])).To(Equal(pgdbDBName))
+	Expect(string(secret.Data["HOST"])).To(Equal(pgec.Spec.Host))
+	Expect(string(secret.Data["PORT"])).To(Equal(fmt.Sprint(pgec.Spec.Port)))
+	Expect(string(secret.Data["ARGS"])).To(Equal(pgec.Spec.URIArgs))
+}
+
+func checkPGURSecretValues(name, namespace, dbName, username, password string, pgec *postgresqlv1alpha1.PostgresqlEngineConfiguration) {
+	secret := &corev1.Secret{}
+	err := k8sClient.Get(ctx, types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}, secret)
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(string(secret.Data["POSTGRES_URL"])).To(Equal(
+		fmt.Sprintf("postgresql://%s:%s@localhost:5432/%s", secret.Data["LOGIN"], secret.Data["PASSWORD"], dbName),
+	))
+	Expect(string(secret.Data["POSTGRES_URL_ARGS"])).To(Equal(fmt.Sprintf("%s?%s", secret.Data["POSTGRES_URL"], secret.Data["ARGS"])))
+	Expect(secret.Data["PASSWORD"]).ToNot(BeEmpty())
+	Expect(string(secret.Data["PASSWORD"])).To(Equal(password))
+	Expect(string(secret.Data["LOGIN"])).To(Equal(username))
+	Expect(string(secret.Data["DATABASE"])).To(Equal(dbName))
 	Expect(string(secret.Data["HOST"])).To(Equal(pgec.Spec.Host))
 	Expect(string(secret.Data["PORT"])).To(Equal(fmt.Sprint(pgec.Spec.Port)))
 	Expect(string(secret.Data["ARGS"])).To(Equal(pgec.Spec.URIArgs))

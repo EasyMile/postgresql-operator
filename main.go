@@ -137,6 +137,22 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "PostgresqlUser")
 		os.Exit(1)
 	}
+	if err = (&postgresqlcontrollers.PostgresqlUserRoleReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("postgresqluserrole-controller"),
+		Log: ctrl.Log.WithValues(
+			"controller",
+			"postgresqluserrole",
+			"controllerKind",
+			"PostgresqlUser",
+			"controllerGroup",
+			"postgresql.easymile.com",
+		),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "PostgresqlUserRole")
+		os.Exit(1)
+	}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

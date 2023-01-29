@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/easymile/postgresql-operator/apis/postgresql/common"
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -67,7 +68,7 @@ var _ = Describe("PostgresqlUser tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlUserSpec{
 				RolePrefix: "pgu",
-				Database: &postgresqlv1alpha1.CRLink{
+				Database: &common.CRLink{
 					Name:      "fake",
 					Namespace: "fake",
 				},
@@ -124,7 +125,7 @@ var _ = Describe("PostgresqlUser tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlUserSpec{
 				RolePrefix: "pgu",
-				Database: &postgresqlv1alpha1.CRLink{
+				Database: &common.CRLink{
 					Name:      pgdbName,
 					Namespace: pgdbNamespace,
 				},
@@ -202,7 +203,7 @@ var _ = Describe("PostgresqlUser tests", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlUserSpec{
 				RolePrefix: "pgu",
-				Database: &postgresqlv1alpha1.CRLink{
+				Database: &common.CRLink{
 					Name:      pgdbName,
 					Namespace: pgdbNamespace,
 				},

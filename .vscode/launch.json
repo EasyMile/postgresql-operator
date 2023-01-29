@@ -9,7 +9,7 @@
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "${workspaceFolder}/cmd/manager",
+      "program": "${workspaceFolder}",
       "cwd": "${workspaceFolder}",
       "env": {
         "WATCH_NAMESPACE": "",
