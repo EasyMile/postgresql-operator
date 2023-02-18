@@ -3,11 +3,11 @@ module github.com/easymile/postgresql-operator
 go 1.18
 
 require (
-	github.com/go-logr/logr v1.2.0
-	github.com/lib/pq v1.10.6
+	github.com/go-logr/logr v1.2.3
+	github.com/lib/pq v1.10.7
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.18.1
-	github.com/thoas/go-funk v0.9.2
+	github.com/thoas/go-funk v0.9.3
 	k8s.io/api v0.24.0
 	k8s.io/apimachinery v0.24.0
 	k8s.io/client-go v0.24.0
