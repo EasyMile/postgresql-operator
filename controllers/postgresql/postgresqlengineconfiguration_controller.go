@@ -191,7 +191,7 @@ func (r *PostgresqlEngineConfigurationReconciler) Reconcile(ctx context.Context,
 	instance.Status.Hash = hash
 
 	// Get secret for user/password
-	secret, err := utils.FindSecretPgEngineCfg(r.Client, instance)
+	secret, err := utils.FindSecretPgEngineCfg(ctx, r.Client, instance)
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}

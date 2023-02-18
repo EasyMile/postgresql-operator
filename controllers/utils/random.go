@@ -7,7 +7,7 @@ import (
 
 var allowedPGCharaters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
 
-var seededRand = rand.New(rand.NewSource(time.Now().UnixNano())) // nolint: gosec// math rand is enough
+var seededRand = rand.New(rand.NewSource(time.Now().UnixNano())) //nolint: gosec// math rand is enough
 
 func GetRandomString(length int) string {
 	b := make([]byte, length)

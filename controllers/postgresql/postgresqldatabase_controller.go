@@ -101,13 +101,13 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 		// Check if should delete database is flagged
 		if shouldDelete {
 			// Drop database
-			err := r.manageDropDatabase(reqLogger, instance)
+			err := r.manageDropDatabase(ctx, reqLogger, instance)
 			if err != nil {
 				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 			}
 		}
 		// Close saved pools
-		// This is is done twice in the sequence, but function is idempotent => not a problem and should be kept otherwise a pool can survive
+		// This is done twice in the sequence, but function is idempotent => not a problem and should be kept otherwise a pool can survive
 		err = utils.CloseDatabaseSavedPoolsForName(instance, instance.Spec.Database)
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
@@ -126,7 +126,7 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Creation case
 
 	// Try to find PostgresqlEngineConfiguration CR
-	pgEngCfg, err := utils.FindPgEngineCfg(r.Client, instance)
+	pgEngCfg, err := utils.FindPgEngineCfg(ctx, r.Client, instance)
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
@@ -144,7 +144,7 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Get secret linked to PostgresqlEngineConfiguration CR
-	secret, err := utils.FindSecretPgEngineCfg(r.Client, pgEngCfg)
+	secret, err := utils.FindSecretPgEngineCfg(ctx, r.Client, pgEngCfg)
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
@@ -276,9 +276,13 @@ func (r *PostgresqlDatabaseReconciler) manageDBCreationOrUpdate(pg postgres.PG, 
 	return nil
 }
 
-func (r *PostgresqlDatabaseReconciler) manageDropDatabase(logger logr.Logger, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
+func (r *PostgresqlDatabaseReconciler) manageDropDatabase(
+	ctx context.Context,
+	logger logr.Logger,
+	instance *postgresqlv1alpha1.PostgresqlDatabase,
+) error {
 	// Try to find PostgresqlEngineConfiguration CR
-	pgEngCfg, err := utils.FindPgEngineCfg(r.Client, instance)
+	pgEngCfg, err := utils.FindPgEngineCfg(ctx, r.Client, instance)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
@@ -290,7 +294,7 @@ func (r *PostgresqlDatabaseReconciler) manageDropDatabase(logger logr.Logger, in
 	}
 
 	// Get secret linked to PostgresqlEngineConfiguration CR
-	secret, err := utils.FindSecretPgEngineCfg(r.Client, pgEngCfg)
+	secret, err := utils.FindSecretPgEngineCfg(ctx, r.Client, pgEngCfg)
 	if err != nil {
 		return err
 	}
@@ -329,7 +333,7 @@ func (r *PostgresqlDatabaseReconciler) manageDropDatabase(logger logr.Logger, in
 	}
 
 	// Close saved pools for this database
-	// This is is done twice in the sequence, but function is idempotent => not a problem and should be kept otherwise a pool can survive
+	// This is done twice in the sequence, but function is idempotent => not a problem and should be kept otherwise a pool can survive
 	err = utils.CloseDatabaseSavedPoolsForName(instance, instance.Spec.Database)
 	if err != nil {
 		return err

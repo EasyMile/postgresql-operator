@@ -15,7 +15,7 @@ type SetRoleOnDatabaseRoleSetting struct {
 	Database string
 }
 
-type PG interface {
+type PG interface { //nolint:interfacebloat // This is needed
 	CreateDB(dbname, username string) error
 	IsDatabaseExist(dbname string) (bool, error)
 	RenameDatabase(oldname, newname string) error
