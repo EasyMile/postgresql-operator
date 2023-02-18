@@ -35,7 +35,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1"
-	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1"
 	"github.com/easymile/postgresql-operator/controllers/config"
 	"github.com/easymile/postgresql-operator/controllers/postgresql/postgres"
 	"github.com/easymile/postgresql-operator/controllers/utils"
@@ -49,7 +48,7 @@ const (
 	ListLimit                                  = 10
 	Login0Suffix                               = "-0"
 	Login1Suffix                               = "-1"
-	DefaultWorkGeneratedSecretNamePrefix       = "pgcreds-work-"
+	DefaultWorkGeneratedSecretNamePrefix       = "pgcreds-work-" //nolint: gosec // Ignore this false positive
 	DefaultWorkGeneratedSecretNameRandomLength = 20
 	UsernameSecretKey                          = "USERNAME"
 	PasswordSecretKey                          = "PASSWORD"
@@ -57,7 +56,7 @@ const (
 )
 
 // PostgresqlUserRoleReconciler reconciles a PostgresqlUserRole object.
-type PostgresqlUserRoleReconciler struct {
+type PostgresqlUserRoleReconciler struct { //nolint:revive // Ignore change name
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
@@ -439,7 +438,8 @@ func (r *PostgresqlUserRoleReconciler) cleanOldSecrets(
 		continueLoop = nextMarker != ""
 
 		// Loop over all secrets
-		for _, item := range list.Items {
+		for _, it := range list.Items {
+			item := it
 			// Check if secret is in the spec secret list
 			if funk.ContainsString(secretNames, item.Name) {
 				// Normal secret => Ignoring it
@@ -699,7 +699,7 @@ func (r *PostgresqlUserRoleReconciler) createOrUpdateWorkSecretForManagedMode(
 		// Check if we are in the init phase
 		// If not, that case shouldn't happened and a password change must be ensured as we cannot compare with previous
 		// Also we must compare with the username previously set to check if username have changed
-		if instance.Status.Phase != postgresqlv1alpha1.UserRoleNoPhase {
+		if instance.Status.Phase != v1alpha1.UserRoleNoPhase {
 			// Save password changed to ensure password
 			passwordChanged = true
 
@@ -860,7 +860,7 @@ func (r *PostgresqlUserRoleReconciler) createOrUpdateWorkSecretForProvidedMode(
 		// Check if we are in the init phase
 		// If not, that case shouldn't happened and a password change must be ensured as we cannot compare with previous
 		// Also we must compare with the username previously set to check if username have changed
-		if instance.Status.Phase != postgresqlv1alpha1.UserRoleNoPhase {
+		if instance.Status.Phase != v1alpha1.UserRoleNoPhase {
 			// Save password changed to ensure password
 			passwordChanged = true
 
@@ -1042,7 +1042,7 @@ func (r *PostgresqlUserRoleReconciler) getPGInstances(
 			continue
 		}
 
-		pgec, err := utils.FindPgEngineCfg(r.Client, item)
+		pgec, err := utils.FindPgEngineCfg(ctx, r.Client, item)
 		// Check error
 		if err != nil {
 			if errors.IsNotFound(err) && ignoreNotFound {
@@ -1054,7 +1054,7 @@ func (r *PostgresqlUserRoleReconciler) getPGInstances(
 			return nil, err
 		}
 
-		sec, err := utils.FindSecretPgEngineCfg(r.Client, pgec)
+		sec, err := utils.FindSecretPgEngineCfg(ctx, r.Client, pgec)
 		// Check error
 		if err != nil {
 			if errors.IsNotFound(err) && ignoreNotFound {
@@ -1085,7 +1085,7 @@ func (r *PostgresqlUserRoleReconciler) getDatabaseInstances(
 	// Loop
 	for _, item := range instance.Spec.Privileges {
 		// Get PG DB instance
-		pgdb, err := utils.FindPgDatabaseFromLink(r.Client, item.Database, instance.Namespace)
+		pgdb, err := utils.FindPgDatabaseFromLink(ctx, r.Client, item.Database, instance.Namespace)
 		// Check error
 		if err != nil {
 			if errors.IsNotFound(err) && ignoreNotFound {
@@ -1323,6 +1323,6 @@ func (r *PostgresqlUserRoleReconciler) manageSuccess(
 // SetupWithManager sets up the controller with the Manager.
 func (r *PostgresqlUserRoleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&postgresqlv1alpha1.PostgresqlUserRole{}).
+		For(&v1alpha1.PostgresqlUserRole{}).
 		Complete(r)
 }

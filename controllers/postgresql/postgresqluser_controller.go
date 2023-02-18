@@ -98,7 +98,7 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Deletion case
 	if !instance.GetDeletionTimestamp().IsZero() {
 		// Deletion detected
-		err = r.manageDeletion(reqLogger, instance)
+		err = r.manageDeletion(ctx, reqLogger, instance)
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
@@ -116,7 +116,7 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Creation case
 
 	// Find PG Database
-	pgDB, err := utils.FindPgDatabase(r.Client, instance)
+	pgDB, err := utils.FindPgDatabase(ctx, r.Client, instance)
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
@@ -134,13 +134,13 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// Find PG Engine cfg
-	pgEngineCfg, err := utils.FindPgEngineCfg(r.Client, pgDB)
+	pgEngineCfg, err := utils.FindPgEngineCfg(ctx, r.Client, pgDB)
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
 
 	// Find PG Engine secret
-	pgEngineSecret, err := utils.FindSecretPgEngineCfg(r.Client, pgEngineCfg)
+	pgEngineSecret, err := utils.FindSecretPgEngineCfg(ctx, r.Client, pgEngineCfg)
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
@@ -317,14 +317,18 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	return r.manageSuccess(ctx, reqLogger, instance, originalPatch)
 }
 
-func (r *PostgresqlUserReconciler) manageDeletion(reqLogger logr.Logger, instance *postgresqlv1alpha1.PostgresqlUser) error {
+func (r *PostgresqlUserReconciler) manageDeletion(
+	ctx context.Context,
+	reqLogger logr.Logger,
+	instance *postgresqlv1alpha1.PostgresqlUser,
+) error {
 	// Check if previous resource was created
 	if instance.Status.Phase != postgresqlv1alpha1.UserCreatedPhase {
 		// Stop because was in error
 		return nil
 	}
 	// Find PG Database
-	pgDB, err := utils.FindPgDatabase(r.Client, instance)
+	pgDB, err := utils.FindPgDatabase(ctx, r.Client, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Can't do anything => log and stop
@@ -337,7 +341,7 @@ func (r *PostgresqlUserReconciler) manageDeletion(reqLogger logr.Logger, instanc
 	}
 
 	// Find PG Engine cfg
-	pgEngineCfg, err := utils.FindPgEngineCfg(r.Client, pgDB)
+	pgEngineCfg, err := utils.FindPgEngineCfg(ctx, r.Client, pgDB)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Can't do anything => log and stop
@@ -350,7 +354,7 @@ func (r *PostgresqlUserReconciler) manageDeletion(reqLogger logr.Logger, instanc
 	}
 
 	// Find PG Engine secret
-	pgEngineSecret, err := utils.FindSecretPgEngineCfg(r.Client, pgEngineCfg)
+	pgEngineSecret, err := utils.FindSecretPgEngineCfg(ctx, r.Client, pgEngineCfg)
 	if err != nil {
 		return err
 	}

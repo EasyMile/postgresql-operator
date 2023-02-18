@@ -9,7 +9,7 @@ import (
 const (
 	maxOpenConnections = 5
 	maxIdleConnections = 1
-	maxLifeTimeSecond  = 60 * time.Second
+	maxLifeTimeSecond  = 60 * time.Second //nolint:revive // Continue with the suffix Second
 )
 
 // Pool saved structure per postgres engine configuration.
