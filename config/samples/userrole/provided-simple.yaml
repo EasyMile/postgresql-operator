@@ -3,10 +3,16 @@ kind: PostgresqlUserRole
 metadata:
   name: postgresqluserrole-sample
 spec:
+  # Mode
   mode: PROVIDED
+  # Privileges list
   privileges:
-  - privilege: WRITER
+  - # Privilege for the selected database
+    privilege: WRITER
+    # Database link
     database:
       name: simple
+    # Generated secret name with information for the selected database
     generatedSecretName: simple1
+  # Import secret that will contain "USERNAME" and "PASSWORD" for provided mode
   importSecretName: provided-simple
