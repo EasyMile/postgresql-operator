@@ -1,21 +1,14 @@
 {{- if and .Values.rbac.create }}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
-  name: {{ include "postgresql-operator.fullname" . }}
+  name: {{ include "postgresql-operator.fullname" . }}-role
   labels:
 {{ include "postgresql-operator.labels" . | indent 4 }}
 rules:
 - apiGroups:
   - ""
   resources:
-  - pods
-  - services
-  - services/finalizers
-  - endpoints
-  - persistentvolumeclaims
-  - events
-  - configmaps
   - secrets
   verbs:
   - create
@@ -26,12 +19,9 @@ rules:
   - update
   - watch
 - apiGroups:
-  - apps
+  - postgresql.easymile.com
   resources:
-  - deployments
-  - daemonsets
-  - replicasets
-  - statefulsets
+  - postgresqldatabases
   verbs:
   - create
   - delete
@@ -41,39 +31,74 @@ rules:
   - update
   - watch
 - apiGroups:
-  - monitoring.coreos.com
+  - postgresql.easymile.com
   resources:
-  - servicemonitors
-  verbs:
-  - get
-  - create
-- apiGroups:
-  - apps
-  resourceNames:
-  - postgresql-operator
-  resources:
-  - deployments/finalizers
+  - postgresqldatabases/finalizers
   verbs:
   - update
 - apiGroups:
-  - ""
+  - postgresql.easymile.com
   resources:
-  - pods
+  - postgresqldatabases/status
   verbs:
   - get
-- apiGroups:
-  - apps
-  resources:
-  - replicasets
-  - deployments
-  verbs:
-  - get
+  - patch
+  - update
 - apiGroups:
   - postgresql.easymile.com
   resources:
-  - '*'
   - postgresqlengineconfigurations
-  - postgresqldatabases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
+  - postgresqlengineconfigurations/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
+  - postgresqlengineconfigurations/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
+  - postgresqluserroles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
+  - postgresqluserroles/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
+  - postgresqluserroles/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
   - postgresqlusers
   verbs:
   - create
@@ -83,4 +108,18 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
+  - postgresqlusers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
+  - postgresqlusers/status
+  verbs:
+  - get
+  - patch
+  - update
 {{- end }}
