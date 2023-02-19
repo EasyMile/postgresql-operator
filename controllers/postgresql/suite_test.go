@@ -92,6 +92,7 @@ var dbConns = map[string]*struct {
 	tx *sql.Tx
 	db *sql.DB
 }{}
+var mainDBConn *sql.DB
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -197,6 +198,14 @@ var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
+
+	// Close db
+	for k, _ := range dbConns {
+		disconnectConnFromKey(k)
+	}
+	if mainDBConn != nil {
+		Expect(mainDBConn.Close()).To(Succeed())
+	}
 })
 
 func cleanupFunction() {
@@ -690,16 +699,15 @@ func deleteSQLDBs(name string) error {
 	// Query template
 	GetAllCreatedSQLDBTemplate := "SELECT datname FROM pg_database WHERE datname LIKE '%" + name + "%';"
 
-	db, err := sql.Open("postgres", postgresUrl)
-	if err != nil {
-		return err
+	if mainDBConn == nil {
+		db, err := sql.Open("postgres", postgresUrl)
+		if err != nil {
+			return err
+		}
+		mainDBConn = db
 	}
 
-	defer func() error {
-		return db.Close()
-	}()
-
-	res, err := db.Query(GetAllCreatedSQLDBTemplate)
+	res, err := mainDBConn.Query(GetAllCreatedSQLDBTemplate)
 	if err != nil {
 		return err
 	}
@@ -713,7 +721,7 @@ func deleteSQLDBs(name string) error {
 
 		// Try to delete
 		for i := 0; i < 1000; i++ {
-			_, err = db.Exec(fmt.Sprintf(postgres.DropDatabaseSQLTemplate, dbname))
+			_, err = mainDBConn.Exec(fmt.Sprintf(postgres.DropDatabaseSQLTemplate, dbname))
 			if err == nil {
 				break
 			}
@@ -734,18 +742,15 @@ func deleteSQLDBs(name string) error {
 }
 
 func createSQLDB(name, role string) error {
-	// Connect
-	db, err := sql.Open("postgres", postgresUrl)
-	// Check error
-	if err != nil {
-		return err
+	if mainDBConn == nil {
+		db, err := sql.Open("postgres", postgresUrl)
+		if err != nil {
+			return err
+		}
+		mainDBConn = db
 	}
 
-	defer func() error {
-		return db.Close()
-	}()
-
-	_, err = db.Exec(fmt.Sprintf(postgres.CreateDBSQLTemplate, name, role))
+	_, err := mainDBConn.Exec(fmt.Sprintf(postgres.CreateDBSQLTemplate, name, role))
 	if err != nil {
 		// eat DUPLICATE DATABASE ERROR
 		// Try to cast error
@@ -759,18 +764,15 @@ func createSQLDB(name, role string) error {
 }
 
 func isSQLDBExists(name string) (bool, error) {
-	// Connect
-	db, err := sql.Open("postgres", postgresUrl)
-	// Check error
-	if err != nil {
-		return false, err
+	if mainDBConn == nil {
+		db, err := sql.Open("postgres", postgresUrl)
+		if err != nil {
+			return false, err
+		}
+		mainDBConn = db
 	}
 
-	defer func() error {
-		return db.Close()
-	}()
-
-	res, err := db.Exec(fmt.Sprintf(postgres.IsDatabaseExistSQLTemplate, name))
+	res, err := mainDBConn.Exec(fmt.Sprintf(postgres.IsDatabaseExistSQLTemplate, name))
 	if err != nil {
 		return false, err
 	}
@@ -787,12 +789,15 @@ func deleteSQLRoles() error {
 	// Query template
 	GetAllCreatedRolesSQLTemplate := `SELECT rolname FROM pg_roles WHERE rolname NOT LIKE 'pg\_%' AND rolname != 'postgres'`
 
-	db, err := sql.Open("postgres", postgresUrl)
-	if err != nil {
-		return err
+	if mainDBConn == nil {
+		db, err := sql.Open("postgres", postgresUrl)
+		if err != nil {
+			return err
+		}
+		mainDBConn = db
 	}
 
-	res, err := db.Query(GetAllCreatedRolesSQLTemplate)
+	res, err := mainDBConn.Query(GetAllCreatedRolesSQLTemplate)
 	if err != nil {
 		return err
 	}
@@ -804,7 +809,7 @@ func deleteSQLRoles() error {
 			return err
 		}
 
-		_, err = db.Exec(fmt.Sprintf(postgres.DropRoleSQLTemplate, role))
+		_, err = mainDBConn.Exec(fmt.Sprintf(postgres.DropRoleSQLTemplate, role))
 		if err != nil {
 			return err
 		}
@@ -814,18 +819,15 @@ func deleteSQLRoles() error {
 }
 
 func createSQLRole(role string) error {
-	// Connect
-	db, err := sql.Open("postgres", postgresUrl)
-	// Check error
-	if err != nil {
-		return err
+	if mainDBConn == nil {
+		db, err := sql.Open("postgres", postgresUrl)
+		if err != nil {
+			return err
+		}
+		mainDBConn = db
 	}
 
-	defer func() error {
-		return db.Close()
-	}()
-
-	_, err = db.Exec(fmt.Sprintf(postgres.CreateGroupRoleSQLTemplate, role))
+	_, err := mainDBConn.Exec(fmt.Sprintf(postgres.CreateGroupRoleSQLTemplate, role))
 	if err != nil {
 		// eat DUPLICATE ROLE ERROR
 		// Try to cast error
@@ -839,18 +841,15 @@ func createSQLRole(role string) error {
 }
 
 func isSQLRoleExists(name string) (bool, error) {
-	// Connect
-	db, err := sql.Open("postgres", postgresUrl)
-	// Check error
-	if err != nil {
-		return false, err
+	if mainDBConn == nil {
+		db, err := sql.Open("postgres", postgresUrl)
+		if err != nil {
+			return false, err
+		}
+		mainDBConn = db
 	}
 
-	defer func() error {
-		return db.Close()
-	}()
-
-	res, err := db.Exec(fmt.Sprintf(postgres.IsRoleExistSQLTemplate, name))
+	res, err := mainDBConn.Exec(fmt.Sprintf(postgres.IsRoleExistSQLTemplate, name))
 	if err != nil {
 		return false, err
 	}
@@ -946,18 +945,15 @@ func isSQLUserMemberOf(user, group string) (bool, error) {
 	// Query template
 	IsMemberOfSQLTemplate := `SELECT 1 FROM pg_roles WHERE pg_has_role( '%s', oid, 'member') AND rolname = '%s'`
 
-	// Connect
-	db, err := sql.Open("postgres", postgresUrl)
-	// Check error
-	if err != nil {
-		return false, err
+	if mainDBConn == nil {
+		db, err := sql.Open("postgres", postgresUrl)
+		if err != nil {
+			return false, err
+		}
+		mainDBConn = db
 	}
 
-	defer func() error {
-		return db.Close()
-	}()
-
-	res, err := db.Exec(fmt.Sprintf(IsMemberOfSQLTemplate, user, group))
+	res, err := mainDBConn.Exec(fmt.Sprintf(IsMemberOfSQLTemplate, user, group))
 	if err != nil {
 		return false, err
 	}
@@ -1031,18 +1027,15 @@ func isRoleOwnerofSQLDB(dbname, role string) (bool, error) {
 	// Query template
 	IsRoleOwnerOfDbSQLTemplate := `SELECT 1 FROM pg_catalog.pg_database d WHERE d.datname = '%s' AND pg_catalog.pg_get_userbyid(d.datdba) = '%s';`
 
-	// Connect
-	db, err := sql.Open("postgres", postgresUrl)
-	// Check error
-	if err != nil {
-		return false, err
+	if mainDBConn == nil {
+		db, err := sql.Open("postgres", postgresUrl)
+		if err != nil {
+			return false, err
+		}
+		mainDBConn = db
 	}
 
-	defer func() error {
-		return db.Close()
-	}()
-
-	res, err := db.Exec(fmt.Sprintf(IsRoleOwnerOfDbSQLTemplate, dbname, role))
+	res, err := mainDBConn.Exec(fmt.Sprintf(IsRoleOwnerOfDbSQLTemplate, dbname, role))
 	if err != nil {
 		return false, err
 	}
@@ -1058,18 +1051,15 @@ func isRoleOwnerofSQLDB(dbname, role string) (bool, error) {
 func isSetRoleOnDatabasesRoleSettingsExists(username, databaseInput, groupRole string) (bool, error) {
 	GetRoleSettingsSQLTemplate := `SELECT pg_catalog.split_part(pg_catalog.unnest(setconfig), '=', 1) as parameter_type, pg_catalog.split_part(pg_catalog.unnest(setconfig), '=', 2) as parameter_value, d.datname as database FROM pg_catalog.pg_roles r JOIN pg_catalog.pg_db_role_setting c ON (c.setrole = r.oid) JOIN pg_catalog.pg_database d ON (d.oid = c.setdatabase) WHERE r.rolcanlogin AND r.rolname='%s'`
 
-	// Connect
-	db, err := sql.Open("postgres", postgresUrl)
-	// Check error
-	if err != nil {
-		return false, err
+	if mainDBConn == nil {
+		db, err := sql.Open("postgres", postgresUrl)
+		if err != nil {
+			return false, err
+		}
+		mainDBConn = db
 	}
 
-	defer func() error {
-		return db.Close()
-	}()
-
-	rows, err := db.Query(fmt.Sprintf(GetRoleSettingsSQLTemplate, username))
+	rows, err := mainDBConn.Query(fmt.Sprintf(GetRoleSettingsSQLTemplate, username))
 	if err != nil {
 		return false, err
 	}
