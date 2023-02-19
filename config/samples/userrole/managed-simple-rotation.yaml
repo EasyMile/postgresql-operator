@@ -3,11 +3,18 @@ kind: PostgresqlUserRole
 metadata:
   name: managed-simple-rotation
 spec:
+  # Mode
   mode: MANAGED
+  # Role prefix to be used for user created in database engine
   rolePrefix: "managed-simple"
+  # User password rotation duration in order to roll user/password in secret
   userPasswordRotationDuration: 30s
+  # Privileges
   privileges:
-    - privilege: OWNER
+    - # Privilege for the selected database
+      privilege: OWNER
+      # Database link
       database:
         name: simple
+      # Generated secret name with information for the selected database
       generatedSecretName: managed-simple-rotation

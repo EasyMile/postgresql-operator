@@ -1,5 +1,7 @@
 # PostgresqlUser
 
+**DEPRECATED in favor of [PostgresqlUserRole](./PostgresqlUserRole.md)**
+
 ## Description
 
 This Custom Resource represents a PosgreSQL User.

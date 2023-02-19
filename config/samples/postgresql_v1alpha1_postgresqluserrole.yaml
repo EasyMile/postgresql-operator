@@ -1,6 +1,20 @@
 apiVersion: postgresql.easymile.com/v1alpha1
 kind: PostgresqlUserRole
 metadata:
-  name: postgresqluserrole-sample
+  name: managed-simple-rotation
 spec:
-  # TODO(user): Add fields here
+  # Mode
+  mode: MANAGED
+  # Role prefix to be used for user created in database engine
+  rolePrefix: "managed-simple"
+  # User password rotation duration in order to roll user/password in secret
+  userPasswordRotationDuration: 30s
+  # Privileges
+  privileges:
+    - # Privilege for the selected database
+      privilege: OWNER
+      # Database link
+      database:
+        name: simple
+      # Generated secret name with information for the selected database
+      generatedSecretName: managed-simple-rotation
