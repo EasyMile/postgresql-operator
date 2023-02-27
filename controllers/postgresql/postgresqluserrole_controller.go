@@ -325,15 +325,15 @@ func (r *PostgresqlUserRoleReconciler) manageSecrets(
 	username, password string,
 ) error {
 	// Loop
-	for key, pgecDBPrivilege := range pgecDBPrivilegeCache {
+	for key, pgecDBPrivilegeList := range pgecDBPrivilegeCache {
 		// Loop over dbs
-		for _, pgecDBInstance := range pgecDBPrivilege {
+		for _, privilegeCache := range pgecDBPrivilegeList {
 			// Check if this Secret already exists
 			secrFound := &corev1.Secret{}
 			err := r.Get(
 				ctx,
 				types.NamespacedName{
-					Name:      pgecDBInstance.UserPrivilege.GeneratedSecretName,
+					Name:      privilegeCache.UserPrivilege.GeneratedSecretName,
 					Namespace: instance.Namespace,
 				},
 				secrFound,
@@ -346,8 +346,8 @@ func (r *PostgresqlUserRoleReconciler) manageSecrets(
 			// Generate "new" secret
 			generatedSecret, err2 := r.newSecretForPGUser(
 				instance,
-				pgecDBInstance.UserPrivilege,
-				pgecDBInstance.DBInstance,
+				privilegeCache.UserPrivilege,
+				privilegeCache.DBInstance,
 				username, password,
 				pgInstanceCache[key],
 			)
@@ -368,7 +368,7 @@ func (r *PostgresqlUserRoleReconciler) manageSecrets(
 				logger.Info(
 					"Successfully created secret for engine and database",
 					"postgresqlEngine", key,
-					"postgresqlDatabase", utils.CreateNameKey(pgecDBInstance.DBInstance.Name, pgecDBInstance.DBInstance.Namespace, instance.Namespace),
+					"postgresqlDatabase", utils.CreateNameKey(privilegeCache.DBInstance.Name, privilegeCache.DBInstance.Namespace, instance.Namespace),
 					"secret", generatedSecret.Name,
 				)
 				r.Recorder.Eventf(instance, "Normal", "Updated", "Generated secret %s saved", generatedSecret.Name)
@@ -386,7 +386,7 @@ func (r *PostgresqlUserRoleReconciler) manageSecrets(
 				logger.Info(
 					"Successfully updated secret for engine and database",
 					"postgresqlEngine", key,
-					"postgresqlDatabase", utils.CreateNameKey(pgecDBInstance.DBInstance.Name, pgecDBInstance.DBInstance.Namespace, instance.Namespace),
+					"postgresqlDatabase", utils.CreateNameKey(privilegeCache.DBInstance.Name, privilegeCache.DBInstance.Namespace, instance.Namespace),
 					"secret", secrFound.Name,
 				)
 				r.Recorder.Eventf(instance, "Normal", "Updated", "Generated secret %s saved", secrFound.Name)
@@ -795,7 +795,7 @@ func (r *PostgresqlUserRoleReconciler) createOrUpdateWorkSecretForManagedMode(
 				username += Login0Suffix
 			}
 
-			// Check if this "new" username isn't in the "oldPostgresRoles" section
+			// Check if this "new" username is in the "oldPostgresRoles" section
 			// If yes, then ignore rolling and mark as error because the previous rolling wasn't a success
 			// If no, continue
 			if funk.ContainsString(instance.Status.OldPostgresRoles, username) {
