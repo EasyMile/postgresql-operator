@@ -1204,32 +1204,35 @@ func (r *PostgresqlUserRoleReconciler) validateInstance(
 		}
 	}
 
-	// Check that role prefix is unique in the whole cluster
-	// Create temporary values
-	nextMarker := ""
-	continueLoop := true
+	// Check if role prefix is set
+	if instance.Spec.RolePrefix != "" {
+		// Check that role prefix is unique in the whole cluster
+		// Create temporary values
+		nextMarker := ""
+		continueLoop := true
 
-	for continueLoop {
-		// Prepare list
-		list := &v1alpha1.PostgresqlUserRoleList{}
+		for continueLoop {
+			// Prepare list
+			list := &v1alpha1.PostgresqlUserRoleList{}
 
-		// List request
-		err := r.List(ctx, list, &client.ListOptions{Continue: nextMarker, Limit: ListLimit})
-		// Check error
-		if err != nil {
-			return err
-		}
+			// List request
+			err := r.List(ctx, list, &client.ListOptions{Continue: nextMarker, Limit: ListLimit})
+			// Check error
+			if err != nil {
+				return err
+			}
 
-		// Save data
-		nextMarker = list.Continue
-		continueLoop = nextMarker != ""
+			// Save data
+			nextMarker = list.Continue
+			continueLoop = nextMarker != ""
 
-		// Loop over all users
-		for _, userInstance := range list.Items {
-			// Check that role prefix isn't declared in another user
-			// TODO Try to validate that this is unique per engine and not for the whole cluster
-			if userInstance.Name != instance.Name && userInstance.Namespace != instance.Namespace && userInstance.Spec.RolePrefix == instance.Spec.RolePrefix {
-				return errors.NewBadRequest("RolePrefix is declared in another PostgresqlUser. This field value must be unique.")
+			// Loop over all users
+			for _, userInstance := range list.Items {
+				// Check that role prefix isn't declared in another user
+				// TODO Try to validate that this is unique per engine and not for the whole cluster
+				if userInstance.Name != instance.Name && userInstance.Namespace != instance.Namespace && userInstance.Spec.RolePrefix == instance.Spec.RolePrefix {
+					return errors.NewBadRequest("RolePrefix is declared in another PostgresqlUser. This field value must be unique.")
+				}
 			}
 		}
 	}
