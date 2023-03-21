@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.1.0
+
+### Deprecation notice
+
+- Deprecate PostgresqlUser custom resource in favor or PostgresqlUserRole
+  - This new resource will allow more thing and a greater stability
+
+### Feature
+
+- Add support for PostgresqlUserRole custom resource
+
+### Bugs
+
+- Fix Helm chart CRD and structure
+
 ## 2.0.0
 
 ### Feature
