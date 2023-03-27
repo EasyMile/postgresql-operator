@@ -160,7 +160,7 @@ func main() {
 			"controller",
 			"postgresqluserrole",
 			"controllerKind",
-			"PostgresqlUser",
+			"PostgresqlUserRole",
 			"controllerGroup",
 			"postgresql.easymile.com",
 		),
