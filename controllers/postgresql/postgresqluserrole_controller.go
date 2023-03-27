@@ -44,7 +44,6 @@ import (
 
 const (
 	PGURRequeueDelayErrorNumberSeconds         = 5
-	PGURRequeueDelaySuccessNumberSeconds       = 10
 	ListLimit                                  = 10
 	Login0Suffix                               = "-0"
 	Login1Suffix                               = "-1"
@@ -1317,10 +1316,7 @@ func (r *PostgresqlUserRoleReconciler) manageSuccess(
 
 	logger.Info("Reconcile done")
 
-	return reconcile.Result{
-		Requeue:      true,
-		RequeueAfter: PGURRequeueDelaySuccessNumberSeconds * time.Second,
-	}, nil
+	return reconcile.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

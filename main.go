@@ -18,7 +18,9 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -52,8 +54,10 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
+	var resyncPeriodStr string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&resyncPeriodStr, "resync-period", "30s", "The resync period to reload all resources for auto-heal procedures.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -65,11 +69,22 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	// Parse duration
+	resyncPeriod, err := time.ParseDuration(resyncPeriodStr)
+	// Check error
+	if err != nil {
+		setupLog.Error(err, "unable to parse resync period")
+		os.Exit(1)
+	}
+	// Log
+	setupLog.Info(fmt.Sprintf("Starting manager with %s resync period", resyncPeriodStr))
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
 		Port:                   9443, //nolint: gomnd // Because generated
 		HealthProbeBindAddress: probeAddr,
+		SyncPeriod:             &resyncPeriod,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "07c031df.easymile.com",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily

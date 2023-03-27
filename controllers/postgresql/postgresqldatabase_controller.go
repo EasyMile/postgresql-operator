@@ -38,10 +38,9 @@ import (
 )
 
 const (
-	PGDBRequeueDelayErrorNumberSeconds   = 5
-	PGDBRequeueDelaySuccessNumberSeconds = 10
-	readerPrivs                          = "SELECT"
-	writerPrivs                          = "SELECT,INSERT,DELETE,UPDATE"
+	PGDBRequeueDelayErrorNumberSeconds = 5
+	readerPrivs                        = "SELECT"
+	writerPrivs                        = "SELECT,INSERT,DELETE,UPDATE"
 )
 
 // PostgresqlDatabaseReconciler reconciles a PostgresqlDatabase object.
@@ -708,10 +707,7 @@ func (r *PostgresqlDatabaseReconciler) manageSuccess(
 
 	logger.Info("Reconcile done")
 
-	return ctrl.Result{
-		Requeue:      true,
-		RequeueAfter: PGDBRequeueDelaySuccessNumberSeconds * time.Second,
-	}, nil
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
