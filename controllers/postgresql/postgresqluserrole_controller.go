@@ -88,7 +88,7 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 
-	reqLogger.Info("Reconciling PostgresqlUser")
+	reqLogger.Info("Reconciling PostgresqlUserRole")
 
 	// Fetch the PostgresqlUser instance
 	instance := &v1alpha1.PostgresqlUserRole{}
