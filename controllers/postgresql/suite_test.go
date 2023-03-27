@@ -128,8 +128,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	resyncPeriod := 10 * time.Second
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
+		Scheme:     scheme.Scheme,
+		SyncPeriod: &resyncPeriod,
 	})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(k8sManager).ToNot(BeNil())
