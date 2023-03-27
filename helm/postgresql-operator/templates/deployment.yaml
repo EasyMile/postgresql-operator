@@ -25,6 +25,12 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.args }}
+          args:
+          {{- range $key, $value := .Values.args }}
+          - {{ $value }}
+          {{- end }}
+          {{- end }}
           env:
             - name: WATCH_NAMESPACE
               value: {{ .Values.watchNamespace }}
