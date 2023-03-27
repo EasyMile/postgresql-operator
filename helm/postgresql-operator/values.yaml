@@ -21,6 +21,7 @@ image:
   tag: 2.1.0
   pullPolicy: IfNotPresent
 
+args: []
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
