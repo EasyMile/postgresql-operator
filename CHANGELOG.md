@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.1
+
+### Bugs
+
+- Fix to add support for args in helm chart
+- Fix to avoid doing requeue on success run and prefer a full resync
+
 ## 2.1.0
 
 ### Deprecation notice
