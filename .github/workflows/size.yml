@@ -2,9 +2,9 @@ name: "Add size label"
 on: pull_request
 jobs:
   size-label:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       - name: size-label
-        uses: "pascalgn/size-label-action@df7ad4303b35cbeb20937dbb12d5a050520e469e"
+        uses: pascalgn/size-label-action@v0.4.3
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
