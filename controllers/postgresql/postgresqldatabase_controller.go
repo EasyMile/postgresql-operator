@@ -349,7 +349,7 @@ func (r *PostgresqlDatabaseReconciler) shouldDropDatabase(
 ) (bool, error) {
 	// Check if wait linked resources deletion flag is enabled
 	if instance.Spec.WaitLinkedResourcesDeletion {
-		// Check if there are linked resource linked to this
+		// Check if there are user linked resource linked to this
 		existingUser, err := r.getAnyUserLinked(ctx, instance)
 		if err != nil {
 			return false, err
@@ -357,6 +357,17 @@ func (r *PostgresqlDatabaseReconciler) shouldDropDatabase(
 		if existingUser != nil {
 			// Wait for children removal
 			err := fmt.Errorf("cannot remove resource because found user %s in namespace %s linked to this resource and wait for deletion flag is enabled", existingUser.Name, existingUser.Namespace)
+
+			return false, err
+		}
+		// Check if there are user role linked resource linked to this
+		existingUserRole, err := r.getAnyUserRoleLinked(ctx, instance)
+		if err != nil {
+			return false, err
+		}
+		if existingUserRole != nil {
+			// Wait for children removal
+			err := fmt.Errorf("cannot remove resource because found user role %s in namespace %s linked to this resource and wait for deletion flag is enabled", existingUserRole.Name, existingUserRole.Namespace)
 
 			return false, err
 		}
@@ -369,6 +380,30 @@ func (r *PostgresqlDatabaseReconciler) shouldDropDatabase(
 
 	// Default case is no !
 	return false, nil
+}
+
+func (r *PostgresqlDatabaseReconciler) getAnyUserRoleLinked(
+	ctx context.Context,
+	instance *postgresqlv1alpha1.PostgresqlDatabase,
+) (*postgresqlv1alpha1.PostgresqlUserRole, error) {
+	// Initialize postgres user list
+	userL := postgresqlv1alpha1.PostgresqlUserRoleList{}
+	// Requests for list of users
+	err := r.List(ctx, &userL)
+	if err != nil {
+		return nil, err
+	}
+	// Loop over the list
+	for _, user := range userL.Items {
+		// Check if db is linked to pgdatabase
+		for _, priv := range user.Spec.Privileges {
+			if priv.Database.Name == instance.Name && (priv.Database.Namespace == instance.Namespace || user.Namespace == instance.Namespace) {
+				return &user, nil
+			}
+		}
+	}
+
+	return nil, nil
 }
 
 func (r *PostgresqlDatabaseReconciler) getAnyUserLinked(
