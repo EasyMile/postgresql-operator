@@ -118,32 +118,32 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 			instance.Status.OldPostgresRoles = append(instance.Status.OldPostgresRoles, instance.Status.PostgresRole)
 			// Unique them
 			instance.Status.OldPostgresRoles = funk.UniqString(instance.Status.OldPostgresRoles)
+		}
 
-			// Get needed items
+		// Get needed items
 
-			// Find PG Database cache
-			dbCache, pgecDBPrivilegeCache, err := r.getDatabaseInstances(ctx, instance, true)
-			// Check error
-			if err != nil {
-				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
-			}
-			// Create PG instances
-			pgInstancesCache, err := r.getPGInstances(ctx, reqLogger, dbCache, true)
-			// Check error
-			if err != nil {
-				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
-			}
+		// Find PG Database cache
+		dbCache, pgecDBPrivilegeCache, err := r.getDatabaseInstances(ctx, instance, true)
+		// Check error
+		if err != nil {
+			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+		}
+		// Create PG instances
+		pgInstancesCache, err := r.getPGInstances(ctx, reqLogger, dbCache, true)
+		// Check error
+		if err != nil {
+			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+		}
 
-			// Delete roles
-			err = r.manageActiveSessionsAndDropOldRoles(ctx, reqLogger, instance, pgInstancesCache, pgecDBPrivilegeCache)
-			// Check error
-			if err != nil {
-				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
-			}
-			// Check if there is still users
-			if len(instance.Status.OldPostgresRoles) != 0 {
-				return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewBadRequest("old postgres roles still present"))
-			}
+		// Delete roles
+		err = r.manageActiveSessionsAndDropOldRoles(ctx, reqLogger, instance, pgInstancesCache, pgecDBPrivilegeCache)
+		// Check error
+		if err != nil {
+			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+		}
+		// Check if there is still users
+		if len(instance.Status.OldPostgresRoles) != 0 {
+			return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewBadRequest("old postgres roles still present"))
 		}
 
 		// Remove finalizer
@@ -229,6 +229,11 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Save info
 	username := string(workSec.Data[UsernameSecretKey])
 	password := string(workSec.Data[PasswordSecretKey])
+
+	// Ensure they aren't empty
+	if username == "" || password == "" {
+		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewBadRequest("username or password in work secret are empty so something is interfering with operator"))
+	}
 
 	// Compute username changed
 	usernameChanged = username != oldUsername && oldUsername != ""
