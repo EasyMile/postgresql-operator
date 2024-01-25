@@ -12,8 +12,8 @@ jobs:
       config: ${{ steps.filter.outputs.config }}
       docker: ${{ steps.filter.outputs.docker }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: dorny/paths-filter@v2
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
         id: filter
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -36,8 +36,8 @@ jobs:
     needs:
       - changes
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: "^1.19.0"
       - uses: golangci/golangci-lint-action@v3
@@ -71,8 +71,8 @@ jobs:
       - changes
       - lint
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: "^1.19.0"
       - run: make build
@@ -88,8 +88,8 @@ jobs:
       - lint
       - build
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: "^1.19.0"
       - run: |
