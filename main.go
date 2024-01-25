@@ -48,19 +48,20 @@ func init() {
 
 	utilruntime.Must(postgresqlv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
-}
+} //nolint: wsl // Needed by operator
 
 func main() {
-	var metricsAddr string
+	var metricsAddr, probeAddr, resyncPeriodStr string
+
 	var enableLeaderElection bool
-	var probeAddr string
-	var resyncPeriodStr string
+
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.StringVar(&resyncPeriodStr, "resync-period", "30s", "The resync period to reload all resources for auto-heal procedures.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+
 	opts := zap.Options{
 		Development: false,
 	}
@@ -120,6 +121,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "PostgresqlEngineConfiguration")
 		os.Exit(1)
 	}
+
 	if err = (&postgresqlcontrollers.PostgresqlDatabaseReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
@@ -136,6 +138,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "PostgresqlDatabase")
 		os.Exit(1)
 	}
+
 	if err = (&postgresqlcontrollers.PostgresqlUserReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
@@ -152,6 +155,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "PostgresqlUser")
 		os.Exit(1)
 	}
+
 	if err = (&postgresqlcontrollers.PostgresqlUserRoleReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
@@ -174,12 +178,14 @@ func main() {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
 	}
+
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
 
 	setupLog.Info("starting manager")
+
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)

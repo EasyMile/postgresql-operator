@@ -44,7 +44,7 @@ const (
 )
 
 // PostgresqlDatabaseReconciler reconciles a PostgresqlDatabase object.
-type PostgresqlDatabaseReconciler struct { //nolint: golint,revive // generated
+type PostgresqlDatabaseReconciler struct { //nolint: golint // generated
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
@@ -65,7 +65,7 @@ type PostgresqlDatabaseReconciler struct { //nolint: golint,revive // generated
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.1/pkg/reconcile
-func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) { //nolint:wsl // it is like that
 	// Issue with this logger: controller and controllerKind are incorrect
 	// Build another logger from upper to fix this.
 	// reqLogger := log.FromContext(ctx)
@@ -75,6 +75,7 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	// Fetch the PostgresqlDatabase instance
 	instance := &postgresqlv1alpha1.PostgresqlDatabase{}
+
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -94,14 +95,14 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if !instance.GetDeletionTimestamp().IsZero() {
 		// Deletion in progress detected
 		// Test should delete database
-		shouldDelete, err := r.shouldDropDatabase(ctx, instance)
+		shouldDelete, err := r.shouldDropDatabase(ctx, instance) //nolint:govet // Shadow err
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
 		// Check if should delete database is flagged
 		if shouldDelete {
 			// Drop database
-			err := r.manageDropDatabase(ctx, reqLogger, instance)
+			err = r.manageDropDatabase(ctx, reqLogger, instance)
 			if err != nil {
 				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 			}
@@ -150,7 +151,7 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Add finalizer and owners
-	updated, err := r.updateInstance(ctx, instance, pgEngCfg)
+	updated, err := r.updateInstance(ctx, instance)
 	// Check error
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
@@ -171,6 +172,7 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if owner == "" {
 		owner = fmt.Sprintf("%s-owner", instance.Spec.Database)
 	}
+
 	reader := fmt.Sprintf("%s-reader", instance.Spec.Database)
 	writer := fmt.Sprintf("%s-writer", instance.Spec.Database)
 
@@ -180,11 +182,13 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewBadRequest(errStr))
 	}
+
 	if len(reader) > postgres.MaxIdentifierLength {
 		errStr := fmt.Sprintf("identifier too long, must be <= 63, %s is %d character, must reduce database name length", reader, len(reader))
 
 		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewBadRequest(errStr))
 	}
+
 	if len(writer) > postgres.MaxIdentifierLength {
 		errStr := fmt.Sprintf("identifier too long, must be <= 63, %s is %d character, must reduce database name length", writer, len(writer))
 
@@ -230,7 +234,7 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 	return r.manageSuccess(ctx, reqLogger, instance, originalPatch)
 }
 
-func (r *PostgresqlDatabaseReconciler) manageDBCreationOrUpdate(pg postgres.PG, instance *postgresqlv1alpha1.PostgresqlDatabase, owner string) error {
+func (*PostgresqlDatabaseReconciler) manageDBCreationOrUpdate(pg postgres.PG, instance *postgresqlv1alpha1.PostgresqlDatabase, owner string) error {
 	// Check if database was already created in the past
 	if instance.Status.Database != "" {
 		// Check if database already exists
@@ -354,20 +358,23 @@ func (r *PostgresqlDatabaseReconciler) shouldDropDatabase(
 		if err != nil {
 			return false, err
 		}
+
 		if existingUser != nil {
 			// Wait for children removal
-			err := fmt.Errorf("cannot remove resource because found user %s in namespace %s linked to this resource and wait for deletion flag is enabled", existingUser.Name, existingUser.Namespace)
+			err = fmt.Errorf("cannot remove resource because found user %s in namespace %s linked to this resource and wait for deletion flag is enabled", existingUser.Name, existingUser.Namespace)
 
 			return false, err
 		}
+
 		// Check if there are user role linked resource linked to this
 		existingUserRole, err := r.getAnyUserRoleLinked(ctx, instance)
 		if err != nil {
 			return false, err
 		}
+
 		if existingUserRole != nil {
 			// Wait for children removal
-			err := fmt.Errorf("cannot remove resource because found user role %s in namespace %s linked to this resource and wait for deletion flag is enabled", existingUserRole.Name, existingUserRole.Namespace)
+			err = fmt.Errorf("cannot remove resource because found user role %s in namespace %s linked to this resource and wait for deletion flag is enabled", existingUserRole.Name, existingUserRole.Namespace)
 
 			return false, err
 		}
@@ -431,7 +438,6 @@ func (r *PostgresqlDatabaseReconciler) getAnyUserLinked(
 func (r *PostgresqlDatabaseReconciler) updateInstance(
 	ctx context.Context,
 	instance *postgresqlv1alpha1.PostgresqlDatabase,
-	pgEngCfg *postgresqlv1alpha1.PostgresqlEngineConfiguration,
 ) (bool, error) {
 	// Deep copy
 	oCopy := instance.DeepCopy()
@@ -447,7 +453,7 @@ func (r *PostgresqlDatabaseReconciler) updateInstance(
 	return false, nil
 }
 
-func (r *PostgresqlDatabaseReconciler) manageSchemas(pg postgres.PG, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
+func (*PostgresqlDatabaseReconciler) manageSchemas(pg postgres.PG, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
 	// Check if were deleted from list and asked to be deleted
 	if instance.Status.Schemas != nil && instance.Spec.Schemas.DropOnOnDelete {
 		newStatusSchemas := make([]string, 0)
@@ -477,6 +483,7 @@ func (r *PostgresqlDatabaseReconciler) manageSchemas(pg postgres.PG, instance *p
 		reader = instance.Status.Roles.Reader
 		writer = instance.Status.Roles.Writer
 	)
+
 	for _, schema := range instance.Spec.Schemas.List {
 		// Create schema
 		err := pg.CreateSchema(instance.Spec.Database, owner, schema)
@@ -489,6 +496,7 @@ func (r *PostgresqlDatabaseReconciler) manageSchemas(pg postgres.PG, instance *p
 		if err != nil {
 			return err
 		}
+
 		err = pg.SetSchemaPrivileges(instance.Spec.Database, owner, writer, schema, writerPrivs)
 		if err != nil {
 			return err
@@ -503,7 +511,7 @@ func (r *PostgresqlDatabaseReconciler) manageSchemas(pg postgres.PG, instance *p
 	return nil
 }
 
-func (r *PostgresqlDatabaseReconciler) manageExtensions(pg postgres.PG, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
+func (*PostgresqlDatabaseReconciler) manageExtensions(pg postgres.PG, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
 	// Check if were deleted from list and asked to be deleted
 	if instance.Status.Extensions != nil && instance.Spec.Extensions.DropOnOnDelete {
 		newStatusExtensions := make([]string, 0)
@@ -543,7 +551,7 @@ func (r *PostgresqlDatabaseReconciler) manageExtensions(pg postgres.PG, instance
 	return nil
 }
 
-func (r *PostgresqlDatabaseReconciler) manageReaderRole(pg postgres.PG, reader string, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
+func (*PostgresqlDatabaseReconciler) manageReaderRole(pg postgres.PG, reader string, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
 	// Check if role was already created in the past
 	if instance.Status.Roles.Reader != "" {
 		// Check if role doesn't already exists
@@ -572,7 +580,7 @@ func (r *PostgresqlDatabaseReconciler) manageReaderRole(pg postgres.PG, reader s
 	// Check if exists
 	if !exists {
 		// Create it
-		err := pg.CreateGroupRole(reader)
+		err = pg.CreateGroupRole(reader)
 		// Check error
 		if err != nil {
 			return err
@@ -592,7 +600,7 @@ func (r *PostgresqlDatabaseReconciler) manageReaderRole(pg postgres.PG, reader s
 	return nil
 }
 
-func (r *PostgresqlDatabaseReconciler) manageWriterRole(pg postgres.PG, writer string, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
+func (*PostgresqlDatabaseReconciler) manageWriterRole(pg postgres.PG, writer string, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
 	// Check if role was already created in the past
 	if instance.Status.Roles.Writer != "" {
 		// Check if role doesn't already exists
@@ -621,7 +629,7 @@ func (r *PostgresqlDatabaseReconciler) manageWriterRole(pg postgres.PG, writer s
 	// Check if exists
 	if !exists {
 		// Create it
-		err := pg.CreateGroupRole(writer)
+		err = pg.CreateGroupRole(writer)
 		// Check error
 		if err != nil {
 			return err
@@ -641,7 +649,7 @@ func (r *PostgresqlDatabaseReconciler) manageWriterRole(pg postgres.PG, writer s
 	return nil
 }
 
-func (r *PostgresqlDatabaseReconciler) manageOwnerRole(pg postgres.PG, owner string, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
+func (*PostgresqlDatabaseReconciler) manageOwnerRole(pg postgres.PG, owner string, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
 	// Check if role was already created in the past
 	if instance.Status.Roles.Owner != "" {
 		// Check if role doesn't already exists
@@ -670,7 +678,7 @@ func (r *PostgresqlDatabaseReconciler) manageOwnerRole(pg postgres.PG, owner str
 	// Check if exists
 	if !exists {
 		// Create it
-		err := pg.CreateGroupRole(owner)
+		err = pg.CreateGroupRole(owner)
 		// Check error
 		if err != nil {
 			return err

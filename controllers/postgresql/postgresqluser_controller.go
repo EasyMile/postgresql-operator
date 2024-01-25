@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strconv"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -48,7 +49,7 @@ const (
 )
 
 // PostgresqlUserReconciler reconciles a PostgresqlUser object.
-type PostgresqlUserReconciler struct { //nolint: golint,revive // generated
+type PostgresqlUserReconciler struct { //nolint: golint // generated
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
@@ -69,7 +70,7 @@ type PostgresqlUserReconciler struct { //nolint: golint,revive // generated
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.1/pkg/reconcile
-func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) { //nolint:wsl // it is like that
 	// Issue with this logger: controller and controllerKind are incorrect
 	// Build another logger from upper to fix this.
 	// reqLogger := log.FromContext(ctx)
@@ -80,6 +81,7 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// Fetch the PostgresqlUser instance
 	instance := &postgresqlv1alpha1.PostgresqlUser{}
+
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -198,6 +200,7 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// Grant group role to user role
 	var groupRole string
+
 	switch instance.Spec.Privileges {
 	case postgresqlv1alpha1.ReaderPrivilege:
 		groupRole = pgDB.Status.Roles.Reader
@@ -215,6 +218,7 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
 	}
+
 	err = pgInstance.GrantRole(groupRole, role)
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
@@ -246,16 +250,17 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// Check if error exists and if it a not found error
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && errors.IsNotFound(err) { //nolint:gocritic // Won't change to a switch
 		// Secret wasn't already present
-
 		// Update password in pg
 		err = pgInstance.UpdatePassword(role, password)
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
+
 		reqLogger.Info("Creating secret", "Secret.Namespace", generatedSecret.Namespace, "Secret.Name", generatedSecret.Name)
 		r.Recorder.Event(instance, "Normal", "Processing", fmt.Sprintf("Creating secret %s for Postgresql User", generatedSecret.Name))
+
 		err = r.Create(ctx, generatedSecret)
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
@@ -396,11 +401,11 @@ func (r *PostgresqlUserReconciler) updateInstance(
 	return false, nil
 }
 
-func (r *PostgresqlUserReconciler) manageCreateUserRole(reqLogger logr.Logger, pgInstance postgres.PG, instance *postgresqlv1alpha1.PostgresqlUser, password string) (string, string, error) {
+func (*PostgresqlUserReconciler) manageCreateUserRole(_ logr.Logger, pgInstance postgres.PG, instance *postgresqlv1alpha1.PostgresqlUser, password string) (role string, login string, err error) {
 	// Delete old role if exists
 	if instance.Status.RolePrefix != "" {
 		// Drop old role
-		err := pgInstance.DropRoleAndDropAndChangeOwnedBy(
+		err = pgInstance.DropRoleAndDropAndChangeOwnedBy(
 			instance.Status.PostgresRole,
 			instance.Status.PostgresGroup,
 			instance.Status.PostgresDatabaseName,
@@ -411,7 +416,7 @@ func (r *PostgresqlUserReconciler) manageCreateUserRole(reqLogger logr.Logger, p
 	}
 	// Create new role
 	suffix := utils.GetRandomString(RoleSuffixSize)
-	role := fmt.Sprintf("%s-%s", instance.Spec.RolePrefix, suffix)
+	role = fmt.Sprintf("%s-%s", instance.Spec.RolePrefix, suffix)
 
 	// Check role length
 	if len(role) > postgres.MaxIdentifierLength {
@@ -420,7 +425,7 @@ func (r *PostgresqlUserReconciler) manageCreateUserRole(reqLogger logr.Logger, p
 		return "", "", errors.NewBadRequest(errStr)
 	}
 
-	login, err := pgInstance.CreateUserRole(role, password)
+	login, err = pgInstance.CreateUserRole(role, password)
 	if err != nil {
 		return "", "", err
 	}
@@ -447,7 +452,7 @@ func (r *PostgresqlUserReconciler) updatePGUserSecret(
 	return nil
 }
 
-func (r *PostgresqlUserReconciler) isSecretValid(foundSecret, newSecret *corev1.Secret) bool {
+func (*PostgresqlUserReconciler) isSecretValid(foundSecret, newSecret *corev1.Secret) bool {
 	// Get data
 	foundData := foundSecret.Data
 	newData := newSecret.Data
@@ -503,7 +508,7 @@ func (r *PostgresqlUserReconciler) newSecretForPGUser(instance *postgresqlv1alph
 			"LOGIN":             []byte(login),
 			"DATABASE":          []byte(instance.Status.PostgresDatabaseName),
 			"HOST":              []byte(pg.GetHost()),
-			"PORT":              []byte(fmt.Sprintf("%d", pg.GetPort())),
+			"PORT":              []byte(strconv.Itoa(pg.GetPort())),
 			"ARGS":              []byte(pg.GetArgs()),
 		},
 	}

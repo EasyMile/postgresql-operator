@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -55,7 +56,7 @@ const (
 )
 
 // PostgresqlUserRoleReconciler reconciles a PostgresqlUserRole object.
-type PostgresqlUserRoleReconciler struct { //nolint:revive // Ignore change name
+type PostgresqlUserRoleReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
@@ -82,7 +83,7 @@ type dbPrivilegeCache struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.1/pkg/reconcile
-func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) { //nolint:wsl // it is like that
 	// Issue with this logger: controller and controllerKind are incorrect
 	// Build another logger from upper to fix this.
 	// reqLogger := log.FromContext(ctx)
@@ -94,6 +95,7 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Fetch the PostgresqlUser instance
 	instance := &v1alpha1.PostgresqlUserRole{}
 	err := r.Get(ctx, req.NamespacedName, instance)
+
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -109,7 +111,7 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 	originalPatch := client.MergeFrom(instance.DeepCopy())
 
 	// Deletion case
-	if !instance.GetDeletionTimestamp().IsZero() {
+	if !instance.GetDeletionTimestamp().IsZero() { //nolint:wsl // it is like that
 		// Deletion detected
 
 		// Check status postgresrole and so if user have been created
@@ -123,7 +125,7 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 		// Get needed items
 
 		// Find PG Database cache
-		dbCache, pgecDBPrivilegeCache, err := r.getDatabaseInstances(ctx, instance, true)
+		dbCache, pgecDBPrivilegeCache, err := r.getDatabaseInstances(ctx, instance, true) //nolint:govet // Allow err shadow
 		// Check error
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
@@ -154,6 +156,7 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
+
 		reqLogger.Info("Successfully deleted")
 		// Stop reconcile
 		return reconcile.Result{}, nil
@@ -205,8 +208,11 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	var usernameChanged, passwordChanged, rotateUserPasswordError bool
+
 	var workSec *corev1.Secret
-	oldUsername := ""
+
+	var oldUsername string
+
 	// Check if it is a provided user
 	if instance.Spec.Mode == v1alpha1.ProvidedMode {
 		workSec, oldUsername, passwordChanged, err = r.createOrUpdateWorkSecretForProvidedMode(ctx, reqLogger, instance)
@@ -276,15 +282,17 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Create or update user role if necessary
-	err = r.managePGUserRoles(ctx, reqLogger, instance, pgInstancesCache, username, password, usernameChanged, passwordChanged)
+	err = r.managePGUserRoles(ctx, reqLogger, instance, pgInstancesCache, username, password, passwordChanged)
 	// Check error
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
+
 	// Save important status now
 	// Note: This is important to have a chance to have old username for deletion
 	instance.Status.PostgresRole = username
 	instance.Status.RolePrefix = instance.Spec.RolePrefix
+
 	if passwordChanged || usernameChanged || instance.Status.LastPasswordChangedTime == "" {
 		instance.Status.LastPasswordChangedTime = time.Now().Format(time.RFC3339)
 	}
@@ -406,7 +414,7 @@ func (r *PostgresqlUserRoleReconciler) manageSecrets(
 
 func (r *PostgresqlUserRoleReconciler) cleanOldSecrets(
 	ctx context.Context,
-	logger logr.Logger,
+	_ logr.Logger,
 	instance *v1alpha1.PostgresqlUserRole,
 	pgecDBPrivilegeCache map[string][]*dbPrivilegeCache,
 ) error {
@@ -497,7 +505,7 @@ func (r *PostgresqlUserRoleReconciler) newSecretForPGUser(
 			"LOGIN":             []byte(username),
 			"DATABASE":          []byte(dbInstance.Status.Database),
 			"HOST":              []byte(pg.GetHost()),
-			"PORT":              []byte(fmt.Sprintf("%d", pg.GetPort())),
+			"PORT":              []byte(strconv.Itoa(pg.GetPort())),
 			"ARGS":              []byte(pg.GetArgs()),
 		},
 	}
@@ -512,7 +520,7 @@ func (r *PostgresqlUserRoleReconciler) newSecretForPGUser(
 }
 
 func (r *PostgresqlUserRoleReconciler) managePGUserRights(
-	ctx context.Context,
+	_ context.Context,
 	logger logr.Logger,
 	instance *v1alpha1.PostgresqlUserRole,
 	pgInstanceCache map[string]postgres.PG,
@@ -551,6 +559,7 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRights(
 				if err != nil {
 					return err
 				}
+
 				logger.Info("Successfully granted user in engine", "postgresqlEngine", key, "groupRole", groupRole)
 				r.Recorder.Eventf(instance, "Normal", "Updated", "Successfully granted user to %s in engine %s", groupRole, key)
 			} else {
@@ -563,13 +572,14 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRights(
 				return c.Database == pcache.DBInstance.Status.Database
 			})
 			// Check if not found or if group role have changed
-			if found == nil || found.(*postgres.SetRoleOnDatabaseRoleSetting).Role != groupRole {
+			if found == nil || found.(*postgres.SetRoleOnDatabaseRoleSetting).Role != groupRole { //nolint:forcetypeassert//We know
 				// Add alter
 				err = pgInstance.AlterDefaultLoginRoleOnDatabase(username, groupRole, pcache.DBInstance.Status.Database)
 				// Check error
 				if err != nil {
 					return err
 				}
+
 				logger.Info(
 					"Successfully altered default login role in engine on specific database",
 					"postgresqlEngine", key,
@@ -589,7 +599,7 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRights(
 			if found != nil {
 				// Remove from list to keep only the deletion ones
 				// TODO Check if can be better to use samber/lo instead of funk
-				setRoleSettings = funk.Subtract(setRoleSettings, []*postgres.SetRoleOnDatabaseRoleSetting{found.(*postgres.SetRoleOnDatabaseRoleSetting)}).([]*postgres.SetRoleOnDatabaseRoleSetting)
+				setRoleSettings, _ = funk.Subtract(setRoleSettings, []*postgres.SetRoleOnDatabaseRoleSetting{found.(*postgres.SetRoleOnDatabaseRoleSetting)}).([]*postgres.SetRoleOnDatabaseRoleSetting)
 			}
 		}
 
@@ -601,6 +611,7 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRights(
 			if err != nil {
 				return err
 			}
+
 			logger.Info("Successfully revoked role from user in engine", "postgresqlEngine", key, "role", role)
 			r.Recorder.Eventf(instance, "Normal", "Updated", "Successfully revoked role %s from user in engine %s", role, key)
 		}
@@ -612,6 +623,7 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRights(
 			if err != nil {
 				return err
 			}
+
 			logger.Info("Successfully revoked set role from user on specific database in engine", "postgresqlEngine", key, "role", item.Role, "database", item.Database)
 			r.Recorder.Eventf(instance, "Normal", "Updated", "Successfully revoked set role %s from user on specific database %s in engine %s", item.Role, item.Database, key)
 		}
@@ -621,7 +633,7 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRights(
 	return nil
 }
 
-func (r *PostgresqlUserRoleReconciler) getDBRoleFromPrivilege(dbInstance *v1alpha1.PostgresqlDatabase, userRolePrivilege *v1alpha1.PostgresqlUserRolePrivilege) string {
+func (*PostgresqlUserRoleReconciler) getDBRoleFromPrivilege(dbInstance *v1alpha1.PostgresqlDatabase, userRolePrivilege *v1alpha1.PostgresqlUserRolePrivilege) string {
 	switch userRolePrivilege.Privilege {
 	case v1alpha1.ReaderPrivilege:
 		return dbInstance.Status.Roles.Reader
@@ -633,12 +645,12 @@ func (r *PostgresqlUserRoleReconciler) getDBRoleFromPrivilege(dbInstance *v1alph
 }
 
 func (r *PostgresqlUserRoleReconciler) managePGUserRoles(
-	ctx context.Context,
+	_ context.Context,
 	logger logr.Logger,
 	instance *v1alpha1.PostgresqlUserRole,
 	pgInstanceCache map[string]postgres.PG,
 	username, password string,
-	usernameChanged, passwordChanged bool,
+	passwordChanged bool,
 ) error {
 	// Loop over all pg instances
 	for key, pgInstance := range pgInstanceCache {
@@ -656,6 +668,7 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRoles(
 			if err != nil {
 				return err
 			}
+
 			logger.Info("Successfully created user in engine", "postgresqlEngine", key)
 			r.Recorder.Eventf(instance, "Normal", "Updated", "Successfully created user in engine %s", key)
 			// Stop here
@@ -671,6 +684,7 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRoles(
 			if err != nil {
 				return err
 			}
+
 			logger.Info("Successfully updated user password in engine", "postgresqlEngine", key)
 			r.Recorder.Eventf(instance, "Normal", "Updated", "Successfully updated user password in engine %s", key)
 		}
@@ -680,7 +694,7 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRoles(
 	return nil
 }
 
-func (r *PostgresqlUserRoleReconciler) createOrUpdateWorkSecretForManagedMode(
+func (r *PostgresqlUserRoleReconciler) createOrUpdateWorkSecretForManagedMode( //nolint:revive // We have multiple return, we know
 	ctx context.Context,
 	logger logr.Logger,
 	instance *v1alpha1.PostgresqlUserRole,
@@ -700,7 +714,7 @@ func (r *PostgresqlUserRoleReconciler) createOrUpdateWorkSecretForManagedMode(
 	}
 	// Check if error exist and not found
 	// or check is secret must be updated.
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && errors.IsNotFound(err) { //nolint:gocritic // Won't change to a switch
 		// Check if we are in the init phase
 		// If not, that case shouldn't happened and a password change must be ensured as we cannot compare with previous
 		// Also we must compare with the username previously set to check if username have changed
@@ -948,7 +962,7 @@ func (r *PostgresqlUserRoleReconciler) newWorkSecret(instance *v1alpha1.Postgres
 }
 
 func (r *PostgresqlUserRoleReconciler) manageActiveSessionsAndDropOldRoles(
-	ctx context.Context,
+	_ context.Context,
 	logger logr.Logger,
 	instance *v1alpha1.PostgresqlUserRole,
 	pgInstanceCache map[string]postgres.PG,
@@ -1194,13 +1208,16 @@ func (r *PostgresqlUserRoleReconciler) validateInstance(
 				// Prepare values
 				priviNamespace := privi.Database.Namespace
 				privi2Namespace := privi2.Database.Namespace
+
 				// Populate with instance
 				if priviNamespace == "" {
 					priviNamespace = instance.Namespace
 				}
+
 				if privi2Namespace == "" {
 					privi2Namespace = instance.Namespace
 				}
+
 				// Check
 				if privi.Database.Name == privi2.Database.Name && priviNamespace == privi2Namespace {
 					return errors.NewBadRequest("Privilege list mustn't have the same database listed multiple times")

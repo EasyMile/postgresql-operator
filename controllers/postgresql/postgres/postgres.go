@@ -53,12 +53,12 @@ type pg struct {
 	db              *sql.DB
 	log             logr.Logger
 	host            string
-	port            int
 	user            string
 	pass            string
 	args            string
 	defaultDatabase string
 	name            string
+	port            int
 }
 
 func NewPG(
@@ -139,6 +139,7 @@ func (c *pg) Ping() error {
 	if err != nil {
 		return err
 	}
+
 	err = c.db.Ping()
 	if err != nil {
 		return err
@@ -147,8 +148,8 @@ func (c *pg) Ping() error {
 	return nil
 }
 
-func TemplatePostgresqlURLWithArgs(host, user, password, URIArgs, database string, port int) string {
-	return fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?%s", user, password, host, port, database, URIArgs)
+func TemplatePostgresqlURLWithArgs(host, user, password, uriArgs, database string, port int) string {
+	return fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?%s", user, password, host, port, database, uriArgs)
 }
 
 func TemplatePostgresqlURL(host, user, password, database string, port int) string {

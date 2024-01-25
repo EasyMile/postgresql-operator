@@ -15,6 +15,7 @@ const MinUserSplit = 1
 func newAzurePG(postgres *pg) PG {
 	splitUser := strings.Split(postgres.user, "@")
 	serverName := ""
+
 	if len(splitUser) > MinUserSplit {
 		serverName = splitUser[1]
 	}
