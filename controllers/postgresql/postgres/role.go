@@ -24,7 +24,7 @@ const (
 	GetRoleMembershipSQLTemplate = `SELECT r1.rolname as "role" FROM pg_catalog.pg_roles r JOIN pg_catalog.pg_auth_members m ON (m.member = r.oid) JOIN pg_roles r1 ON (m.roleid=r1.oid) WHERE r.rolcanlogin AND r.rolname='%s'`
 	// DO NOT TOUCH THIS
 	// Cannot filter on compute value so... cf line before.
-	GetRoleSettingsSQLTemplate           = `SELECT pg_catalog.split_part(pg_catalog.unnest(setconfig), '=', 1) as parameter_type, pg_catalog.split_part(pg_catalog.unnest(setconfig), '=', 2) as parameter_value, d.datname as database FROM pg_catalog.pg_roles r JOIN pg_catalog.pg_db_role_setting c ON (c.setrole = r.oid) JOIN pg_catalog.pg_database d ON (d.oid = c.setdatabase) WHERE r.rolcanlogin AND r.rolname='%s'`
+	GetRoleSettingsSQLTemplate           = `SELECT pg_catalog.split_part(pg_catalog.unnest(setconfig), '=', 1) as parameter_type, pg_catalog.split_part(pg_catalog.unnest(setconfig), '=', 2) as parameter_value, d.datname as database FROM pg_catalog.pg_roles r JOIN pg_catalog.pg_db_role_setting c ON (c.setrole = r.oid) JOIN pg_catalog.pg_database d ON (d.oid = c.setdatabase) WHERE r.rolcanlogin AND r.rolname='%s'` //nolint:lll//Because
 	DoesRoleHaveActiveSessionSQLTemplate = `SELECT 1 from pg_stat_activity WHERE usename = '%s' group by usename`
 	DuplicateRoleErrorCode               = "42710"
 	RoleNotFoundErrorCode                = "42704"
@@ -266,6 +266,7 @@ func (c *pg) DropRole(role string) error {
 	if err != nil {
 		return err
 	}
+
 	_, err = c.db.Exec(fmt.Sprintf(DropRoleSQLTemplate, role))
 	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
 	if err != nil {

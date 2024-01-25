@@ -14,11 +14,11 @@ const (
 
 // Pool saved structure per postgres engine configuration.
 type poolSaved struct {
+	// This map will save all pools per database
+	pools *sync.Map
 	// Username and password are saved because this comes from secret
 	username string
 	password string
-	// This map will save all pools per database
-	pools *sync.Map
 }
 
 // Pool manager map per pgec.
@@ -53,7 +53,7 @@ func getOrOpenPool(p *pg, database string) (*sql.DB, error) {
 		db = sqlDB
 	} else {
 		// Cast saved pool object
-		sav := savInt.(*poolSaved)
+		sav, _ := savInt.(*poolSaved)
 		// Check if username and password haven't changed, if yes, close pools and recreate current
 		if sav.username != p.GetUser() || sav.password != p.GetPassword() {
 			// Close all pools
@@ -81,7 +81,7 @@ func getOrOpenPool(p *pg, database string) (*sql.DB, error) {
 			db = sqlDB
 		} else {
 			// Result
-			db = sqlDBInt.(*sql.DB)
+			db, _ = sqlDBInt.(*sql.DB)
 		}
 	}
 
@@ -125,7 +125,7 @@ func CloseDatabaseSavedPoolsForName(name, database string) error {
 	}
 
 	// Cast pool saved
-	ps := psInt.(*poolSaved)
+	ps, _ := psInt.(*poolSaved)
 
 	// Get entry
 	enInt, ok := ps.pools.Load(database)
@@ -135,7 +135,7 @@ func CloseDatabaseSavedPoolsForName(name, database string) error {
 	}
 
 	// Cast db
-	en := enInt.(*sql.DB)
+	en, _ := enInt.(*sql.DB)
 
 	// Close pool
 	err := en.Close()
@@ -159,7 +159,7 @@ func CloseAllSavedPoolsForName(name string) error {
 	}
 
 	// Cast pool saved
-	ps := psInt.(*poolSaved)
+	ps, _ := psInt.(*poolSaved)
 
 	// Save all keys to be removed
 	keysToBeRemoved := make([]interface{}, 0)
@@ -168,7 +168,7 @@ func CloseAllSavedPoolsForName(name string) error {
 	// Loop over pools
 	ps.pools.Range(func(k, val interface{}) bool {
 		// Cast sql db
-		v := val.(*sql.DB)
+		v, _ := val.(*sql.DB)
 		// Close pool
 		err = v.Close()
 		// Check error

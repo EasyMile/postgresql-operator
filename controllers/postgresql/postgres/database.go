@@ -120,6 +120,7 @@ func (c *pg) DropExtension(database, extension string, cascade bool) error {
 	if cascade {
 		param = CascadeKeyword
 	}
+
 	_, err = c.db.Exec(fmt.Sprintf(DropExtensionSQLTemplate, extension, param))
 	if err != nil {
 		return err
@@ -140,6 +141,7 @@ func (c *pg) DropSchema(database, schema string, cascade bool) error {
 	if cascade {
 		param = CascadeKeyword
 	}
+
 	_, err = c.db.Exec(fmt.Sprintf(DropSchemaSQLTemplate, schema, param))
 	if err != nil {
 		return err

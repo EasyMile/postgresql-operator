@@ -41,7 +41,7 @@ const (
 )
 
 // PostgresqlEngineConfigurationReconciler reconciles a PostgresqlEngineConfiguration object.
-type PostgresqlEngineConfigurationReconciler struct { //nolint: golint,revive // generated
+type PostgresqlEngineConfigurationReconciler struct { //nolint: golint // generated
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
@@ -63,7 +63,7 @@ type PostgresqlEngineConfigurationReconciler struct { //nolint: golint,revive //
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.1/pkg/reconcile
-func (r *PostgresqlEngineConfigurationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *PostgresqlEngineConfigurationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) { //nolint:wsl // it is like that
 	// Issue with this logger: controller and controllerKind are incorrect
 	// Build another logger from upper to fix this.
 	// reqLogger := log.FromContext(ctx)
@@ -73,6 +73,7 @@ func (r *PostgresqlEngineConfigurationReconciler) Reconcile(ctx context.Context,
 
 	// Fetch the PostgresqlEngineConfiguration instance
 	instance := &postgresqlv1alpha1.PostgresqlEngineConfiguration{}
+
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -94,13 +95,14 @@ func (r *PostgresqlEngineConfigurationReconciler) Reconcile(ctx context.Context,
 		// Check if wait linked resources deletion flag is enabled
 		if instance.Spec.WaitLinkedResourcesDeletion {
 			// Check if there are linked resource linked to this
-			existingDB, err := r.getAnyDatabaseLinked(ctx, instance)
+			existingDB, err := r.getAnyDatabaseLinked(ctx, instance) //nolint:govet // Shadow err
 			if err != nil {
 				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 			}
+
 			if existingDB != nil {
 				// Wait for children removal
-				err := fmt.Errorf("cannot remove resource because found database %s in namespace %s linked to this resource and wait for deletion flag is enabled", existingDB.Name, existingDB.Namespace)
+				err = fmt.Errorf("cannot remove resource because found database %s in namespace %s linked to this resource and wait for deletion flag is enabled", existingDB.Name, existingDB.Namespace)
 
 				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 			}
@@ -128,12 +130,13 @@ func (r *PostgresqlEngineConfigurationReconciler) Reconcile(ctx context.Context,
 
 	// Check if the reconcile loop wasn't recall just because of update status
 	if instance.Status.Phase == postgresqlv1alpha1.EngineValidatedPhase && instance.Status.LastValidatedTime != "" {
-		dur, err := time.ParseDuration(instance.Spec.CheckInterval)
+		dur, err := time.ParseDuration(instance.Spec.CheckInterval) //nolint:govet // Shadow err
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewInternalError(err))
 		}
 
 		now := time.Now()
+
 		lastValidatedTime, err := time.Parse(time.RFC3339, instance.Status.LastValidatedTime)
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewInternalError(err))
@@ -152,6 +155,7 @@ func (r *PostgresqlEngineConfigurationReconciler) Reconcile(ctx context.Context,
 			if instance.Status.Hash == hash {
 				// Not changed => Requeue
 				newWaitDuration := now.Add(dur).Sub(now)
+
 				reqLogger.Info("Reconcile skipped because called before check interval and nothing has changed")
 
 				return ctrl.Result{Requeue: true, RequeueAfter: newWaitDuration}, err
@@ -201,6 +205,7 @@ func (r *PostgresqlEngineConfigurationReconciler) Reconcile(ctx context.Context,
 	// Check that secret is valid
 	user := string(secret.Data["user"])
 	password := string(secret.Data["password"])
+
 	if user == "" || password == "" {
 		return r.manageError(
 			ctx,
@@ -267,7 +272,7 @@ func (r *PostgresqlEngineConfigurationReconciler) updateInstance(
 }
 
 // Add default values here to be saved in reconcile loop in order to help people to debug.
-func (r *PostgresqlEngineConfigurationReconciler) addDefaultValues(instance *postgresqlv1alpha1.PostgresqlEngineConfiguration) {
+func (*PostgresqlEngineConfigurationReconciler) addDefaultValues(instance *postgresqlv1alpha1.PostgresqlEngineConfiguration) {
 	// Check port
 	if instance.Spec.Port == 0 {
 		instance.Spec.Port = 5432

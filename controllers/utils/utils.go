@@ -3,8 +3,8 @@ package utils
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
-	"fmt"
 
 	"github.com/easymile/postgresql-operator/apis/postgresql/common"
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1"
@@ -25,7 +25,7 @@ func CalculateHash(spec interface{}) (string, error) {
 	sha256Res := sha256.Sum256(bytes)
 	sha256Bytes := sha256Res[:]
 	// Transform it to string
-	return fmt.Sprintf("%x", sha256Bytes), nil
+	return hex.EncodeToString(sha256Bytes), nil
 }
 
 func CreatePgInstance(

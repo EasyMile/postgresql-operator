@@ -75,9 +75,11 @@ func (c *awspg) DropRoleAndDropAndChangeOwnedBy(role, newOwner, database string)
 		if !ok {
 			return err
 		}
+
 		if pqErr.Code == RoleNotFoundErrorCode {
 			return nil
 		}
+
 		if pqErr.Code != InvalidGrantOperationErrorCode {
 			return err
 		}
@@ -125,9 +127,11 @@ func (c *awspg) ChangeAndDropOwnedBy(role, newOwner, database string) error {
 		if !ok {
 			return err
 		}
+
 		if pqErr.Code == RoleNotFoundErrorCode {
 			return nil
 		}
+
 		if pqErr.Code != InvalidGrantOperationErrorCode {
 			return err
 		}
