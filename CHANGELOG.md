@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.2
+
+### Bugs
+
+- Change deletion algorithm and add some security to avoid status flush
+- Fix pgdb deletion not checking is pgur exists
+
 ## 2.1.1
 
 ### Bugs
