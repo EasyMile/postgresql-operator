@@ -2,7 +2,7 @@
 # with their default values.
 # options for analysis running
 run:
-  go: "1.19"
+  go: "1.21"
   # default concurrency is a available CPU number
   concurrency: 4
   # timeout for analysis, e.g. 30s, 5m, default is 1m
@@ -393,7 +393,6 @@ linters:
     - mirror
     - gochecksumtype
     - inamedparam
-    - perfsprint
     - protogetter
     - sloglint
     - testifylint
@@ -423,6 +422,7 @@ linters:
     - interfacebloat
     - zerologlint
     - depguard
+    - perfsprint
   fast: false
 issues:
   exclude-rules:
@@ -440,6 +440,9 @@ issues:
     - linters:
         - gochecknoinits
       path: main.go
+    - linters:
+        - dupl
+      path: \_controller\.go
   # issues:
   #   # List of regexps of issue texts to exclude, empty list by default.
   #   # But independently from this option we use default exclude patterns,
