@@ -29,10 +29,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1"
-	"github.com/easymile/postgresql-operator/controllers/config"
-	"github.com/easymile/postgresql-operator/controllers/postgresql/postgres"
-	"github.com/easymile/postgresql-operator/controllers/utils"
+	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
+	"github.com/easymile/postgresql-operator/internal/controller/config"
+	"github.com/easymile/postgresql-operator/internal/controller/postgresql/postgres"
+	"github.com/easymile/postgresql-operator/internal/controller/utils"
 	"github.com/go-logr/logr"
 	"github.com/thoas/go-funk"
 )

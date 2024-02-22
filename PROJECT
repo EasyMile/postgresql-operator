@@ -1,6 +1,6 @@
 domain: easymile.com
 layout:
-- go.kubebuilder.io/v3
+  - go.kubebuilder.io/v4
 multigroup: true
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
@@ -8,40 +8,40 @@ plugins:
 projectName: postgresql-operator
 repo: github.com/easymile/postgresql-operator
 resources:
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: easymile.com
-  group: postgresql
-  kind: PostgresqlEngineConfiguration
-  path: github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1
-  version: v1alpha1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: easymile.com
-  group: postgresql
-  kind: PostgresqlDatabase
-  path: github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1
-  version: v1alpha1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: easymile.com
-  group: postgresql
-  kind: PostgresqlUser
-  path: github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1
-  version: v1alpha1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: easymile.com
-  group: postgresql
-  kind: PostgresqlUserRole
-  path: github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1
-  version: v1alpha1
+  - api:
+      crdVersion: v1
+      namespaced: true
+    controller: true
+    domain: easymile.com
+    group: postgresql
+    kind: PostgresqlEngineConfiguration
+    path: github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1
+    version: v1alpha1
+  - api:
+      crdVersion: v1
+      namespaced: true
+    controller: true
+    domain: easymile.com
+    group: postgresql
+    kind: PostgresqlDatabase
+    path: github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1
+    version: v1alpha1
+  - api:
+      crdVersion: v1
+      namespaced: true
+    controller: true
+    domain: easymile.com
+    group: postgresql
+    kind: PostgresqlUser
+    path: github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1
+    version: v1alpha1
+  - api:
+      crdVersion: v1
+      namespaced: true
+    controller: true
+    domain: easymile.com
+    group: postgresql
+    kind: PostgresqlUserRole
+    path: github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1
+    version: v1alpha1
 version: "3"

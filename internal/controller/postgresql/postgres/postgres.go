@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1"
+	"github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
 	"github.com/go-logr/logr"
 )
 
