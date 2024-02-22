@@ -6,9 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
-	"github.com/easymile/postgresql-operator/apis/postgresql/common"
-	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1"
-	"github.com/easymile/postgresql-operator/controllers/postgresql/postgres"
+	"github.com/easymile/postgresql-operator/api/postgresql/common"
+	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
+	"github.com/easymile/postgresql-operator/internal/controller/postgresql/postgres"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"

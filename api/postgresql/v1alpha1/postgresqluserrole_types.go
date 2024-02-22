@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/easymile/postgresql-operator/apis/postgresql/common"
+	"github.com/easymile/postgresql-operator/api/postgresql/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

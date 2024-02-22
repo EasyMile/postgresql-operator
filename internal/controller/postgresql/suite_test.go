@@ -26,8 +26,9 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,14 +39,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"github.com/easymile/postgresql-operator/apis/postgresql/common"
-	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/apis/postgresql/v1alpha1"
-	"github.com/easymile/postgresql-operator/controllers/config"
-	"github.com/easymile/postgresql-operator/controllers/postgresql/postgres"
+	"github.com/easymile/postgresql-operator/api/postgresql/common"
+	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
+	"github.com/easymile/postgresql-operator/internal/controller/config"
+	"github.com/easymile/postgresql-operator/internal/controller/postgresql/postgres"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -94,22 +94,20 @@ var dbConns = map[string]*struct {
 }{}
 var mainDBConn *sql.DB
 
-func TestAPIs(t *testing.T) {
+func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"Controller Suite",
-		[]Reporter{printer.NewlineReporter{}})
+	RunSpecs(t, "Controller Suite")
 }
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(_ context.Context) {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	ctx, cancel = context.WithCancel(context.TODO())
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
 	}
 
@@ -193,7 +191,7 @@ var _ = BeforeSuite(func() {
 			Name: pgurNamespace,
 		},
 	})).ToNot(HaveOccurred())
-}, 60)
+}, NodeTimeout(60*time.Second))
 
 var _ = AfterSuite(func() {
 	cancel()
