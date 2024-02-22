@@ -269,16 +269,18 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// Update status
 		instance.Status.LastPasswordChangedTime = time.Now().Format(time.RFC3339)
 	} else if !r.isSecretValid(secrFound, generatedSecret) { // Check if secret must be updated because invalid
-		// Update password in pg
 		reqLogger.Info("Updating password in Postgresql Engine")
+		// Update password in pg
 		err = pgInstance.UpdatePassword(role, password)
+		// Check error
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
 
-		// Need to update secret
 		reqLogger.Info("Updating secret because secret has changed", "Secret.Namespace", generatedSecret.Namespace, "Secret.Name", generatedSecret.Name)
+		// Need to update secret
 		err = r.updatePGUserSecret(ctx, secrFound, generatedSecret)
+		// Check error
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
@@ -295,22 +297,24 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// Check if is time to change
 		now := time.Now()
 		lastChange, err := time.Parse(time.RFC3339, instance.Status.LastPasswordChangedTime)
+		// Check error
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
 
 		if now.Sub(lastChange) >= dur {
 			// Need to change password
-
-			// Update password in pg
 			reqLogger.Info("Updating password in Postgresql Engine")
+			// Update password in pg
 			err = pgInstance.UpdatePassword(role, password)
+			// Check error
 			if err != nil {
 				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 			}
 			// Need to update secret
 			reqLogger.Info("Updating secret", "Secret.Namespace", generatedSecret.Namespace, "Secret.Name", generatedSecret.Name)
 			err = r.updatePGUserSecret(ctx, secrFound, generatedSecret)
+			// Check error
 			if err != nil {
 				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 			}
