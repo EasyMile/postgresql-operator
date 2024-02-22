@@ -755,7 +755,6 @@ func (r *PostgresqlUserRoleReconciler) createOrUpdateWorkSecretForManagedMode( /
 		string(workSec.Data[UsernameSecretKey]) == "" ||
 		string(workSec.Data[PasswordSecretKey]) == "" { // Check if role have been changed or if work secret have been edited
 		// Need to perform changes
-
 		// Update flags
 		passwordChanged = true
 		oldUsername = string(workSec.Data[UsernameSecretKey])
@@ -802,7 +801,6 @@ func (r *PostgresqlUserRoleReconciler) createOrUpdateWorkSecretForManagedMode( /
 
 		if now.Sub(lastChange) >= dur {
 			// Need to change username/password with a new one
-
 			// Get old username
 			oldUsername = string(workSec.Data[UsernameSecretKey])
 			// Prepare data
@@ -1173,7 +1171,6 @@ func (r *PostgresqlUserRoleReconciler) validateInstance(
 		}
 	} else {
 		// Validate Managed one
-
 		// Must have a role prefix
 		if instance.Spec.RolePrefix == "" {
 			return errors.NewBadRequest("PostgresqlUserRole is in managed mode without any RolePrefix")
