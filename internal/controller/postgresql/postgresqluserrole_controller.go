@@ -130,8 +130,14 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
+		// Find PGEC cache
+		pgecCache, err := r.getPGECInstances(ctx, dbCache, true)
+		// Check error
+		if err != nil {
+			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+		}
 		// Create PG instances
-		pgInstancesCache, err := r.getPGInstances(ctx, reqLogger, dbCache, true)
+		pgInstancesCache, err := r.getPGInstances(ctx, reqLogger, pgecCache, true)
 		// Check error
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
@@ -190,6 +196,20 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 	}
 
+	// Find PGEC cache
+	pgecCache, err := r.getPGECInstances(ctx, dbCache, false)
+	// Check error
+	if err != nil {
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+	}
+
+	// Validate with cluster data
+	err = r.validateInstanceWithClusterInfo(instance, dbCache, pgecCache)
+	// Check error
+	if err != nil {
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+	}
+
 	// Add finalizer
 	updated, err := r.updateInstance(ctx, instance)
 	// Check error
@@ -245,7 +265,7 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Create PG instances
-	pgInstancesCache, err := r.getPGInstances(ctx, reqLogger, dbCache, false)
+	pgInstancesCache, err := r.getPGInstances(ctx, reqLogger, pgecCache, false)
 	// Check error
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
@@ -307,7 +327,7 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 	//
 
 	// Manage secrets
-	err = r.manageSecrets(ctx, reqLogger, instance, pgInstancesCache, pgecDBPrivilegeCache, username, password)
+	err = r.manageSecrets(ctx, reqLogger, instance, pgecCache, pgecDBPrivilegeCache, username, password)
 	// Check error
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
@@ -327,7 +347,7 @@ func (r *PostgresqlUserRoleReconciler) manageSecrets(
 	ctx context.Context,
 	logger logr.Logger,
 	instance *v1alpha1.PostgresqlUserRole,
-	pgInstanceCache map[string]postgres.PG,
+	pgecCache map[string]*v1alpha1.PostgresqlEngineConfiguration,
 	pgecDBPrivilegeCache map[string][]*dbPrivilegeCache,
 	username, password string,
 ) error {
@@ -356,7 +376,7 @@ func (r *PostgresqlUserRoleReconciler) manageSecrets(
 				privilegeCache.UserPrivilege,
 				privilegeCache.DBInstance,
 				username, password,
-				pgInstanceCache[key],
+				pgecCache[key],
 			)
 			// Check error
 			if err2 != nil {
@@ -479,10 +499,17 @@ func (r *PostgresqlUserRoleReconciler) newSecretForPGUser(
 	rolePrivilege *v1alpha1.PostgresqlUserRolePrivilege,
 	dbInstance *v1alpha1.PostgresqlDatabase,
 	username, password string,
-	pg postgres.PG,
+	pgec *v1alpha1.PostgresqlEngineConfiguration,
 ) (*corev1.Secret, error) {
-	pgUserURL := postgres.TemplatePostgresqlURL(pg.GetHost(), username, password, dbInstance.Status.Database, pg.GetPort())
-	pgUserURLWArgs := postgres.TemplatePostgresqlURLWithArgs(pg.GetHost(), username, password, pg.GetArgs(), dbInstance.Status.Database, pg.GetPort())
+	// Prepare user connections with primary as default value
+	uc := pgec.Spec.UserConnections.PrimaryConnection
+	// Check if it is a bouncer connection
+	if rolePrivilege.ConnectionType == v1alpha1.BouncerConnectionType {
+		uc = pgec.Spec.UserConnections.BouncerConnection
+	}
+
+	pgUserURL := postgres.TemplatePostgresqlURL(uc.Host, username, password, dbInstance.Status.Database, uc.Port)
+	pgUserURLWArgs := postgres.TemplatePostgresqlURLWithArgs(uc.Host, username, password, uc.URIArgs, dbInstance.Status.Database, uc.Port)
 	labels := map[string]string{
 		"app": instance.Name,
 	}
@@ -498,9 +525,9 @@ func (r *PostgresqlUserRoleReconciler) newSecretForPGUser(
 			"PASSWORD":          []byte(password),
 			"LOGIN":             []byte(username),
 			"DATABASE":          []byte(dbInstance.Status.Database),
-			"HOST":              []byte(pg.GetHost()),
-			"PORT":              []byte(strconv.Itoa(pg.GetPort())),
-			"ARGS":              []byte(pg.GetArgs()),
+			"HOST":              []byte(uc.Host),
+			"PORT":              []byte(strconv.Itoa(uc.Port)),
+			"ARGS":              []byte(uc.URIArgs),
 		},
 	}
 
@@ -627,7 +654,10 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRights(
 	return nil
 }
 
-func (*PostgresqlUserRoleReconciler) getDBRoleFromPrivilege(dbInstance *v1alpha1.PostgresqlDatabase, userRolePrivilege *v1alpha1.PostgresqlUserRolePrivilege) string {
+func (*PostgresqlUserRoleReconciler) getDBRoleFromPrivilege(
+	dbInstance *v1alpha1.PostgresqlDatabase,
+	userRolePrivilege *v1alpha1.PostgresqlUserRolePrivilege,
+) string {
 	switch userRolePrivilege.Privilege {
 	case v1alpha1.ReaderPrivilege:
 		return dbInstance.Status.Roles.Reader
@@ -1032,13 +1062,41 @@ func (r *PostgresqlUserRoleReconciler) manageActiveSessionsAndDropOldRoles(
 func (r *PostgresqlUserRoleReconciler) getPGInstances(
 	ctx context.Context,
 	logger logr.Logger,
-	dbCache map[string]*v1alpha1.PostgresqlDatabase,
+	pgecCache map[string]*v1alpha1.PostgresqlEngineConfiguration,
 	ignoreNotFound bool,
 ) (map[string]postgres.PG, error) {
 	// Prepare result
 	res := make(map[string]postgres.PG)
 
-	// Prepare temporary map
+	// Loop
+	for key, pgec := range pgecCache {
+		sec, err := utils.FindSecretPgEngineCfg(ctx, r.Client, pgec)
+		// Check error
+		if err != nil {
+			if errors.IsNotFound(err) && ignoreNotFound {
+				// Ignore and continue
+				continue
+			}
+
+			// Return
+			return nil, err
+		}
+
+		// Save
+		res[key] = utils.CreatePgInstance(logger, sec.Data, pgec)
+	}
+
+	return res, nil
+}
+
+func (r *PostgresqlUserRoleReconciler) getPGECInstances(
+	ctx context.Context,
+	dbCache map[string]*v1alpha1.PostgresqlDatabase,
+	ignoreNotFound bool,
+) (map[string]*v1alpha1.PostgresqlEngineConfiguration, error) {
+	// Prepare result
+	res := make(map[string]*v1alpha1.PostgresqlEngineConfiguration)
+
 	// Loop
 	for _, item := range dbCache {
 		// Build key
@@ -1065,20 +1123,8 @@ func (r *PostgresqlUserRoleReconciler) getPGInstances(
 			return nil, err
 		}
 
-		sec, err := utils.FindSecretPgEngineCfg(ctx, r.Client, pgec)
-		// Check error
-		if err != nil {
-			if errors.IsNotFound(err) && ignoreNotFound {
-				// Ignore and continue
-				continue
-			}
-
-			// Return
-			return nil, err
-		}
-
 		// Save
-		res[key] = utils.CreatePgInstance(logger, sec.Data, pgec)
+		res[key] = pgec
 	}
 
 	return res, nil
@@ -1130,6 +1176,31 @@ func (r *PostgresqlUserRoleReconciler) getDatabaseInstances(
 	}
 
 	return res, res2, nil
+}
+
+func (*PostgresqlUserRoleReconciler) validateInstanceWithClusterInfo(
+	instance *v1alpha1.PostgresqlUserRole,
+	dbCache map[string]*v1alpha1.PostgresqlDatabase,
+	pgecCache map[string]*v1alpha1.PostgresqlEngineConfiguration,
+) error {
+	// Loop over privileges to check if primary or bouncer are enabled on pgec
+	for _, privi := range instance.Spec.Privileges {
+		// Create database key
+		dbKey := utils.CreateNameKey(privi.Database.Name, privi.Database.Namespace, instance.Namespace)
+		// Get pgdb
+		pgdb := dbCache[dbKey]
+		// Create pgec key
+		pgecKey := utils.CreateNameKey(pgdb.Spec.EngineConfiguration.Name, pgdb.Spec.EngineConfiguration.Namespace, pgdb.Namespace)
+		// Get pgec
+		pgec := pgecCache[pgecKey]
+		// Check if bouncer mode is asked and not available
+		if privi.ConnectionType == v1alpha1.BouncerConnectionType && pgec.Spec.UserConnections.BouncerConnection == nil {
+			return errors.NewBadRequest("bouncer connection asked but not supported in engine configuration")
+		}
+	}
+
+	// Default
+	return nil
 }
 
 func (r *PostgresqlUserRoleReconciler) validateInstance(
@@ -1192,18 +1263,19 @@ func (r *PostgresqlUserRoleReconciler) validateInstance(
 
 	// Validate not multiple time the same db in the list of privileges
 	for i, privi := range instance.Spec.Privileges {
+		// Prepare values
+		priviNamespace := privi.Database.Namespace
+		// Populate with instance
+		if priviNamespace == "" {
+			priviNamespace = instance.Namespace
+		}
+
 		// Search for the same db
 		for j, privi2 := range instance.Spec.Privileges {
 			// Check that this isn't the same item
 			if i != j {
 				// Prepare values
-				priviNamespace := privi.Database.Namespace
 				privi2Namespace := privi2.Database.Namespace
-
-				// Populate with instance
-				if priviNamespace == "" {
-					priviNamespace = instance.Namespace
-				}
 
 				if privi2Namespace == "" {
 					privi2Namespace = instance.Namespace

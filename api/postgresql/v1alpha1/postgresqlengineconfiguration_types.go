@@ -59,6 +59,32 @@ type PostgresqlEngineConfigurationSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	SecretName string `json:"secretName"`
+	// User connections used for secret generation
+	// That will be used to generate secret with primary server as url or
+	// to use the pg bouncer one.
+	// Note: Operator won't check those values.
+	// +optional
+	UserConnections *UserConnections `json:"userConnections"`
+}
+
+type UserConnections struct {
+	// Primary connection is referring to the primary node connection.
+	// +optional
+	PrimaryConnection *GenericUserConnection `json:"primaryConnection,omitempty"`
+	// Bouncer connection is referring to a pg bouncer node.
+	// +optional
+	BouncerConnection *GenericUserConnection `json:"bouncerConnection,omitempty"`
+}
+
+type GenericUserConnection struct {
+	// Hostname
+	// +required
+	// +kubebuilder:validation:Required
+	Host string `json:"host"`
+	// URI args like sslmode, ...
+	URIArgs string `json:"uriArgs"`
+	// Port
+	Port int `json:"port,omitempty"`
 }
 
 type EngineStatusPhase string

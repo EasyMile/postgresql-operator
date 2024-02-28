@@ -24,7 +24,18 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type ConnectionTypesSpecEnum string
+
+const PrimaryConnectionType ConnectionTypesSpecEnum = "PRIMARY"
+const BouncerConnectionType ConnectionTypesSpecEnum = "BOUNCER"
+
 type PostgresqlUserRolePrivilege struct {
+	// User Connection type.
+	// This is referring to the user connection type needed for this user.
+	// +optional
+	// +kubebuilder:default=PRIMARY
+	// +kubebuilder:validation:Enum=PRIMARY;BOUNCER
+	ConnectionType ConnectionTypesSpecEnum `json:"connectionType,omitempty"`
 	// User privileges
 	// +required
 	// +kubebuilder:validation:Required

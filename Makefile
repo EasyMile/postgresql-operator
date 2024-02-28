@@ -310,7 +310,7 @@ setup/dev-services:
 .PHONY: setup/services
 setup/services: down/services
 	@echo "Setup services"
-	docker run -d --rm --name postgres -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e PGDATA=/var/lib/postgresql/data/pgdata -v $(CURDIR)/.run/postgres:/var/lib/postgresql/data postgres:16
+	docker run -d --rm --name postgres -p 5432:5432 -p 5433:5432 -e POSTGRES_PASSWORD=postgres -e PGDATA=/var/lib/postgresql/data/pgdata -v $(CURDIR)/.run/postgres:/var/lib/postgresql/data postgres:16
 
 .PHONY: code/lint
 code/lint: setup/dep/install

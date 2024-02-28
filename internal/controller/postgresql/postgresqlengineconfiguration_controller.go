@@ -38,6 +38,7 @@ import (
 
 const (
 	PGECRequeueDelayErrorNumberSeconds = 5
+	DefaultPGPort                      = 5432
 )
 
 // PostgresqlEngineConfigurationReconciler reconciles a PostgresqlEngineConfiguration object.
@@ -272,7 +273,7 @@ func (r *PostgresqlEngineConfigurationReconciler) updateInstance(
 func (*PostgresqlEngineConfigurationReconciler) addDefaultValues(instance *postgresqlv1alpha1.PostgresqlEngineConfiguration) {
 	// Check port
 	if instance.Spec.Port == 0 {
-		instance.Spec.Port = 5432
+		instance.Spec.Port = DefaultPGPort
 	}
 	// Check default database
 	if instance.Spec.DefaultDatabase == "" {
@@ -282,6 +283,36 @@ func (*PostgresqlEngineConfigurationReconciler) addDefaultValues(instance *postg
 	// Check "check interval"
 	if instance.Spec.CheckInterval == "" {
 		instance.Spec.CheckInterval = "30s"
+	}
+
+	// Check if user connections aren't set to init it
+	if instance.Spec.UserConnections == nil {
+		instance.Spec.UserConnections = &postgresqlv1alpha1.UserConnections{}
+	}
+
+	// Check if primary user connections aren't set to init it
+	if instance.Spec.UserConnections.PrimaryConnection == nil {
+		instance.Spec.UserConnections.PrimaryConnection = &postgresqlv1alpha1.GenericUserConnection{
+			Host:    instance.Spec.Host,
+			URIArgs: instance.Spec.URIArgs,
+			Port:    instance.Spec.Port,
+		}
+	}
+
+	// Check if primary user connections are set and fully valued
+	if instance.Spec.UserConnections.PrimaryConnection != nil {
+		// Check port
+		if instance.Spec.UserConnections.PrimaryConnection.Port == 0 {
+			instance.Spec.UserConnections.PrimaryConnection.Port = DefaultPGPort
+		}
+	}
+
+	// Check if bouncer user connections are set and fully valued
+	if instance.Spec.UserConnections.BouncerConnection != nil {
+		// Check port
+		if instance.Spec.UserConnections.BouncerConnection.Port == 0 {
+			instance.Spec.UserConnections.BouncerConnection.Port = DefaultPGPort
+		}
 	}
 }
 

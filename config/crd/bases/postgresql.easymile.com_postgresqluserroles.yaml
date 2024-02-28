@@ -72,6 +72,15 @@ spec:
                 description: Privileges
                 items:
                   properties:
+                    connectionType:
+                      default: PRIMARY
+                      description: |-
+                        User Connection type.
+                        This is referring to the user connection type needed for this user.
+                      enum:
+                      - PRIMARY
+                      - BOUNCER
+                      type: string
                     database:
                       description: Postgresql Database
                       properties:
