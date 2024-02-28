@@ -138,10 +138,7 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 		reqLogger.Info("PostgresqlEngineConfiguration not ready, waiting for it")
 		r.Recorder.Event(instance, "Warning", "Processing", "Processing stopped because PostgresqlEngineConfiguration isn't ready. Waiting for it.")
 
-		return ctrl.Result{
-			Requeue:      true,
-			RequeueAfter: time.Second,
-		}, nil
+		return ctrl.Result{}, nil
 	}
 
 	// Get secret linked to PostgresqlEngineConfiguration CR
@@ -158,10 +155,7 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 	// Check if it has been updated in order to stop this reconcile loop here for the moment
 	if updated {
-		return ctrl.Result{
-			Requeue:      true,
-			RequeueAfter: time.Second,
-		}, nil
+		return ctrl.Result{}, nil
 	}
 
 	// Create PG instance

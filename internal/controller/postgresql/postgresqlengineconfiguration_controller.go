@@ -171,10 +171,7 @@ func (r *PostgresqlEngineConfigurationReconciler) Reconcile(ctx context.Context,
 	}
 	// Check if it has been updated in order to stop this reconcile loop here for the moment
 	if updated {
-		return ctrl.Result{
-			Requeue:      true,
-			RequeueAfter: time.Second,
-		}, nil
+		return ctrl.Result{}, nil
 	}
 
 	// Calculate hash for status (this time is to update it in status)
