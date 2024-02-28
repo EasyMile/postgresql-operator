@@ -186,10 +186,7 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 			reqLogger.Info("PostgresqlDatabase not ready, waiting for it")
 			r.Recorder.Event(instance, "Warning", "Processing", "Processing stopped because PostgresqlDatabase isn't ready. Waiting for it.")
 
-			return reconcile.Result{
-				Requeue:      true,
-				RequeueAfter: time.Second,
-			}, nil
+			return reconcile.Result{}, nil
 		}
 	}
 
@@ -201,10 +198,7 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 	// Check if it has been updated in order to stop this reconcile loop here for the moment
 	if updated {
-		return reconcile.Result{
-			Requeue:      true,
-			RequeueAfter: time.Second,
-		}, nil
+		return reconcile.Result{}, nil
 	}
 
 	var usernameChanged, passwordChanged, rotateUserPasswordError bool

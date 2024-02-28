@@ -129,10 +129,7 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		reqLogger.Info("PostgresqlDatabase not ready, waiting for it")
 		r.Recorder.Event(instance, "Warning", "Processing", "Processing stopped because PostgresqlDatabase isn't ready. Waiting for it.")
 
-		return reconcile.Result{
-			Requeue:      true,
-			RequeueAfter: time.Second,
-		}, nil
+		return reconcile.Result{}, nil
 	}
 
 	// Find PG Engine cfg
@@ -155,10 +152,7 @@ func (r *PostgresqlUserReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 	// Check if it has been updated in order to stop this reconcile loop here for the moment
 	if updated {
-		return reconcile.Result{
-			Requeue:      true,
-			RequeueAfter: time.Second,
-		}, nil
+		return reconcile.Result{}, nil
 	}
 
 	// Create pg instance
