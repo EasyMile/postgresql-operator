@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/easymile/postgresql-operator/api/postgresql/common"
+	"github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -605,8 +606,8 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 
 			// Checks
 			Expect(item.Status.Ready).To(BeFalse())
-			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleNoPhase))
 			Expect(item.Status.Message).To(Equal(""))
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleNoPhase))
 		})
 
 		It("should be ok without work secret name", func() {
@@ -674,6 +675,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.PostgresRole).To(Equal(pgurImportUsername))
 			Expect(item.Spec.WorkGeneratedSecretName).ToNot(Equal(pgurWorkSecretName))
 			Expect(item.Spec.WorkGeneratedSecretName).To(MatchRegexp(DefaultWorkGeneratedSecretNamePrefix + ".*"))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
 			Expect(d.After(preDate)).To(BeTrue())
@@ -696,7 +698,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			}, sec)).Should(Succeed())
 
 			// Validate
-			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword, pgec)
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword, pgec, v1alpha1.PrimaryConnectionType)
 
 			// Connect to check user
 			_, err = connectAs(pgurImportUsername, pgurImportPassword)
@@ -735,6 +737,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(""))
 			Expect(item.Status.PostgresRole).To(Equal(pgurImportUsername))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
 			Expect(d.After(preDate)).To(BeTrue())
@@ -757,7 +760,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			}, sec)).Should(Succeed())
 
 			// Validate
-			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword, pgec)
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword, pgec, v1alpha1.PrimaryConnectionType)
 
 			// Connect to check user
 			_, err = connectAs(pgurImportUsername, pgurImportPassword)
@@ -797,6 +800,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(""))
 			Expect(item.Status.PostgresRole).To(Equal(pgurImportUsername))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
 			Expect(d.After(preDate)).To(BeTrue())
@@ -824,8 +828,8 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			}, sec2)).Should(Succeed())
 
 			// Validate
-			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword, pgec)
-			checkPGURSecretValues(pgurDBSecretName2, pgurNamespace, pgdbDBName2, pgurImportUsername, pgurImportPassword, pgec)
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword, pgec, v1alpha1.PrimaryConnectionType)
+			checkPGURSecretValues(pgurDBSecretName2, pgurNamespace, pgdbDBName2, pgurImportUsername, pgurImportPassword, pgec, v1alpha1.PrimaryConnectionType)
 
 			// Connect to check user
 			_, err = connectAs(pgurImportUsername, pgurImportPassword)
@@ -872,6 +876,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(""))
 			Expect(item.Status.PostgresRole).To(Equal(pgurImportUsername))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
 			Expect(d.After(preDate)).To(BeTrue())
@@ -936,6 +941,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(""))
 			Expect(item.Status.PostgresRole).To(Equal(pgurImportUsername))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
 			Expect(d.After(preDate)).To(BeTrue())
@@ -1000,6 +1006,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(""))
 			Expect(item.Status.PostgresRole).To(Equal(pgurImportUsername))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
 			Expect(d.After(preDate)).To(BeTrue())
@@ -1061,6 +1068,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(""))
 			Expect(item.Status.PostgresRole).To(Equal(pgurImportUsername))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
 			Expect(d.After(preDate)).To(BeTrue())
@@ -1125,6 +1133,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(""))
 			Expect(item.Status.PostgresRole).To(Equal(pgurImportUsername))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
 			Expect(d.After(preDate)).To(BeTrue())
@@ -1170,6 +1179,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 				Namespace: pgurNamespace,
 			}, item)).To(Succeed())
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			d2, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
 			Expect(d2.After(d)).To(BeTrue())
@@ -1183,7 +1193,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			}, sec)).Should(Succeed())
 
 			// Validate
-			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, pgurImportUsername, updatedPass, pgec)
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, pgurImportUsername, updatedPass, pgec, v1alpha1.PrimaryConnectionType)
 
 			// Connect to check user
 			_, err = connectAs(pgurImportUsername, updatedPass)
@@ -1222,6 +1232,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(""))
 			Expect(item.Status.PostgresRole).To(Equal(pgurImportUsername))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
 			Expect(d.After(preDate)).To(BeTrue())
@@ -1267,6 +1278,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 				Namespace: pgurNamespace,
 			}, item)).To(Succeed())
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			d2, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
 			Expect(d2.After(d)).To(BeTrue())
@@ -1281,7 +1293,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			}, sec)).Should(Succeed())
 
 			// Validate
-			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, updatedUser, pgurImportPassword, pgec)
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, updatedUser, pgurImportPassword, pgec, v1alpha1.PrimaryConnectionType)
 
 			// Connect to check user
 			_, err = connectAs(updatedUser, pgurImportPassword)
@@ -1357,7 +1369,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(string(sec.Data[PasswordSecretKey])).To(Equal(pgurImportPassword))
 
 			// Validate
-			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, updatedUser, pgurImportPassword, pgec)
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, updatedUser, pgurImportPassword, pgec, v1alpha1.PrimaryConnectionType)
 
 			// Get pgur
 			Expect(k8sClient.Get(ctx, types.NamespacedName{
@@ -1925,6 +1937,222 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 
 			Expect(worksecOri.Data[UsernameSecretKey]).To(Equal(worksec.Data[UsernameSecretKey]))
 		})
+
+		It("should be ok to generate a primary user role with a bouncer enabled pgec", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithBouncer("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create secret
+			setupPGURImportSecret()
+
+			item := setupProvidedPGUR()
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			// Validate
+			checkPGURSecretValues(item.Spec.Privileges[0].GeneratedSecretName, pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword, pgec, v1alpha1.PrimaryConnectionType)
+		})
+
+		It("should be ok to generate a bouncer secret with a bouncer user role", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithBouncer("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create secret
+			setupPGURImportSecret()
+
+			item := setupProvidedPGURWithBouncer()
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			// Validate
+			checkPGURSecretValues(item.Spec.Privileges[0].GeneratedSecretName, pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword, pgec, v1alpha1.BouncerConnectionType)
+		})
+
+		It("should be fail when a bouncer user role is asked but pgec isn't supporting it", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create secret
+			setupPGURImportSecret()
+
+			item := setupProvidedPGURWithBouncer()
+
+			// Checks
+			Expect(item.Status.Ready).To(BeFalse())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleFailedPhase))
+			Expect(item.Status.Message).To(Equal("bouncer connection asked but not supported in engine configuration"))
+		})
+
+		It("should be ok to generate a bouncer and a primary secret with a bouncer and a primary user role", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithBouncer("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+			setupPGDB2()
+
+			// Create secret
+			setupPGURImportSecret()
+
+			item := setupProvidedPGURWith2DatabasesWithPrimaryAndBouncer()
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			// Validate
+			checkPGURSecretValues(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword, pgec,
+				v1alpha1.PrimaryConnectionType,
+			)
+			checkPGURSecretValues(
+				item.Spec.Privileges[1].GeneratedSecretName,
+				pgurNamespace, pgdbDBName2, pgurImportUsername, pgurImportPassword, pgec,
+				v1alpha1.BouncerConnectionType,
+			)
+		})
+
+		It("should be ok to create a primary user role and change it to a bouncer one", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithBouncer("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create secret
+			setupPGURImportSecret()
+
+			item := setupProvidedPGUR()
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			// Validate
+			checkPGURSecretValues(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword,
+				pgec, v1alpha1.PrimaryConnectionType,
+			)
+
+			// Get current secret
+			sec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.Privileges[0].GeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, sec)).To(Succeed())
+
+			// Update privilege for a bouncer one
+			item.Spec.Privileges[0].ConnectionType = v1alpha1.BouncerConnectionType
+			// Save
+			Expect(k8sClient.Update(ctx, item)).To(Succeed())
+
+			sec2 := &corev1.Secret{}
+			Eventually(
+				func() error {
+					err := k8sClient.Get(ctx, types.NamespacedName{
+						Name:      item.Spec.Privileges[0].GeneratedSecretName,
+						Namespace: pgurNamespace,
+					}, sec2)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check if sec have been updated
+					if string(sec.Data["POSTGRES_URL"]) == string(sec2.Data["POSTGRES_URL"]) {
+						return errors.New("Secret not updated")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+				// Validate
+			checkPGURSecretValues(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword,
+				pgec, v1alpha1.BouncerConnectionType,
+			)
+		})
+
+		It("should be ok to create a bouncer user role and change it to a primary one", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithBouncer("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create secret
+			setupPGURImportSecret()
+
+			item := setupProvidedPGURWithBouncer()
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			// Validate
+			checkPGURSecretValues(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword,
+				pgec, v1alpha1.BouncerConnectionType,
+			)
+
+			// Get current secret
+			sec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.Privileges[0].GeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, sec)).To(Succeed())
+
+			// Update privilege for a bouncer one
+			item.Spec.Privileges[0].ConnectionType = v1alpha1.PrimaryConnectionType
+			// Save
+			Expect(k8sClient.Update(ctx, item)).To(Succeed())
+
+			sec2 := &corev1.Secret{}
+			Eventually(
+				func() error {
+					err := k8sClient.Get(ctx, types.NamespacedName{
+						Name:      item.Spec.Privileges[0].GeneratedSecretName,
+						Namespace: pgurNamespace,
+					}, sec2)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check if sec have been updated
+					if string(sec.Data["POSTGRES_URL"]) == string(sec2.Data["POSTGRES_URL"]) {
+						return errors.New("Secret not updated")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+				// Validate
+			checkPGURSecretValues(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword,
+				pgec, v1alpha1.PrimaryConnectionType,
+			)
+		})
 	})
 
 	Describe("Managed mode", func() {
@@ -2399,7 +2627,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			}, dbsec)).Should(Succeed())
 
 			// Validate
-			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username, string(sec.Data[PasswordSecretKey]), pgec)
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username, string(sec.Data[PasswordSecretKey]), pgec, v1alpha1.PrimaryConnectionType)
 
 			// Connect to check user
 			_, err = connectAs(username, string(sec.Data[PasswordSecretKey]))
@@ -2436,6 +2664,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
 			Expect(item.Status.PostgresRole).To(Equal(username))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
 			Expect(d.After(preDate)).To(BeTrue())
@@ -2459,7 +2688,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			}, dbsec)).Should(Succeed())
 
 			// Validate
-			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username, string(sec.Data[PasswordSecretKey]), pgec)
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username, string(sec.Data[PasswordSecretKey]), pgec, v1alpha1.PrimaryConnectionType)
 
 			// Connect to check user
 			_, err = connectAs(username, string(sec.Data[PasswordSecretKey]))
@@ -2498,6 +2727,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
 			Expect(item.Status.PostgresRole).To(Equal(username))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
 			Expect(d.After(preDate)).To(BeTrue())
@@ -2526,8 +2756,8 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			}, dbsec2)).Should(Succeed())
 
 			// Validate
-			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username, string(sec.Data[PasswordSecretKey]), pgec)
-			checkPGURSecretValues(pgurDBSecretName2, pgurNamespace, pgdbDBName2, username, string(sec.Data[PasswordSecretKey]), pgec)
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username, string(sec.Data[PasswordSecretKey]), pgec, v1alpha1.PrimaryConnectionType)
+			checkPGURSecretValues(pgurDBSecretName2, pgurNamespace, pgdbDBName2, username, string(sec.Data[PasswordSecretKey]), pgec, v1alpha1.PrimaryConnectionType)
 
 			// Connect to check user
 			_, err = connectAs(username, string(sec.Data[PasswordSecretKey]))
@@ -2573,6 +2803,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
 			Expect(item.Status.PostgresRole).To(Equal(username))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
 			Expect(d.After(preDate)).To(BeTrue())
@@ -2635,6 +2866,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
 			Expect(item.Status.PostgresRole).To(Equal(username))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
 			Expect(d.After(preDate)).To(BeTrue())
@@ -2694,6 +2926,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
 			Expect(item.Status.PostgresRole).To(Equal(username))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
 			Expect(d.After(preDate)).To(BeTrue())
@@ -2753,6 +2986,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
 			Expect(item.Status.PostgresRole).To(Equal(username))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
 			Expect(d.After(preDate)).To(BeTrue())
@@ -2812,6 +3046,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
 			Expect(item.Status.PostgresRole).To(Equal(username))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
 			Expect(d.After(preDate)).To(BeTrue())
@@ -2860,6 +3095,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 				Namespace: pgurNamespace,
 			}, item)).To(Succeed())
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			Expect(item.Status.RolePrefix).To(Equal(updatedUserPrefix))
 			d2, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
@@ -2875,7 +3111,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			}, dbsec)).Should(Succeed())
 
 			// Validate
-			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username, string(sec.Data[PasswordSecretKey]), pgec)
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username, string(sec.Data[PasswordSecretKey]), pgec, v1alpha1.PrimaryConnectionType)
 
 			// Connect to check user
 			_, err = connectAs(username, string(sec.Data[PasswordSecretKey]))
@@ -2951,7 +3187,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			}, dbsec)).Should(Succeed())
 
 			// Validate
-			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username, string(workSec2.Data[PasswordSecretKey]), pgec)
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username, string(workSec2.Data[PasswordSecretKey]), pgec, v1alpha1.PrimaryConnectionType)
 
 			// Connect to check user
 			_, err := connectAs(username, string(workSec2.Data[PasswordSecretKey]))
@@ -3093,6 +3329,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
 			Expect(item.Status.PostgresRole).To(Equal(username))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
 			Expect(d.After(preDate)).To(BeTrue())
@@ -3116,7 +3353,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			}, dbsec)).Should(Succeed())
 
 			// Validate
-			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username, string(sec.Data[PasswordSecretKey]), pgec)
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username, string(sec.Data[PasswordSecretKey]), pgec, v1alpha1.PrimaryConnectionType)
 
 			// Connect to check user
 			_, err = connectAs(username, string(sec.Data[PasswordSecretKey]))
@@ -3155,6 +3392,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
 			Expect(item.Status.PostgresRole).To(Equal(username))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			Expect(item.Status.OldPostgresRoles).To(Equal([]string{}))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
@@ -3226,7 +3464,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			}, dbsec)).Should(Succeed())
 
 			// Validate
-			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username2, string(workSec2.Data[PasswordSecretKey]), pgec)
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username2, string(workSec2.Data[PasswordSecretKey]), pgec, v1alpha1.PrimaryConnectionType)
 
 			// Connect to check user
 			_, err = connectAs(username2, string(workSec2.Data[PasswordSecretKey]))
@@ -3269,6 +3507,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
 			Expect(item.Status.PostgresRole).To(Equal(username))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			Expect(item.Status.OldPostgresRoles).To(Equal([]string{}))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
@@ -3344,7 +3583,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			}, dbsec)).Should(Succeed())
 
 			// Validate
-			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username2, string(workSec2.Data[PasswordSecretKey]), pgec)
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username2, string(workSec2.Data[PasswordSecretKey]), pgec, v1alpha1.PrimaryConnectionType)
 
 			// Connect to check user
 			_, err = connectAs(username2, string(workSec2.Data[PasswordSecretKey]))
@@ -3395,6 +3634,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
 			Expect(item.Status.PostgresRole).To(Equal(username))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			Expect(item.Status.OldPostgresRoles).To(Equal([]string{}))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
@@ -3470,7 +3710,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			}, dbsec)).Should(Succeed())
 
 			// Validate
-			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username2, string(workSec2.Data[PasswordSecretKey]), pgec)
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username2, string(workSec2.Data[PasswordSecretKey]), pgec, v1alpha1.PrimaryConnectionType)
 
 			// Connect to check user
 			_, err = connectAs(username2, string(workSec2.Data[PasswordSecretKey]))
@@ -3547,6 +3787,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
 			Expect(item.Status.PostgresRole).To(Equal(username))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			Expect(item.Status.OldPostgresRoles).To(Equal([]string{}))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
@@ -3653,6 +3894,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
 			Expect(item.Status.PostgresRole).To(Equal(username))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			Expect(item.Status.OldPostgresRoles).To(Equal([]string{}))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
@@ -3745,6 +3987,7 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
 			Expect(item.Status.PostgresRole).To(Equal(username))
 			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
 			Expect(item.Status.OldPostgresRoles).To(Equal([]string{}))
 			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
 			Expect(err).To(Succeed())
@@ -3816,6 +4059,252 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 				Should(Succeed())
 
 			Expect(worksecOri.Data[UsernameSecretKey]).To(Equal(worksec.Data[UsernameSecretKey]))
+		})
+
+		It("should be ok to generate a primary secret with a bouncer enabled pgec", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithBouncer("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			item := setupManagedPGUR("")
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			username := pgurRolePrefix + Login0Suffix
+			// Get work secret
+			workSec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, workSec)).Should(Succeed())
+
+			// Validate
+			checkPGURSecretValues(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, username, string(workSec.Data[PasswordSecretKey]),
+				pgec, v1alpha1.PrimaryConnectionType,
+			)
+		})
+
+		It("should be ok to generate a bouncer secret with a bouncer user role", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithBouncer("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			item := setupManagedPGURWithBouncer("")
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			username := pgurRolePrefix + Login0Suffix
+			// Get work secret
+			workSec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, workSec)).Should(Succeed())
+
+			// Validate
+			checkPGURSecretValues(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, username, string(workSec.Data[PasswordSecretKey]),
+				pgec, v1alpha1.BouncerConnectionType,
+			)
+		})
+
+		It("should be fail when a bouncer user role is asked but pgec isn't supporting it", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			item := setupManagedPGURWithBouncer("")
+
+			// Checks
+			Expect(item.Status.Ready).To(BeFalse())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleFailedPhase))
+			Expect(item.Status.Message).To(Equal("bouncer connection asked but not supported in engine configuration"))
+		})
+
+		It("should be ok to generate a bouncer and a primary secret with a bouncer and a primary user role", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithBouncer("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+			setupPGDB2()
+
+			item := setupManagedPGURWith2DatabasesWithPrimaryAndBouncer()
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			username := pgurRolePrefix + Login0Suffix
+			// Get work secret
+			workSec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, workSec)).Should(Succeed())
+
+			// Validate
+			checkPGURSecretValues(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, username, string(workSec.Data[PasswordSecretKey]),
+				pgec, v1alpha1.PrimaryConnectionType,
+			)
+			checkPGURSecretValues(
+				item.Spec.Privileges[1].GeneratedSecretName,
+				pgurNamespace, pgdbDBName2, username, string(workSec.Data[PasswordSecretKey]),
+				pgec, v1alpha1.BouncerConnectionType,
+			)
+		})
+
+		It("should be ok to create a primary user role and change it to a bouncer one", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithBouncer("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			item := setupManagedPGUR("")
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			username := pgurRolePrefix + Login0Suffix
+			// Get work secret
+			workSec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, workSec)).Should(Succeed())
+
+			// Validate
+			checkPGURSecretValues(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, username, string(workSec.Data[PasswordSecretKey]),
+				pgec, v1alpha1.PrimaryConnectionType,
+			)
+
+			// Get current secret
+			sec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.Privileges[0].GeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, sec)).To(Succeed())
+
+			// Update privilege for a bouncer one
+			item.Spec.Privileges[0].ConnectionType = v1alpha1.BouncerConnectionType
+			// Save
+			Expect(k8sClient.Update(ctx, item)).To(Succeed())
+
+			sec2 := &corev1.Secret{}
+			Eventually(
+				func() error {
+					err := k8sClient.Get(ctx, types.NamespacedName{
+						Name:      item.Spec.Privileges[0].GeneratedSecretName,
+						Namespace: pgurNamespace,
+					}, sec2)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check if sec have been updated
+					if string(sec.Data["POSTGRES_URL"]) == string(sec2.Data["POSTGRES_URL"]) {
+						return errors.New("Secret not updated")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+				// Validate
+			checkPGURSecretValues(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, username, string(workSec.Data[PasswordSecretKey]),
+				pgec, v1alpha1.BouncerConnectionType,
+			)
+		})
+
+		It("should be ok to create a bouncer user role and change it to a primary one", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithBouncer("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			item := setupManagedPGURWithBouncer("")
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			username := pgurRolePrefix + Login0Suffix
+			// Get work secret
+			workSec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, workSec)).Should(Succeed())
+
+			// Validate
+			checkPGURSecretValues(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, username, string(workSec.Data[PasswordSecretKey]),
+				pgec, v1alpha1.BouncerConnectionType,
+			)
+
+			// Get current secret
+			sec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.Privileges[0].GeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, sec)).To(Succeed())
+
+			// Update privilege for a bouncer one
+			item.Spec.Privileges[0].ConnectionType = v1alpha1.PrimaryConnectionType
+			// Save
+			Expect(k8sClient.Update(ctx, item)).To(Succeed())
+
+			sec2 := &corev1.Secret{}
+			Eventually(
+				func() error {
+					err := k8sClient.Get(ctx, types.NamespacedName{
+						Name:      item.Spec.Privileges[0].GeneratedSecretName,
+						Namespace: pgurNamespace,
+					}, sec2)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check if sec have been updated
+					if string(sec.Data["POSTGRES_URL"]) == string(sec2.Data["POSTGRES_URL"]) {
+						return errors.New("Secret not updated")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+				// Validate
+			checkPGURSecretValues(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, username, string(workSec.Data[PasswordSecretKey]),
+				pgec, v1alpha1.PrimaryConnectionType,
+			)
 		})
 	})
 })

@@ -83,6 +83,47 @@ spec:
               uriArgs:
                 description: URI args like sslmode, ...
                 type: string
+              userConnections:
+                description: |-
+                  User connections used for secret generation
+                  That will be used to generate secret with primary server as url or
+                  to use the pg bouncer one.
+                  Note: Operator won't check those values.
+                properties:
+                  bouncerConnection:
+                    description: Bouncer connection is referring to a pg bouncer node.
+                    properties:
+                      host:
+                        description: Hostname
+                        type: string
+                      port:
+                        description: Port
+                        type: integer
+                      uriArgs:
+                        description: URI args like sslmode, ...
+                        type: string
+                    required:
+                    - host
+                    - uriArgs
+                    type: object
+                  primaryConnection:
+                    description: Primary connection is referring to the primary node
+                      connection.
+                    properties:
+                      host:
+                        description: Hostname
+                        type: string
+                      port:
+                        description: Port
+                        type: integer
+                      uriArgs:
+                        description: URI args like sslmode, ...
+                        type: string
+                    required:
+                    - host
+                    - uriArgs
+                    type: object
+                type: object
               waitLinkedResourcesDeletion:
                 description: Wait for linked resource to be deleted
                 type: boolean

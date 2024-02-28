@@ -381,6 +381,30 @@ func setupProvidedPGUR() *postgresqlv1alpha1.PostgresqlUserRole {
 	return setupSavePGURInternal(it)
 }
 
+func setupProvidedPGURWithBouncer() *postgresqlv1alpha1.PostgresqlUserRole {
+	it := &postgresqlv1alpha1.PostgresqlUserRole{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pgurName,
+			Namespace: pgurNamespace,
+		},
+		Spec: postgresqlv1alpha1.PostgresqlUserRoleSpec{
+			Mode:                    postgresqlv1alpha1.ProvidedMode,
+			ImportSecretName:        pgurImportSecretName,
+			WorkGeneratedSecretName: pgurWorkSecretName,
+			Privileges: []*postgresqlv1alpha1.PostgresqlUserRolePrivilege{
+				{
+					ConnectionType:      postgresqlv1alpha1.BouncerConnectionType,
+					Privilege:           postgresqlv1alpha1.OwnerPrivilege,
+					Database:            &common.CRLink{Name: pgdbName, Namespace: pgdbNamespace},
+					GeneratedSecretName: pgurDBSecretName,
+				},
+			},
+		},
+	}
+
+	return setupSavePGURInternal(it)
+}
+
 func setupProvidedPGURWith2Databases() *postgresqlv1alpha1.PostgresqlUserRole {
 	it := &postgresqlv1alpha1.PostgresqlUserRole{
 		ObjectMeta: v1.ObjectMeta{
@@ -401,6 +425,61 @@ func setupProvidedPGURWith2Databases() *postgresqlv1alpha1.PostgresqlUserRole {
 					Privilege:           postgresqlv1alpha1.WriterPrivilege,
 					Database:            &common.CRLink{Name: pgdbName2, Namespace: pgdbNamespace},
 					GeneratedSecretName: pgurDBSecretName2,
+				},
+			},
+		},
+	}
+
+	return setupSavePGURInternal(it)
+}
+
+func setupProvidedPGURWith2DatabasesWithPrimaryAndBouncer() *postgresqlv1alpha1.PostgresqlUserRole {
+	it := &postgresqlv1alpha1.PostgresqlUserRole{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pgurName,
+			Namespace: pgurNamespace,
+		},
+		Spec: postgresqlv1alpha1.PostgresqlUserRoleSpec{
+			Mode:                    postgresqlv1alpha1.ProvidedMode,
+			ImportSecretName:        pgurImportSecretName,
+			WorkGeneratedSecretName: pgurWorkSecretName,
+			Privileges: []*postgresqlv1alpha1.PostgresqlUserRolePrivilege{
+				{
+					ConnectionType:      postgresqlv1alpha1.PrimaryConnectionType,
+					Privilege:           postgresqlv1alpha1.OwnerPrivilege,
+					Database:            &common.CRLink{Name: pgdbName, Namespace: pgdbNamespace},
+					GeneratedSecretName: pgurDBSecretName,
+				},
+				{
+					ConnectionType:      postgresqlv1alpha1.BouncerConnectionType,
+					Privilege:           postgresqlv1alpha1.WriterPrivilege,
+					Database:            &common.CRLink{Name: pgdbName2, Namespace: pgdbNamespace},
+					GeneratedSecretName: pgurDBSecretName2,
+				},
+			},
+		},
+	}
+
+	return setupSavePGURInternal(it)
+}
+
+func setupManagedPGURWithBouncer(userPasswordRotationDuration string) *postgresqlv1alpha1.PostgresqlUserRole {
+	it := &postgresqlv1alpha1.PostgresqlUserRole{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pgurName,
+			Namespace: pgurNamespace,
+		},
+		Spec: postgresqlv1alpha1.PostgresqlUserRoleSpec{
+			Mode:                         postgresqlv1alpha1.ManagedMode,
+			RolePrefix:                   pgurRolePrefix,
+			WorkGeneratedSecretName:      pgurWorkSecretName,
+			UserPasswordRotationDuration: userPasswordRotationDuration,
+			Privileges: []*postgresqlv1alpha1.PostgresqlUserRolePrivilege{
+				{
+					ConnectionType:      postgresqlv1alpha1.BouncerConnectionType,
+					Privilege:           postgresqlv1alpha1.OwnerPrivilege,
+					Database:            &common.CRLink{Name: pgdbName, Namespace: pgdbNamespace},
+					GeneratedSecretName: pgurDBSecretName,
 				},
 			},
 		},
@@ -461,6 +540,36 @@ func setupManagedPGURWith2Databases() *postgresqlv1alpha1.PostgresqlUserRole {
 	return setupSavePGURInternal(it)
 }
 
+func setupManagedPGURWith2DatabasesWithPrimaryAndBouncer() *postgresqlv1alpha1.PostgresqlUserRole {
+	it := &postgresqlv1alpha1.PostgresqlUserRole{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pgurName,
+			Namespace: pgurNamespace,
+		},
+		Spec: postgresqlv1alpha1.PostgresqlUserRoleSpec{
+			Mode:                    postgresqlv1alpha1.ManagedMode,
+			RolePrefix:              pgurRolePrefix,
+			WorkGeneratedSecretName: pgurWorkSecretName,
+			Privileges: []*postgresqlv1alpha1.PostgresqlUserRolePrivilege{
+				{
+					ConnectionType:      postgresqlv1alpha1.PrimaryConnectionType,
+					Privilege:           postgresqlv1alpha1.OwnerPrivilege,
+					Database:            &common.CRLink{Name: pgdbName, Namespace: pgdbNamespace},
+					GeneratedSecretName: pgurDBSecretName,
+				},
+				{
+					ConnectionType:      postgresqlv1alpha1.BouncerConnectionType,
+					Privilege:           postgresqlv1alpha1.WriterPrivilege,
+					Database:            &common.CRLink{Name: pgdbName2, Namespace: pgdbNamespace},
+					GeneratedSecretName: pgurDBSecretName2,
+				},
+			},
+		},
+	}
+
+	return setupSavePGURInternal(it)
+}
+
 func setupSavePGURInternal(it *postgresqlv1alpha1.PostgresqlUserRole) *postgresqlv1alpha1.PostgresqlUserRole {
 	// Create user
 	Expect(k8sClient.Create(ctx, it)).Should(Succeed())
@@ -496,6 +605,33 @@ func setupPGEC(
 	checkInterval string,
 	waitLinkedResourcesDeletion bool,
 ) (*postgresqlv1alpha1.PostgresqlEngineConfiguration, *corev1.Secret) {
+	return setupPGECInternal(checkInterval, waitLinkedResourcesDeletion, &postgresqlv1alpha1.GenericUserConnection{
+		Host:    "localhost",
+		Port:    5432,
+		URIArgs: "sslmode=disable",
+	}, nil)
+}
+
+func setupPGECWithBouncer(
+	checkInterval string,
+	waitLinkedResourcesDeletion bool,
+) (*postgresqlv1alpha1.PostgresqlEngineConfiguration, *corev1.Secret) {
+	return setupPGECInternal(checkInterval, waitLinkedResourcesDeletion, &postgresqlv1alpha1.GenericUserConnection{
+		Host:    "localhost",
+		Port:    5432,
+		URIArgs: "sslmode=disable",
+	}, &postgresqlv1alpha1.GenericUserConnection{
+		Host:    "localhost",
+		Port:    5433,
+		URIArgs: "sslmode=disable",
+	})
+}
+
+func setupPGECInternal(
+	checkInterval string,
+	waitLinkedResourcesDeletion bool,
+	primaryUserConnection, bouncerUserConnection *postgresqlv1alpha1.GenericUserConnection,
+) (*postgresqlv1alpha1.PostgresqlEngineConfiguration, *corev1.Secret) {
 	// Create secret
 	sec := setupPGECSecret()
 
@@ -514,6 +650,10 @@ func setupPGEC(
 			CheckInterval:               checkInterval,
 			WaitLinkedResourcesDeletion: waitLinkedResourcesDeletion,
 			SecretName:                  pgecSecretName,
+			UserConnections: &postgresqlv1alpha1.UserConnections{
+				PrimaryConnection: primaryUserConnection,
+				BouncerConnection: bouncerUserConnection,
+			},
 		},
 	}
 
@@ -1106,7 +1246,7 @@ func checkPGUSecretValues(name, namespace, rolePrefix string, pgec *postgresqlv1
 	}, secret)
 	Expect(err).ToNot(HaveOccurred())
 
-	Expect(string(secret.Data["POSTGRES_URL"])).To(Equal(fmt.Sprintf("postgresql://%s:%s@localhost:5432/%s", secret.Data["LOGIN"], secret.Data["PASSWORD"], pgdbDBName)))
+	Expect(string(secret.Data["POSTGRES_URL"])).To(Equal(fmt.Sprintf("postgresql://%s:%s@localhost:%d/%s", secret.Data["LOGIN"], secret.Data["PASSWORD"], pgec.Spec.Port, pgdbDBName)))
 	Expect(string(secret.Data["POSTGRES_URL_ARGS"])).To(Equal(fmt.Sprintf("%s?%s", secret.Data["POSTGRES_URL"], secret.Data["ARGS"])))
 	Expect(string(secret.Data["ROLE"])).To(MatchRegexp(fmt.Sprintf("%s-.+", rolePrefix)))
 	Expect(secret.Data["PASSWORD"]).ToNot(BeEmpty())
@@ -1117,7 +1257,11 @@ func checkPGUSecretValues(name, namespace, rolePrefix string, pgec *postgresqlv1
 	Expect(string(secret.Data["ARGS"])).To(Equal(pgec.Spec.URIArgs))
 }
 
-func checkPGURSecretValues(name, namespace, dbName, username, password string, pgec *postgresqlv1alpha1.PostgresqlEngineConfiguration) {
+func checkPGURSecretValues(
+	name, namespace, dbName, username, password string,
+	pgec *postgresqlv1alpha1.PostgresqlEngineConfiguration,
+	userConnectionType postgresqlv1alpha1.ConnectionTypesSpecEnum,
+) {
 	secret := &corev1.Secret{}
 	err := k8sClient.Get(ctx, types.NamespacedName{
 		Name:      name,
@@ -1125,15 +1269,22 @@ func checkPGURSecretValues(name, namespace, dbName, username, password string, p
 	}, secret)
 	Expect(err).ToNot(HaveOccurred())
 
+	// Init user connection with PRIMARY choice
+	userCon := pgec.Spec.UserConnections.PrimaryConnection
+	// Check if bouncer is selected
+	if userConnectionType == postgresqlv1alpha1.BouncerConnectionType {
+		userCon = pgec.Spec.UserConnections.BouncerConnection
+	}
+
 	Expect(string(secret.Data["POSTGRES_URL"])).To(Equal(
-		fmt.Sprintf("postgresql://%s:%s@localhost:5432/%s", secret.Data["LOGIN"], secret.Data["PASSWORD"], dbName),
+		fmt.Sprintf("postgresql://%s:%s@%s:%d/%s", secret.Data["LOGIN"], secret.Data["PASSWORD"], userCon.Host, userCon.Port, dbName),
 	))
 	Expect(string(secret.Data["POSTGRES_URL_ARGS"])).To(Equal(fmt.Sprintf("%s?%s", secret.Data["POSTGRES_URL"], secret.Data["ARGS"])))
 	Expect(secret.Data["PASSWORD"]).ToNot(BeEmpty())
 	Expect(string(secret.Data["PASSWORD"])).To(Equal(password))
 	Expect(string(secret.Data["LOGIN"])).To(Equal(username))
 	Expect(string(secret.Data["DATABASE"])).To(Equal(dbName))
-	Expect(string(secret.Data["HOST"])).To(Equal(pgec.Spec.Host))
-	Expect(string(secret.Data["PORT"])).To(Equal(fmt.Sprint(pgec.Spec.Port)))
-	Expect(string(secret.Data["ARGS"])).To(Equal(pgec.Spec.URIArgs))
+	Expect(string(secret.Data["HOST"])).To(Equal(userCon.Host))
+	Expect(string(secret.Data["PORT"])).To(Equal(fmt.Sprint(userCon.Port)))
+	Expect(string(secret.Data["ARGS"])).To(Equal(userCon.URIArgs))
 }
