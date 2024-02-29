@@ -39,6 +39,7 @@ import (
 const (
 	PGECRequeueDelayErrorNumberSeconds = 5
 	DefaultPGPort                      = 5432
+	DefaultBouncerPort                 = 6432
 )
 
 // PostgresqlEngineConfigurationReconciler reconciles a PostgresqlEngineConfiguration object.
@@ -311,7 +312,7 @@ func (*PostgresqlEngineConfigurationReconciler) addDefaultValues(instance *postg
 	if instance.Spec.UserConnections.BouncerConnection != nil {
 		// Check port
 		if instance.Spec.UserConnections.BouncerConnection.Port == 0 {
-			instance.Spec.UserConnections.BouncerConnection.Port = DefaultPGPort
+			instance.Spec.UserConnections.BouncerConnection.Port = DefaultBouncerPort
 		}
 	}
 }
