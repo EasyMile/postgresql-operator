@@ -512,6 +512,89 @@ var _ = Describe("PostgresqlEngineConfiguration tests", func() {
 		Expect(updatedPgec.Spec.UserConnections.BouncerConnection.URIArgs).To(BeEquivalentTo("sslmode=disable"))
 	})
 
+	It("should be ok to create it with a different primary user connections", func() {
+		// Create secret
+		sec := setupPGECSecret()
+
+		// Get secret to be sure
+		Eventually(
+			func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{
+					Name:      sec.Name,
+					Namespace: sec.Namespace,
+				}, sec)
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).
+			Should(Succeed())
+
+		// Create pgec
+		prov := &postgresqlv1alpha1.PostgresqlEngineConfiguration{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      pgecName,
+				Namespace: pgecNamespace,
+			},
+			Spec: postgresqlv1alpha1.PostgresqlEngineConfigurationSpec{
+				Provider:        "",
+				Host:            "localhost",
+				Port:            5432,
+				URIArgs:         "sslmode=disable",
+				DefaultDatabase: "postgres",
+				CheckInterval:   "30s",
+				SecretName:      pgecSecretName,
+				UserConnections: &postgresqlv1alpha1.UserConnections{
+					PrimaryConnection: &postgresqlv1alpha1.GenericUserConnection{
+						Host:    "127.0.0.1",
+						Port:    5433,
+						URIArgs: "sslmode=disable&none=none",
+					},
+				},
+			},
+		}
+
+		// Create pgec
+		Expect(k8sClient.Create(ctx, prov)).Should(Succeed())
+
+		updatedPgec := &postgresqlv1alpha1.PostgresqlEngineConfiguration{}
+		// Get updated pgec
+		Eventually(
+			func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgecName,
+					Namespace: pgecNamespace,
+				}, updatedPgec)
+				// Check error
+				if err != nil {
+					return err
+				}
+
+				// Check if status hasn't been updated
+				if updatedPgec.Status.Phase == postgresqlv1alpha1.EngineNoPhase {
+					return errors.New("pgec hasn't been updated by operator")
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).
+			Should(Succeed())
+
+		// Checks
+		Expect(updatedPgec.Status.Ready).To(BeTrue())
+		Expect(updatedPgec.Status.Phase).To(BeEquivalentTo(postgresqlv1alpha1.EngineValidatedPhase))
+		Expect(updatedPgec.Status.LastValidatedTime).NotTo(BeEquivalentTo(""))
+		Expect(updatedPgec.Status.Message).To(BeEquivalentTo(""))
+		Expect(updatedPgec.Spec.CheckInterval).To(BeEquivalentTo("30s"))
+		Expect(updatedPgec.Spec.Port).To(BeEquivalentTo(5432))
+		Expect(updatedPgec.Spec.DefaultDatabase).To(BeEquivalentTo("postgres"))
+		Expect(updatedPgec.Spec.UserConnections.PrimaryConnection.Host).To(BeEquivalentTo("127.0.0.1"))
+		Expect(updatedPgec.Spec.UserConnections.PrimaryConnection.Port).To(BeEquivalentTo(5433))
+		Expect(updatedPgec.Spec.UserConnections.PrimaryConnection.URIArgs).To(BeEquivalentTo("sslmode=disable&none=none"))
+		Expect(updatedPgec.Spec.UserConnections.BouncerConnection).To(BeNil())
+	})
+
 	It("should be ok to set everything", func() {
 		// Create pgec
 		setupPGEC("10s", false)
