@@ -35,6 +35,22 @@ All these names are available for `kubectl`:
 | checkInterval | Interval between 2 connectivity check. Default is `30s`. | String | false |
 | waitLinkedResourcesDeletion | Tell operator if it has to wait until all linked resources are deleted to delete current custom resource. If not, it won't be able to delete PostgresqlDatabase and PostgresqlUser after. Default value is `false`. | Boolean | false |
 | secretName | Secret name in the same namespace has the current custom resource that contains user and password to be used to connect PostgreSQL engine. An example can be found [here](../../deploy/examples/engineconfiguration/engineconfigurationsecret.yaml) | String | true |
+| userConnections | User connections used for secret generation. That will be used to generate secret with primary server as url or to use the pg bouncer one. Note: Operator won't check those values. | [UserConnections](#userconnections) | false |
+
+### UserConnections
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| primaryConnection | Primary connection is referring to the primary node connection. If not being set, all values will be set from spec (host, port, uriArgs) | [GenericUserConnection](#genericuserconnection) | false |
+| bouncerConnection | Bouncer connection is referring to a pg bouncer node. The default port will be 6432 if other fields are filled but not port. | [GenericUserConnection](#genericuserconnection) | false |
+
+### GenericUserConnection
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| host | PostgreSQL Hostname | String | true |
+| port | PostgreSQL Port. | Integer | false |
+| uriArgs | PostgreSQL URI arguments like `sslmode=disabled` | String | false |
 
 ### PostgresqlEngineConfigurationStatus
 
@@ -78,4 +94,19 @@ spec:
   # Wait for linked resource to be deleted
   # Default to false
   waitLinkedResourcesDeletion: true
+  # User connections used for secret generation
+  # That will be used to generate secret with primary server as url or
+  # to use the pg bouncer one.
+  # Note: Operator won't check those values.
+  userConnections:
+    # Primary connection is referring to the primary node connection.
+    primaryConnection:
+      host: localhost
+      uriArgs: sslmode=disable
+      port: 5432
+    # Bouncer connection is referring to a pg bouncer node.
+    # bouncerConnection:
+    #   host: localhost
+    #   uriArgs: sslmode=disable
+    #   port: 6432
 ```

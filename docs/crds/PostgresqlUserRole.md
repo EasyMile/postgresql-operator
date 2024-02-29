@@ -38,6 +38,7 @@ All these names are available for `kubectl`:
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | privilege | User privilege on database. Enumeration is `OWNER`, `WRITER`, `READER`. | String | true |
+| connectionType | Connection type to be used for secret generation (Can be set to BOUNCER if wanted and supported by engine configuration). Enumeration is `PRIMARY`, `BOUNCER`. Default value is `PRIMARY` | String | false |
 | database | [PostgresqlDatabase](./PostgresqlDatabase.md) object reference | [CRLink](#crlink) | true |
 | generatedSecretName | Generated secret name used for secret generation. | String | true |
 
@@ -78,6 +79,8 @@ spec:
   privileges:
   - # Privilege for the selected database
     privilege: WRITER
+    # Connection type to be used for secret generation (Can be set to BOUNCER if wanted and supported by engine configuration)
+    connectionType: PRIMARY
     # Database link
     database:
       name: simple
@@ -120,6 +123,8 @@ spec:
   privileges:
     - # Privilege for the selected database
       privilege: OWNER
+      # Connection type to be used for secret generation (Can be set to BOUNCER if wanted and supported by engine configuration)
+      connectionType: PRIMARY
       # Database link
       database:
         name: simple
