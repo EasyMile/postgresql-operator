@@ -25,3 +25,19 @@ spec:
   # Wait for linked resource to be deleted
   # Default to false
   waitLinkedResourcesDeletion: true
+  # User connections used for secret generation
+  # That will be used to generate secret with primary server as url or
+  # to use the pg bouncer one.
+  # Note: Operator won't check those values.
+  userConnections:
+    # Primary connection is referring to the primary node connection.
+    # If not being set, all values will be set from spec (host, port, uriArgs)
+    primaryConnection:
+      host: localhost
+      uriArgs: sslmode=disable
+      port: 5432
+    # Bouncer connection is referring to a pg bouncer node.
+    # bouncerConnection:
+    #   host: localhost
+    #   uriArgs: sslmode=disable
+    #   port: 6432

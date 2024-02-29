@@ -7,12 +7,14 @@ spec:
   mode: PROVIDED
   # Privileges list
   privileges:
-  - # Privilege for the selected database
-    privilege: WRITER
-    # Database link
-    database:
-      name: simple
-    # Generated secret name with information for the selected database
-    generatedSecretName: simple1
+    - # Privilege for the selected database
+      privilege: WRITER
+      # Connection type to be used for secret generation (Can be set to BOUNCER if wanted and supported by engine configuration)
+      connectionType: PRIMARY
+      # Database link
+      database:
+        name: simple
+      # Generated secret name with information for the selected database
+      generatedSecretName: simple1
   # Import secret that will contain "USERNAME" and "PASSWORD" for provided mode
   importSecretName: provided-simple
