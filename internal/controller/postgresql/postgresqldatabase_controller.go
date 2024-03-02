@@ -347,19 +347,6 @@ func (r *PostgresqlDatabaseReconciler) shouldDropDatabase(
 ) (bool, error) {
 	// Check if wait linked resources deletion flag is enabled
 	if instance.Spec.WaitLinkedResourcesDeletion {
-		// Check if there are user linked resource linked to this
-		existingUser, err := r.getAnyUserLinked(ctx, instance)
-		if err != nil {
-			return false, err
-		}
-
-		if existingUser != nil {
-			// Wait for children removal
-			err = fmt.Errorf("cannot remove resource because found user %s in namespace %s linked to this resource and wait for deletion flag is enabled", existingUser.Name, existingUser.Namespace)
-
-			return false, err
-		}
-
 		// Check if there are user role linked resource linked to this
 		existingUserRole, err := r.getAnyUserRoleLinked(ctx, instance)
 		if err != nil {
@@ -401,28 +388,6 @@ func (r *PostgresqlDatabaseReconciler) getAnyUserRoleLinked(
 			if priv.Database.Name == instance.Name && (priv.Database.Namespace == instance.Namespace || user.Namespace == instance.Namespace) {
 				return &user, nil
 			}
-		}
-	}
-
-	return nil, nil
-}
-
-func (r *PostgresqlDatabaseReconciler) getAnyUserLinked(
-	ctx context.Context,
-	instance *postgresqlv1alpha1.PostgresqlDatabase,
-) (*postgresqlv1alpha1.PostgresqlUser, error) {
-	// Initialize postgres user list
-	userL := postgresqlv1alpha1.PostgresqlUserList{}
-	// Requests for list of users
-	err := r.List(ctx, &userL)
-	if err != nil {
-		return nil, err
-	}
-	// Loop over the list
-	for _, user := range userL.Items {
-		// Check db is linked to pgdatabase
-		if user.Spec.Database.Name == instance.Name && (user.Spec.Database.Namespace == instance.Namespace || user.Namespace == instance.Namespace) {
-			return &user, nil
 		}
 	}
 

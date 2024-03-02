@@ -148,13 +148,6 @@ var _ = BeforeSuite(func(_ context.Context) {
 		Scheme:   scheme.Scheme,
 	}).SetupWithManager(k8sManager)).ToNot(HaveOccurred())
 
-	Expect((&PostgresqlUserReconciler{
-		Client:   k8sClient,
-		Log:      logf.Log.WithName("controllers"),
-		Recorder: k8sManager.GetEventRecorderFor("controller"),
-		Scheme:   scheme.Scheme,
-	}).SetupWithManager(k8sManager)).ToNot(HaveOccurred())
-
 	Expect((&PostgresqlUserRoleReconciler{
 		Client:   k8sClient,
 		Log:      logf.Log.WithName("controllers"),
@@ -215,7 +208,6 @@ func cleanupFunction() {
 	err = deleteSecret(ctx, k8sClient, pgecSecretName, pgecNamespace)
 	Expect(err).ToNot(HaveOccurred())
 
-	Expect(deletePGU(ctx, k8sClient, pguName, pguNamespace)).ToNot(HaveOccurred())
 	Expect(deletePGUR(ctx, k8sClient, pgurName, pgurNamespace)).ToNot(HaveOccurred())
 	Expect(deletePGDB(ctx, k8sClient, pgdbName, pgdbNamespace)).ToNot(HaveOccurred())
 	Expect(deletePGDB(ctx, k8sClient, pgdbName2, pgdbNamespace)).ToNot(HaveOccurred())
@@ -769,61 +761,6 @@ func setupSavePGDBInternal(
 func deletePGDB(ctx context.Context, cl client.Client, name, namespace string) error {
 	// Create structure
 	st := &postgresqlv1alpha1.PostgresqlDatabase{}
-	// Delete
-	return deleteObject(ctx, cl, name, namespace, st)
-}
-
-func setupPGU() *postgresqlv1alpha1.PostgresqlUser {
-	// Create pgu
-	item := &postgresqlv1alpha1.PostgresqlUser{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      pguName,
-			Namespace: pguNamespace,
-		},
-		Spec: postgresqlv1alpha1.PostgresqlUserSpec{
-			RolePrefix: "pgu",
-			Database: &common.CRLink{
-				Name:      pgdbName,
-				Namespace: pgdbNamespace,
-			},
-			GeneratedSecretNamePrefix: "pgu",
-			Privileges:                postgresqlv1alpha1.OwnerPrivilege,
-		},
-	}
-
-	// Create
-	Expect(k8sClient.Create(ctx, item)).Should(Succeed())
-
-	// Get created
-	Eventually(
-		func() error {
-			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      pguName,
-				Namespace: pguNamespace,
-			}, item)
-			// Check error
-			if err != nil {
-				return err
-			}
-
-			// Check if status hasn't been updated
-			if item.Status.Phase == postgresqlv1alpha1.UserNoPhase {
-				return gerrors.New("pgu hasn't been updated by operator")
-			}
-
-			return nil
-		},
-		generalEventuallyTimeout,
-		generalEventuallyInterval,
-	).
-		Should(Succeed())
-
-	return item
-}
-
-func deletePGU(ctx context.Context, cl client.Client, name, namespace string) error {
-	// Create structure
-	st := &postgresqlv1alpha1.PostgresqlUser{}
 	// Delete
 	return deleteObject(ctx, cl, name, namespace, st)
 }
