@@ -37,9 +37,8 @@ import (
 )
 
 const (
-	PGECRequeueDelayErrorNumberSeconds = 5
-	DefaultPGPort                      = 5432
-	DefaultBouncerPort                 = 6432
+	DefaultPGPort      = 5432
+	DefaultBouncerPort = 6432
 )
 
 // PostgresqlEngineConfigurationReconciler reconciles a PostgresqlEngineConfiguration object.
@@ -339,11 +338,8 @@ func (r *PostgresqlEngineConfigurationReconciler) manageError(
 		logger.Error(err, "unable to update status")
 	}
 
-	// Requeue
-	return ctrl.Result{
-		RequeueAfter: PGECRequeueDelayErrorNumberSeconds * time.Second,
-		Requeue:      true,
-	}, nil
+	// Return error
+	return ctrl.Result{}, issue
 }
 
 func (r *PostgresqlEngineConfigurationReconciler) manageSuccess(
@@ -369,10 +365,8 @@ func (r *PostgresqlEngineConfigurationReconciler) manageSuccess(
 	if err != nil {
 		logger.Error(err, "unable to update status")
 
-		return ctrl.Result{
-			RequeueAfter: PGECRequeueDelayErrorNumberSeconds * time.Second,
-			Requeue:      true,
-		}, nil
+		// Return error
+		return ctrl.Result{}, err
 	}
 
 	logger.Info("Reconcile done")

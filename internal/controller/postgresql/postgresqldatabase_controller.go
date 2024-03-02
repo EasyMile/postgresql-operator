@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,9 +37,8 @@ import (
 )
 
 const (
-	PGDBRequeueDelayErrorNumberSeconds = 5
-	readerPrivs                        = "SELECT"
-	writerPrivs                        = "SELECT,INSERT,DELETE,UPDATE"
+	readerPrivs = "SELECT"
+	writerPrivs = "SELECT,INSERT,DELETE,UPDATE"
 )
 
 // PostgresqlDatabaseReconciler reconciles a PostgresqlDatabase object.
@@ -679,11 +677,8 @@ func (r *PostgresqlDatabaseReconciler) manageError(
 		logger.Error(err, "unable to update status")
 	}
 
-	// Requeue
-	return ctrl.Result{
-		RequeueAfter: PGDBRequeueDelayErrorNumberSeconds * time.Second,
-		Requeue:      true,
-	}, nil
+	// Return error
+	return ctrl.Result{}, issue
 }
 
 func (r *PostgresqlDatabaseReconciler) manageSuccess(
@@ -702,10 +697,8 @@ func (r *PostgresqlDatabaseReconciler) manageSuccess(
 	if err != nil {
 		logger.Error(err, "unable to update status")
 
-		return ctrl.Result{
-			RequeueAfter: PGDBRequeueDelayErrorNumberSeconds * time.Second,
-			Requeue:      true,
-		}, nil
+		// Return error
+		return ctrl.Result{}, err
 	}
 
 	logger.Info("Reconcile done")
