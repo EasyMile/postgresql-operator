@@ -24,6 +24,12 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type PrivilegesSpecEnum string
+
+const OwnerPrivilege PrivilegesSpecEnum = "OWNER"
+const ReaderPrivilege PrivilegesSpecEnum = "READER"
+const WriterPrivilege PrivilegesSpecEnum = "WRITER"
+
 type ConnectionTypesSpecEnum string
 
 const PrimaryConnectionType ConnectionTypesSpecEnum = "PRIMARY"
