@@ -44,7 +44,6 @@ import (
 )
 
 const (
-	PGURRequeueDelayErrorNumberSeconds         = 5
 	ListLimit                                  = 10
 	Login0Suffix                               = "-0"
 	Login1Suffix                               = "-1"
@@ -1371,11 +1370,8 @@ func (r *PostgresqlUserRoleReconciler) manageError(
 		logger.Error(err, "unable to update status")
 	}
 
-	// Requeue
-	return reconcile.Result{
-		RequeueAfter: PGURRequeueDelayErrorNumberSeconds * time.Second,
-		Requeue:      true,
-	}, nil
+	// Return error
+	return ctrl.Result{}, issue
 }
 
 func (r *PostgresqlUserRoleReconciler) manageSuccess(
@@ -1394,10 +1390,8 @@ func (r *PostgresqlUserRoleReconciler) manageSuccess(
 	if err != nil {
 		logger.Error(err, "unable to update status")
 
-		return reconcile.Result{
-			RequeueAfter: PGURRequeueDelayErrorNumberSeconds * time.Second,
-			Requeue:      true,
-		}, nil
+		// Return error
+		return ctrl.Result{}, err
 	}
 
 	logger.Info("Reconcile done")
