@@ -1,0 +1,20 @@
+{{- if .Values.grafanaDashboards.enabled }}
+{{- $dashboardFolderPath := "files/dashboards/" }}
+{{- range $path, $bytes := $.Files.Glob (printf "%s%s" $dashboardFolderPath "*") }}
+{{- $dashboardFileName := printf $path | replace $dashboardFolderPath "" }}
+{{- $dashboardName := printf $dashboardFileName | replace ".json" "" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "grafana-%s" $dashboardName }}
+  labels:
+    {{ include "postgresql-operator.labels" $ | nindent 4 }}
+    {{ toYaml $.Values.grafanaDashboards.labels | nindent 4 }}
+  annotations:
+    {{ toYaml $.Values.grafanaDashboards.annotations | nindent 4 }}
+data:
+{{ print $dashboardFileName | indent 2 }}: {{ $.Files.Get $path | toJson| indent 4 }}
+---
+{{- end }}
+{{- end }}
+

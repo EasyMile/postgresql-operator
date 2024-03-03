@@ -76,3 +76,9 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+grafanaDashboards:
+  enabled: false
+  labels:
+    grafana_dashboard: "1"
+  annotations: {}
