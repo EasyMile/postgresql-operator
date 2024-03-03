@@ -28,6 +28,7 @@ import (
 	"github.com/lib/pq"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -93,6 +94,13 @@ var dbConns = map[string]*struct {
 	db *sql.DB
 }{}
 var mainDBConn *sql.DB
+var controllerRuntimeDetailedErrorTotal = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "controller_runtime_reconcile_detailed_errors_total",
+		Help: "Total number of reconciliation errors per controller detailed with resource namespace and name.",
+	},
+	[]string{"controller", "namespace", "name"},
+)
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -135,24 +143,30 @@ var _ = BeforeSuite(func(_ context.Context) {
 	Expect(k8sManager).ToNot(BeNil())
 
 	Expect((&PostgresqlEngineConfigurationReconciler{
-		Client:   k8sClient,
-		Log:      logf.Log.WithName("controllers"),
-		Recorder: k8sManager.GetEventRecorderFor("controller"),
-		Scheme:   scheme.Scheme,
+		Client:                              k8sClient,
+		Log:                                 logf.Log.WithName("controllers"),
+		Recorder:                            k8sManager.GetEventRecorderFor("controller"),
+		Scheme:                              scheme.Scheme,
+		ControllerRuntimeDetailedErrorTotal: controllerRuntimeDetailedErrorTotal,
+		ControllerName:                      "postgresqlengineconfiguration",
 	}).SetupWithManager(k8sManager)).ToNot(HaveOccurred())
 
 	Expect((&PostgresqlDatabaseReconciler{
-		Client:   k8sClient,
-		Log:      logf.Log.WithName("controllers"),
-		Recorder: k8sManager.GetEventRecorderFor("controller"),
-		Scheme:   scheme.Scheme,
+		Client:                              k8sClient,
+		Log:                                 logf.Log.WithName("controllers"),
+		Recorder:                            k8sManager.GetEventRecorderFor("controller"),
+		Scheme:                              scheme.Scheme,
+		ControllerRuntimeDetailedErrorTotal: controllerRuntimeDetailedErrorTotal,
+		ControllerName:                      "postgresqldatabase",
 	}).SetupWithManager(k8sManager)).ToNot(HaveOccurred())
 
 	Expect((&PostgresqlUserRoleReconciler{
-		Client:   k8sClient,
-		Log:      logf.Log.WithName("controllers"),
-		Recorder: k8sManager.GetEventRecorderFor("controller"),
-		Scheme:   scheme.Scheme,
+		Client:                              k8sClient,
+		Log:                                 logf.Log.WithName("controllers"),
+		Recorder:                            k8sManager.GetEventRecorderFor("controller"),
+		Scheme:                              scheme.Scheme,
+		ControllerRuntimeDetailedErrorTotal: controllerRuntimeDetailedErrorTotal,
+		ControllerName:                      "postgresqluserrole",
 	}).SetupWithManager(k8sManager)).ToNot(HaveOccurred())
 
 	go func() {
