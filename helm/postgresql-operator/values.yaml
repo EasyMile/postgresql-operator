@@ -18,16 +18,45 @@ replicaCount: 1
 
 image:
   repository: easymile/postgresql-operator
-  tag: 2.1.1
+  tag: 2.1.2
   pullPolicy: IfNotPresent
 
 args:
-  []
-  # - --leader-elect
+  - --leader-elect
   # - --resync-period=30s
+
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
+
+podSecurityContext:
+  runAsNonRoot: true
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - "ALL"
+
+startupProbe:
+  httpGet:
+    path: /healthz
+    port: 8081
+  initialDelaySeconds: 0
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 8081
+  initialDelaySeconds: 0
+  periodSeconds: 20
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: 8081
+  initialDelaySeconds: 0
+  periodSeconds: 20
+
+terminationGracePeriodSeconds: 10
 
 resources:
   {}
