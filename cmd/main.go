@@ -32,18 +32,30 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
 	postgresqlcontrollers "github.com/easymile/postgresql-operator/internal/controller/postgresql"
+	"github.com/prometheus/client_golang/prometheus"
 	//+kubebuilder:scaffold:imports
 )
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme                              = runtime.NewScheme()
+	setupLog                            = ctrl.Log.WithName("setup")
+	controllerRuntimeDetailedErrorTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "controller_runtime_reconcile_detailed_errors_total",
+			Help: "Total number of reconciliation errors per controller detailed with resource namespace and name.",
+		},
+		[]string{"controller", "namespace", "name"},
+	)
 )
 
 func init() {
+	// Register custom metrics with the global prometheus registry
+	metrics.Registry.MustRegister(controllerRuntimeDetailedErrorTotal)
+
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(postgresqlv1alpha1.AddToScheme(scheme))
@@ -117,6 +129,8 @@ func main() {
 			"controllerGroup",
 			"postgresql.easymile.com",
 		),
+		ControllerRuntimeDetailedErrorTotal: controllerRuntimeDetailedErrorTotal,
+		ControllerName:                      "postgresqlengineconfiguration",
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PostgresqlEngineConfiguration")
 		os.Exit(1)
@@ -134,6 +148,8 @@ func main() {
 			"controllerGroup",
 			"postgresql.easymile.com",
 		),
+		ControllerRuntimeDetailedErrorTotal: controllerRuntimeDetailedErrorTotal,
+		ControllerName:                      "postgresqldatabase",
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PostgresqlDatabase")
 		os.Exit(1)
@@ -151,6 +167,8 @@ func main() {
 			"controllerGroup",
 			"postgresql.easymile.com",
 		),
+		ControllerRuntimeDetailedErrorTotal: controllerRuntimeDetailedErrorTotal,
+		ControllerName:                      "postgresqluserrole",
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PostgresqlUserRole")
 		os.Exit(1)

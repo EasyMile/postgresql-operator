@@ -33,6 +33,7 @@ import (
 	"github.com/easymile/postgresql-operator/internal/controller/postgresql/postgres"
 	"github.com/easymile/postgresql-operator/internal/controller/utils"
 	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/thoas/go-funk"
 )
 
@@ -42,11 +43,13 @@ const (
 )
 
 // PostgresqlDatabaseReconciler reconciles a PostgresqlDatabase object.
-type PostgresqlDatabaseReconciler struct { //nolint: golint // generated
-	client.Client
-	Scheme   *runtime.Scheme
+type PostgresqlDatabaseReconciler struct {
 	Recorder record.EventRecorder
-	Log      logr.Logger
+	client.Client
+	Scheme                              *runtime.Scheme
+	ControllerRuntimeDetailedErrorTotal *prometheus.CounterVec
+	Log                                 logr.Logger
+	ControllerName                      string
 }
 
 //+kubebuilder:rbac:groups=postgresql.easymile.com,resources=postgresqldatabases,verbs=get;list;watch;create;update;patch;delete
@@ -671,6 +674,9 @@ func (r *PostgresqlDatabaseReconciler) manageError(
 	instance.Status.Ready = false
 	instance.Status.Phase = postgresqlv1alpha1.DatabaseFailedPhase
 
+	// Increase fail counter
+	r.ControllerRuntimeDetailedErrorTotal.WithLabelValues(r.ControllerName, instance.Namespace, instance.Name).Inc()
+
 	// Patch status
 	err := r.Status().Patch(ctx, instance, originalPatch)
 	if err != nil {
@@ -695,6 +701,9 @@ func (r *PostgresqlDatabaseReconciler) manageSuccess(
 	// Patch status
 	err := r.Status().Patch(ctx, instance, originalPatch)
 	if err != nil {
+		// Increase fail counter
+		r.ControllerRuntimeDetailedErrorTotal.WithLabelValues(r.ControllerName, instance.Namespace, instance.Name).Inc()
+
 		logger.Error(err, "unable to update status")
 
 		// Return error

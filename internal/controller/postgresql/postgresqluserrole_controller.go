@@ -40,6 +40,7 @@ import (
 	"github.com/easymile/postgresql-operator/internal/controller/postgresql/postgres"
 	"github.com/easymile/postgresql-operator/internal/controller/utils"
 	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/thoas/go-funk"
 )
 
@@ -56,10 +57,12 @@ const (
 
 // PostgresqlUserRoleReconciler reconciles a PostgresqlUserRole object.
 type PostgresqlUserRoleReconciler struct {
-	client.Client
-	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
-	Log      logr.Logger
+	client.Client
+	Scheme                              *runtime.Scheme
+	ControllerRuntimeDetailedErrorTotal *prometheus.CounterVec
+	Log                                 logr.Logger
+	ControllerName                      string
 }
 
 type dbPrivilegeCache struct {
@@ -1364,6 +1367,9 @@ func (r *PostgresqlUserRoleReconciler) manageError(
 	instance.Status.Ready = false
 	instance.Status.Phase = v1alpha1.UserRoleFailedPhase
 
+	// Increase fail counter
+	r.ControllerRuntimeDetailedErrorTotal.WithLabelValues(r.ControllerName, instance.Namespace, instance.Name).Inc()
+
 	// Patch status
 	err := r.Status().Patch(ctx, instance, originalPatch)
 	if err != nil {
@@ -1388,6 +1394,9 @@ func (r *PostgresqlUserRoleReconciler) manageSuccess(
 	// Patch status
 	err := r.Status().Patch(ctx, instance, originalPatch)
 	if err != nil {
+		// Increase fail counter
+		r.ControllerRuntimeDetailedErrorTotal.WithLabelValues(r.ControllerName, instance.Namespace, instance.Name).Inc()
+
 		logger.Error(err, "unable to update status")
 
 		// Return error

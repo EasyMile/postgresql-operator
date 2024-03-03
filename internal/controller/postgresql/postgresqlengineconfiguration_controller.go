@@ -33,6 +33,7 @@ import (
 	"github.com/easymile/postgresql-operator/internal/controller/postgresql/postgres"
 	"github.com/easymile/postgresql-operator/internal/controller/utils"
 	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -42,11 +43,13 @@ const (
 )
 
 // PostgresqlEngineConfigurationReconciler reconciles a PostgresqlEngineConfiguration object.
-type PostgresqlEngineConfigurationReconciler struct { //nolint: golint // generated
-	client.Client
-	Scheme   *runtime.Scheme
+type PostgresqlEngineConfigurationReconciler struct {
 	Recorder record.EventRecorder
-	Log      logr.Logger
+	client.Client
+	Scheme                              *runtime.Scheme
+	ControllerRuntimeDetailedErrorTotal *prometheus.CounterVec
+	Log                                 logr.Logger
+	ControllerName                      string
 }
 
 //+kubebuilder:rbac:groups=postgresql.easymile.com,resources=postgresqlengineconfigurations,verbs=get;list;watch;create;update;patch;delete
@@ -332,6 +335,9 @@ func (r *PostgresqlEngineConfigurationReconciler) manageError(
 	instance.Status.Ready = false
 	instance.Status.Phase = postgresqlv1alpha1.EngineFailedPhase
 
+	// Increase fail counter
+	r.ControllerRuntimeDetailedErrorTotal.WithLabelValues(r.ControllerName, instance.Namespace, instance.Name).Inc()
+
 	// Patch status
 	err := r.Status().Patch(ctx, instance, originalPatch)
 	if err != nil {
@@ -363,6 +369,9 @@ func (r *PostgresqlEngineConfigurationReconciler) manageSuccess(
 	// Patch status
 	err = r.Status().Patch(ctx, instance, originalPatch)
 	if err != nil {
+		// Increase fail counter
+		r.ControllerRuntimeDetailedErrorTotal.WithLabelValues(r.ControllerName, instance.Namespace, instance.Name).Inc()
+
 		logger.Error(err, "unable to update status")
 
 		// Return error
