@@ -42,7 +42,7 @@ spec:
               value: {{ include "postgresql-operator.fullname" . }}
           ports:
             - name: http-metrics
-              containerPort: 8383
+              containerPort: 8080
               protocol: TCP
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
