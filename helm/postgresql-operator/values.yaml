@@ -21,7 +21,10 @@ image:
   tag: 2.1.1
   pullPolicy: IfNotPresent
 
-args: []
+args:
+  []
+  # - --leader-elect
+  # - --resync-period=30s
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
