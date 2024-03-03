@@ -1,0 +1,13 @@
+{{ if .Values.prometheus.rules.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "postgresql-operator.fullname" . }}
+  labels:
+{{ include "postgresql-operator.labels" . | nindent 4 }}
+{{ if .Values.prometheus.rules.labels }}
+{{ toYaml .Values.prometheus.rules.labels | nindent 4 }}
+{{ end }}
+spec:
+{{ toYaml .Values.prometheus.rules.spec | nindent 2 }}
+{{ end }}

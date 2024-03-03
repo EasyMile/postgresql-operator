@@ -82,3 +82,22 @@ grafanaDashboards:
   labels:
     grafana_dashboard: "1"
   annotations: {}
+
+prometheus:
+  serviceMonitor:
+    enabled: false
+    labels: {}
+    interval: ""
+    scrapeTimeout: ""
+    metricRelabelings: []
+    relabelings: []
+  rules:
+    enabled: false
+    labels: {}
+    spec:
+      {}
+      # groups:
+      #   - name: ./example.rules
+      #     rules:
+      #       - alert: ExampleAlert
+      #         expr: vector(1)

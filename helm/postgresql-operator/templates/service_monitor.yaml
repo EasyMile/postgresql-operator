@@ -1,0 +1,35 @@
+{{ if .Values.prometheus.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "postgresql-operator.fullname" . }}
+  labels:
+{{ include "postgresql-operator.labels" . | nindent 4 }}
+{{ if .Values.prometheus.serviceMonitor.labels }}
+{{ toYaml .Values.prometheus.serviceMonitor.labels | nindent 4 }}
+{{ end }}
+spec:
+  endpoints:
+    - path: /metrics
+      port: http-metrics
+      scheme: http
+      {{- if .Values.prometheus.serviceMonitor.interval }}
+      interval: {{ .Values.prometheus.serviceMonitor.interval }}
+      {{- end }}
+      {{- if .Values.prometheus.serviceMonitor.scrapeTimeout }}
+      scrapeTimeout: {{ .Values.prometheus.serviceMonitor.scrapeTimeout }}
+      {{- end }}
+      {{- if .Values.prometheus.serviceMonitor.metricRelabelings }}
+      metricRelabelings:
+        {{ toYaml .Values.prometheus.serviceMonitor.metricRelabelings | nindent 8 }}
+      {{- end }}
+      {{- if .Values.prometheus.serviceMonitor.relabelings }}
+      relabelings:
+        {{ toYaml .Values.prometheus.serviceMonitor.relabelings | nindent 8 }}
+      {{- end }}
+  jobLabel: {{ include "postgresql-operator.fullname" . }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "postgresql-operator.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+{{ end }}
