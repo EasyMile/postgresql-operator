@@ -1,5 +1,22 @@
 # Changelog
 
+## 3.0.0
+
+### Breaking change
+
+- Do not support anymore postgresql user. Switch to postgresqluserrole is now mandatory
+
+### Features
+
+- Improve Helm chart with new features and code
+- Add support for PGBouncer in PosgtreSQL Engine Configurations and PostgreSQL User Roles
+- Add custom metric to count reconcile errors in a detailed manner. This is including resource name and namespace in labels where the default provided isn't
+
+### Bugs
+
+- Fix application port in Helm chart
+- Fix unnecessary requeue
+
 ## 2.1.2
 
 ### Bugs
