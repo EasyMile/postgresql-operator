@@ -22,6 +22,7 @@ import (
 	gerrors "errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -615,7 +616,7 @@ func setupPGEC(
 		Host:    "localhost",
 		Port:    5432,
 		URIArgs: "sslmode=disable",
-	}, nil)
+	}, nil, false)
 }
 
 func setupPGECWithBouncer(
@@ -630,13 +631,25 @@ func setupPGECWithBouncer(
 		Host:    "localhost",
 		Port:    5433,
 		URIArgs: "sslmode=disable",
-	})
+	}, false)
+}
+
+func setupPGECWithAllowGrantAdminOption(
+	checkInterval string,
+	waitLinkedResourcesDeletion bool,
+) (*postgresqlv1alpha1.PostgresqlEngineConfiguration, *corev1.Secret) {
+	return setupPGECInternal(checkInterval, waitLinkedResourcesDeletion, &postgresqlv1alpha1.GenericUserConnection{
+		Host:    "localhost",
+		Port:    5432,
+		URIArgs: "sslmode=disable",
+	}, nil, true)
 }
 
 func setupPGECInternal(
 	checkInterval string,
 	waitLinkedResourcesDeletion bool,
 	primaryUserConnection, bouncerUserConnection *postgresqlv1alpha1.GenericUserConnection,
+	allowGrantAdminOption bool,
 ) (*postgresqlv1alpha1.PostgresqlEngineConfiguration, *corev1.Secret) {
 	// Create secret
 	sec := setupPGECSecret()
@@ -654,6 +667,7 @@ func setupPGECInternal(
 			URIArgs:                     "sslmode=disable",
 			DefaultDatabase:             "postgres",
 			CheckInterval:               checkInterval,
+			AllowGrantAdminOption:       allowGrantAdminOption,
 			WaitLinkedResourcesDeletion: waitLinkedResourcesDeletion,
 			SecretName:                  pgecSecretName,
 			UserConnections: &postgresqlv1alpha1.UserConnections{
@@ -1032,39 +1046,10 @@ func createTableInSchema(schema, table string) error {
 	return nil
 }
 
-func isSQLUserMemberOf(user, group string) (bool, error) {
-	// Query template
-	IsMemberOfSQLTemplate := `SELECT 1 FROM pg_roles WHERE pg_has_role( '%s', oid, 'member') AND rolname = '%s'`
-
-	if mainDBConn == nil {
-		db, err := sql.Open("postgres", postgresUrl)
-		if err != nil {
-			return false, err
-		}
-		mainDBConn = db
-	}
-
-	res, err := mainDBConn.Exec(fmt.Sprintf(IsMemberOfSQLTemplate, user, group))
-	if err != nil {
-		return false, err
-	}
-	// Get affected rows
-	nb, err := res.RowsAffected()
-	if err != nil {
-		return false, err
-	}
-
-	return nb == 1, nil
-}
-
-func checkRoleInSQLDb(user, role string) {
+func checkRoleInSQLDb(role string) {
 	roleExists, roleErr := isSQLRoleExists(role)
 	Expect(roleErr).ToNot(HaveOccurred())
 	Expect(roleExists).To(BeTrue())
-
-	memberOf, memberOfErr := isSQLUserMemberOf(user, role)
-	Expect(memberOfErr).ToNot(HaveOccurred())
-	Expect(memberOf).To(BeTrue())
 }
 
 func connectAs(username, password string) (string, error) {
@@ -1137,6 +1122,51 @@ func isRoleOwnerofSQLDB(dbname, role string) (bool, error) {
 	}
 
 	return nb == 1, nil
+}
+
+func getSQLRoleMembershipWithAdminOption(role string) (map[string]bool, error) {
+	sqlTemplate := "SELECT member::regrole, admin_option FROM pg_auth_members where roleid='%s'::regrole;"
+
+	if mainDBConn == nil {
+		db, err := sql.Open("postgres", postgresUrl)
+		if err != nil {
+			return nil, err
+		}
+		mainDBConn = db
+	}
+
+	rows, err := mainDBConn.Query(fmt.Sprintf(sqlTemplate, role))
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	res := map[string]bool{}
+
+	for rows.Next() {
+		member := ""
+		adminOption := false
+		// Scan
+		err = rows.Scan(&member, &adminOption)
+		// Check error
+		if err != nil {
+			return nil, err
+		}
+		// Clean member to remove extra "
+		member = strings.ReplaceAll(member, `"`, "")
+		// Save
+		res[member] = adminOption
+	}
+
+	// Rows error
+	err = rows.Err()
+	// Check error
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
 func isSetRoleOnDatabasesRoleSettingsExists(username, databaseInput, groupRole string) (bool, error) {

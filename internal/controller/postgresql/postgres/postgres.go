@@ -26,7 +26,7 @@ type PG interface { //nolint:interfacebloat // This is needed
 	IsRoleExist(role string) (bool, error)
 	RenameRole(oldname, newname string) error
 	UpdatePassword(role, password string) error
-	GrantRole(role, grantee string) error
+	GrantRole(role, grantee string, withAdminOption bool) error
 	SetSchemaPrivileges(db, creator, role, schema, privs string) error
 	RevokeRole(role, userRole string) error
 	AlterDefaultLoginRole(role, setRole string) error

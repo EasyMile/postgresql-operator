@@ -46,7 +46,7 @@ func (azpg *azurepg) GetRoleForLogin(login string) string {
 
 func (azpg *azurepg) CreateDB(dbname, role string) error {
 	// Have to add the master role to the group role before we can transfer the database owner
-	err := azpg.GrantRole(role, azpg.GetRoleForLogin(azpg.user))
+	err := azpg.GrantRole(role, azpg.GetRoleForLogin(azpg.user), false)
 	if err != nil {
 		return err
 	}

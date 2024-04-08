@@ -10,6 +10,7 @@ const (
 	CreateGroupRoleSQLTemplate             = `CREATE ROLE "%s"`
 	CreateUserRoleSQLTemplate              = `CREATE ROLE "%s" WITH LOGIN PASSWORD '%s'`
 	GrantRoleSQLTemplate                   = `GRANT "%s" TO "%s"`
+	GrantRoleWithAdminOptionSQLTemplate    = `GRANT "%s" TO "%s" WITH ADMIN OPTION`
 	AlterUserSetRoleSQLTemplate            = `ALTER USER "%s" SET ROLE "%s"`
 	AlterUserSetRoleOnDatabaseSQLTemplate  = `ALTER ROLE "%s" IN DATABASE "%s" SET ROLE "%s"`
 	RevokeUserSetRoleOnDatabaseSQLTemplate = `ALTER ROLE "%s" IN DATABASE "%s" RESET role`
@@ -104,13 +105,19 @@ func (c *pg) CreateUserRole(role, password string) (string, error) {
 	return role, nil
 }
 
-func (c *pg) GrantRole(role, grantee string) error {
+func (c *pg) GrantRole(role, grantee string, withAdminOption bool) error {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(GrantRoleSQLTemplate, role, grantee))
+	// Select right SQL template
+	tpl := GrantRoleSQLTemplate
+	if withAdminOption {
+		tpl = GrantRoleWithAdminOptionSQLTemplate
+	}
+
+	_, err = c.db.Exec(fmt.Sprintf(tpl, role, grantee))
 	if err != nil {
 		return err
 	}

@@ -708,13 +708,126 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(err).To(Succeed())
 			Expect(exists).To(BeTrue())
 
-			memberOf, err := isSQLUserMemberOf(pgurImportUsername, pgdb.Status.Roles.Owner)
+			sett, err := isSetRoleOnDatabasesRoleSettingsExists(pgurImportUsername, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
+			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, pgurImportUsername: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgurImportUsername)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
+		})
+
+		It("should be ok without work secret name and with a pgec with allow grant admin option", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithAllowGrantAdminOption("30s", false)
+			// Create pgdb
+			pgdb := setupPGDB(false)
+
+			// Create secret
+			setupPGURImportSecret()
+
+			preDate := time.Now().Add(-time.Second)
+
+			it := &postgresqlv1alpha1.PostgresqlUserRole{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      pgurName,
+					Namespace: pgurNamespace,
+				},
+				Spec: postgresqlv1alpha1.PostgresqlUserRoleSpec{
+					Mode:             postgresqlv1alpha1.ProvidedMode,
+					ImportSecretName: pgurImportSecretName,
+					Privileges: []*postgresqlv1alpha1.PostgresqlUserRolePrivilege{
+						{
+							Privilege:           postgresqlv1alpha1.OwnerPrivilege,
+							Database:            &common.CRLink{Name: pgdbName, Namespace: pgdbNamespace},
+							GeneratedSecretName: pgurDBSecretName,
+						},
+					},
+				},
+			}
+
+			// Create user
+			Expect(k8sClient.Create(ctx, it)).Should(Succeed())
+
+			item := &postgresqlv1alpha1.PostgresqlUserRole{}
+			// Get updated user
+			Eventually(
+				func() error {
+					err := k8sClient.Get(ctx, types.NamespacedName{
+						Name:      pgurName,
+						Namespace: pgurNamespace,
+					}, item)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check if status hasn't been updated
+					if item.Status.Phase == postgresqlv1alpha1.UserRoleNoPhase {
+						return errors.New("pgur hasn't been updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+			Expect(item.Status.Message).To(Equal(""))
+			Expect(item.Status.RolePrefix).To(Equal(""))
+			Expect(item.Status.PostgresRole).To(Equal(pgurImportUsername))
+			Expect(item.Spec.WorkGeneratedSecretName).ToNot(Equal(pgurWorkSecretName))
+			Expect(item.Spec.WorkGeneratedSecretName).To(MatchRegexp(DefaultWorkGeneratedSecretNamePrefix + ".*"))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
+			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
+			Expect(err).To(Succeed())
+			Expect(d.After(preDate)).To(BeTrue())
+
+			// Get work secret
+			sec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, sec)).Should(Succeed())
+
+			Expect(string(sec.Data[UsernameSecretKey])).To(Equal(pgurImportUsername))
+			Expect(string(sec.Data[PasswordSecretKey])).To(Equal(pgurImportPassword))
+
+			// Get db secret
+			sec = &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurDBSecretName,
+				Namespace: pgurNamespace,
+			}, sec)).Should(Succeed())
+
+			// Validate
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword, pgec, v1alpha1.PrimaryConnectionType)
+
+			// Connect to check user
+			_, err = connectAs(pgurImportUsername, pgurImportPassword)
+			Expect(err).To(Succeed())
+
+			exists, err := isSQLRoleExists(pgurImportUsername)
+			Expect(err).To(Succeed())
+			Expect(exists).To(BeTrue())
 
 			sett, err := isSetRoleOnDatabasesRoleSettingsExists(pgurImportUsername, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
 			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: true, pgurImportUsername: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgurImportUsername)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: true}))
 		})
 
 		It("should be ok with work secret name", func() {
@@ -770,13 +883,16 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(err).To(Succeed())
 			Expect(exists).To(BeTrue())
 
-			memberOf, err := isSQLUserMemberOf(pgurImportUsername, pgdb.Status.Roles.Owner)
-			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
-
 			sett, err := isSetRoleOnDatabasesRoleSettingsExists(pgurImportUsername, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
 			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, pgurImportUsername: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgurImportUsername)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
 		})
 
 		It("should be ok with 2 databases", func() {
@@ -839,13 +955,84 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(err).To(Succeed())
 			Expect(exists).To(BeTrue())
 
-			memberOf, err := isSQLUserMemberOf(pgurImportUsername, pgdb.Status.Roles.Owner)
+			sett, err := isSetRoleOnDatabasesRoleSettingsExists(pgurImportUsername, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
+			Expect(sett).To(BeTrue())
 
-			memberOf, err = isSQLUserMemberOf(pgurImportUsername, pgdb2.Status.Roles.Writer)
+			sett, err = isSetRoleOnDatabasesRoleSettingsExists(pgurImportUsername, pgdbDBName2, pgdb2.Status.Roles.Writer)
 			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
+			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, pgurImportUsername: false}))
+			writerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb2.Status.Roles.Writer)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(writerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, pgurImportUsername: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgurImportUsername)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
+		})
+
+		It("should be ok with 2 databases and with a pgec with allow grand admin option", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithAllowGrantAdminOption("30s", false)
+			// Create pgdb
+			pgdb := setupPGDB(false)
+			pgdb2 := setupPGDB2()
+
+			// Create secret
+			setupPGURImportSecret()
+
+			preDate := time.Now().Add(-time.Second)
+
+			item := setupProvidedPGURWith2Databases()
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+			Expect(item.Status.Message).To(Equal(""))
+			Expect(item.Status.RolePrefix).To(Equal(""))
+			Expect(item.Status.PostgresRole).To(Equal(pgurImportUsername))
+			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
+			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
+			Expect(err).To(Succeed())
+			Expect(d.After(preDate)).To(BeTrue())
+
+			// Get work secret
+			sec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, sec)).Should(Succeed())
+
+			Expect(string(sec.Data[UsernameSecretKey])).To(Equal(pgurImportUsername))
+			Expect(string(sec.Data[PasswordSecretKey])).To(Equal(pgurImportPassword))
+
+			// Get db secret
+			sec = &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurDBSecretName,
+				Namespace: pgurNamespace,
+			}, sec)).Should(Succeed())
+			sec2 := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurDBSecretName2,
+				Namespace: pgurNamespace,
+			}, sec2)).Should(Succeed())
+
+			// Validate
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword, pgec, v1alpha1.PrimaryConnectionType)
+			checkPGURSecretValues(pgurDBSecretName2, pgurNamespace, pgdbDBName2, pgurImportUsername, pgurImportPassword, pgec, v1alpha1.PrimaryConnectionType)
+
+			// Connect to check user
+			_, err = connectAs(pgurImportUsername, pgurImportPassword)
+			Expect(err).To(Succeed())
+
+			exists, err := isSQLRoleExists(pgurImportUsername)
+			Expect(err).To(Succeed())
+			Expect(exists).To(BeTrue())
 
 			sett, err := isSetRoleOnDatabasesRoleSettingsExists(pgurImportUsername, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
@@ -854,6 +1041,16 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			sett, err = isSetRoleOnDatabasesRoleSettingsExists(pgurImportUsername, pgdbDBName2, pgdb2.Status.Roles.Writer)
 			Expect(err).To(Succeed())
 			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: true, pgurImportUsername: false}))
+			writerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb2.Status.Roles.Writer)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(writerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: true, pgurImportUsername: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgurImportUsername)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: true}))
 		})
 
 		It("should be ok to edit work secret", func() {
@@ -1203,13 +1400,16 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(err).To(Succeed())
 			Expect(exists).To(BeTrue())
 
-			memberOf, err := isSQLUserMemberOf(pgurImportUsername, pgdb.Status.Roles.Owner)
-			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
-
 			sett, err := isSetRoleOnDatabasesRoleSettingsExists(pgurImportUsername, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
 			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, pgurImportUsername: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgurImportUsername)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
 		})
 
 		It("should be ok to change username", func() {
@@ -1307,13 +1507,16 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(err).To(Succeed())
 			Expect(exists).To(BeTrue())
 
-			memberOf, err := isSQLUserMemberOf(updatedUser, pgdb.Status.Roles.Owner)
-			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
-
 			sett, err := isSetRoleOnDatabasesRoleSettingsExists(updatedUser, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
 			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, updatedUser: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(updatedUser)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
 		})
 
 		It("should be ok to change username and wait old user disconnection", func() {
@@ -1523,9 +1726,12 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 				Namespace: pgurNamespace,
 			}, sec)).To(Succeed())
 
-			memberOf, err := isSQLUserMemberOf(pgurImportUsername, pgdb.Status.Roles.Owner)
-			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, pgurImportUsername: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgurImportUsername)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
 
 			sett, err := isSetRoleOnDatabasesRoleSettingsExists(pgurImportUsername, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
@@ -1537,13 +1743,13 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 
 			Eventually(
 				func() error {
-					memberOf, err := isSQLUserMemberOf(pgurImportUsername, pgdb.Status.Roles.Writer)
+					writerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Writer)
 					// Check error
 					if err != nil {
 						return err
 					}
 
-					if !memberOf {
+					if _, ok := writerMemberWithAdminOption[pgurImportUsername]; !ok {
 						return errors.New("user in pg not updated")
 					}
 
@@ -1554,9 +1760,15 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			).
 				Should(Succeed())
 
-			memberOf, err = isSQLUserMemberOf(pgurImportUsername, pgdb.Status.Roles.Writer)
-			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
+			ownerMemberWithAdminOption, err = getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
+			writerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Writer)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(writerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, pgurImportUsername: false}))
+			usernameWithAdminOption, err = getSQLRoleMembershipWithAdminOption(pgurImportUsername)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
 
 			sett, err = isSetRoleOnDatabasesRoleSettingsExists(pgurImportUsername, pgdbDBName, pgdb.Status.Roles.Writer)
 			Expect(err).To(Succeed())
@@ -2637,13 +2849,124 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(err).To(Succeed())
 			Expect(exists).To(BeTrue())
 
-			memberOf, err := isSQLUserMemberOf(username, pgdb.Status.Roles.Owner)
+			sett, err := isSetRoleOnDatabasesRoleSettingsExists(username, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
+			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, username: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(username)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
+		})
+
+		It("should be ok without work secret name and with a pgec with allow grant admin option", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithAllowGrantAdminOption("30s", false)
+			// Create pgdb
+			pgdb := setupPGDB(false)
+
+			preDate := time.Now().Add(-time.Second)
+
+			it := &postgresqlv1alpha1.PostgresqlUserRole{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      pgurName,
+					Namespace: pgurNamespace,
+				},
+				Spec: postgresqlv1alpha1.PostgresqlUserRoleSpec{
+					Mode:       postgresqlv1alpha1.ManagedMode,
+					RolePrefix: pgurRolePrefix,
+					Privileges: []*postgresqlv1alpha1.PostgresqlUserRolePrivilege{
+						{
+							Privilege:           postgresqlv1alpha1.OwnerPrivilege,
+							Database:            &common.CRLink{Name: pgdbName, Namespace: pgdbNamespace},
+							GeneratedSecretName: pgurDBSecretName,
+						},
+					},
+				},
+			}
+
+			// Create user
+			Expect(k8sClient.Create(ctx, it)).Should(Succeed())
+
+			item := &postgresqlv1alpha1.PostgresqlUserRole{}
+			// Get updated user
+			Eventually(
+				func() error {
+					err := k8sClient.Get(ctx, types.NamespacedName{
+						Name:      pgurName,
+						Namespace: pgurNamespace,
+					}, item)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check if status hasn't been updated
+					if item.Status.Phase == postgresqlv1alpha1.UserRoleNoPhase {
+						return errors.New("pgur hasn't been updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			username := pgurRolePrefix + Login0Suffix
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+			Expect(item.Status.Message).To(Equal(""))
+			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
+			Expect(item.Status.PostgresRole).To(Equal(username))
+			Expect(item.Spec.WorkGeneratedSecretName).ToNot(Equal(pgurWorkSecretName))
+			Expect(item.Spec.WorkGeneratedSecretName).To(MatchRegexp(DefaultWorkGeneratedSecretNamePrefix + ".*"))
+			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
+			Expect(err).To(Succeed())
+			Expect(d.After(preDate)).To(BeTrue())
+
+			// Get work secret
+			sec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, sec)).Should(Succeed())
+
+			Expect(string(sec.Data[UsernameSecretKey])).To(Equal(username))
+			Expect(string(sec.Data[PasswordSecretKey])).ToNot(Equal(""))
+			Expect(string(sec.Data[PasswordSecretKey])).To(HaveLen(ManagedPasswordSize))
+
+			// Get db secret
+			dbsec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurDBSecretName,
+				Namespace: pgurNamespace,
+			}, dbsec)).Should(Succeed())
+
+			// Validate
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username, string(sec.Data[PasswordSecretKey]), pgec, v1alpha1.PrimaryConnectionType)
+
+			// Connect to check user
+			_, err = connectAs(username, string(sec.Data[PasswordSecretKey]))
+			Expect(err).To(Succeed())
+
+			exists, err := isSQLRoleExists(username)
+			Expect(err).To(Succeed())
+			Expect(exists).To(BeTrue())
 
 			sett, err := isSetRoleOnDatabasesRoleSettingsExists(username, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
 			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: true, username: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(username)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: true}))
 		})
 
 		It("should be ok with work secret name", func() {
@@ -2698,13 +3021,16 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(err).To(Succeed())
 			Expect(exists).To(BeTrue())
 
-			memberOf, err := isSQLUserMemberOf(username, pgdb.Status.Roles.Owner)
-			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
-
 			sett, err := isSetRoleOnDatabasesRoleSettingsExists(username, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
 			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, username: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(username)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
 		})
 
 		It("should be ok with 2 databases", func() {
@@ -2767,13 +3093,84 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(err).To(Succeed())
 			Expect(exists).To(BeTrue())
 
-			memberOf, err := isSQLUserMemberOf(username, pgdb.Status.Roles.Owner)
+			sett, err := isSetRoleOnDatabasesRoleSettingsExists(username, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
+			Expect(sett).To(BeTrue())
 
-			memberOf, err = isSQLUserMemberOf(username, pgdb2.Status.Roles.Writer)
+			sett, err = isSetRoleOnDatabasesRoleSettingsExists(username, pgdbDBName2, pgdb2.Status.Roles.Writer)
 			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
+			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, username: false}))
+			writerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb2.Status.Roles.Writer)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(writerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, username: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(username)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
+		})
+
+		It("should be ok with 2 databases with a pgec with allow grant admin option", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithAllowGrantAdminOption("30s", false)
+			// Create pgdb
+			pgdb := setupPGDB(false)
+			pgdb2 := setupPGDB2()
+
+			preDate := time.Now().Add(-time.Second)
+
+			item := setupManagedPGURWith2Databases()
+
+			username := pgurRolePrefix + Login0Suffix
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+			Expect(item.Status.Message).To(Equal(""))
+			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
+			Expect(item.Status.PostgresRole).To(Equal(username))
+			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
+			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
+			Expect(err).To(Succeed())
+			Expect(d.After(preDate)).To(BeTrue())
+
+			// Get work secret
+			sec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, sec)).Should(Succeed())
+
+			Expect(string(sec.Data[UsernameSecretKey])).To(Equal(username))
+			Expect(string(sec.Data[PasswordSecretKey])).ToNot(Equal(""))
+			Expect(string(sec.Data[PasswordSecretKey])).To(HaveLen(ManagedPasswordSize))
+
+			// Get db secret
+			dbsec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurDBSecretName,
+				Namespace: pgurNamespace,
+			}, dbsec)).Should(Succeed())
+			dbsec2 := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurDBSecretName2,
+				Namespace: pgurNamespace,
+			}, dbsec2)).Should(Succeed())
+
+			// Validate
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username, string(sec.Data[PasswordSecretKey]), pgec, v1alpha1.PrimaryConnectionType)
+			checkPGURSecretValues(pgurDBSecretName2, pgurNamespace, pgdbDBName2, username, string(sec.Data[PasswordSecretKey]), pgec, v1alpha1.PrimaryConnectionType)
+
+			// Connect to check user
+			_, err = connectAs(username, string(sec.Data[PasswordSecretKey]))
+			Expect(err).To(Succeed())
+
+			exists, err := isSQLRoleExists(username)
+			Expect(err).To(Succeed())
+			Expect(exists).To(BeTrue())
 
 			sett, err := isSetRoleOnDatabasesRoleSettingsExists(username, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
@@ -2782,6 +3179,16 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			sett, err = isSetRoleOnDatabasesRoleSettingsExists(username, pgdbDBName2, pgdb2.Status.Roles.Writer)
 			Expect(err).To(Succeed())
 			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: true, username: false}))
+			writerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb2.Status.Roles.Writer)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(writerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: true, username: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(username)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: true}))
 		})
 
 		It("should be ok to edit work secret", func() {
@@ -3125,13 +3532,16 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(err).To(Succeed())
 			Expect(exists).To(BeTrue())
 
-			memberOf, err := isSQLUserMemberOf(username, pgdb.Status.Roles.Owner)
-			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
-
 			sett, err := isSetRoleOnDatabasesRoleSettingsExists(username, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
 			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, username: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(username)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
 		})
 
 		It("should be ok to manage a work secret removal", func() {
@@ -3197,13 +3607,16 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(err).To(Succeed())
 			Expect(exists).To(BeTrue())
 
-			memberOf, err := isSQLUserMemberOf(username, pgdb.Status.Roles.Owner)
-			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
-
 			sett, err := isSetRoleOnDatabasesRoleSettingsExists(username, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
 			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, username: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(username)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
 		})
 
 		It("should be ok to recover a db secret removal", func() {
@@ -3262,13 +3675,16 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 
 			username := item.Status.PostgresRole
 
-			memberOf, err := isSQLUserMemberOf(username, pgdb.Status.Roles.Owner)
-			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
-
 			sett, err := isSetRoleOnDatabasesRoleSettingsExists(username, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
 			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, username: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(username)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
 
 			// Update
 			item.Spec.Privileges[0].Privilege = postgresqlv1alpha1.WriterPrivilege
@@ -3276,13 +3692,13 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 
 			Eventually(
 				func() error {
-					memberOf, err := isSQLUserMemberOf(username, pgdb.Status.Roles.Writer)
+					writerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Writer)
 					// Check error
 					if err != nil {
 						return err
 					}
 
-					if !memberOf {
+					if _, ok := writerMemberWithAdminOption[username]; !ok {
 						return errors.New("user in pg not updated")
 					}
 
@@ -3293,9 +3709,15 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			).
 				Should(Succeed())
 
-			memberOf, err = isSQLUserMemberOf(username, pgdb.Status.Roles.Writer)
-			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
+			ownerMemberWithAdminOption, err = getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
+			writerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Writer)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(writerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, username: false}))
+			usernameWithAdminOption, err = getSQLRoleMembershipWithAdminOption(username)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
 
 			sett, err = isSetRoleOnDatabasesRoleSettingsExists(username, pgdbDBName, pgdb.Status.Roles.Writer)
 			Expect(err).To(Succeed())
@@ -3363,13 +3785,16 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(err).To(Succeed())
 			Expect(exists).To(BeTrue())
 
-			memberOf, err := isSQLUserMemberOf(username, pgdb.Status.Roles.Owner)
-			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
-
 			sett, err := isSetRoleOnDatabasesRoleSettingsExists(username, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
 			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, username: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(username)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
 		})
 
 		It("should be ok to have rolling password enabled and performed", func() {
@@ -3478,13 +3903,134 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(err).To(Succeed())
 			Expect(exists).To(BeTrue())
 
-			memberOf, err := isSQLUserMemberOf(username2, pgdb.Status.Roles.Owner)
+			sett, err := isSetRoleOnDatabasesRoleSettingsExists(username2, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
+			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, username2: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(username2)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
+		})
+
+		It("should be ok to have rolling password enabled and performed and with a pgec with allow grant admin option", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithAllowGrantAdminOption("30s", false)
+			// Create pgdb
+			pgdb := setupPGDB(false)
+
+			preDate := time.Now().Add(-time.Second)
+
+			item := setupManagedPGUR("5s")
+
+			username := pgurRolePrefix + Login0Suffix
+			username2 := pgurRolePrefix + Login1Suffix
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+			Expect(item.Status.Message).To(Equal(""))
+			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
+			Expect(item.Status.PostgresRole).To(Equal(username))
+			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
+			Expect(item.Status.OldPostgresRoles).To(Equal([]string{}))
+			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
+			Expect(err).To(Succeed())
+			Expect(d.After(preDate)).To(BeTrue())
+
+			// Get work secret
+			workSec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, workSec)).Should(Succeed())
+
+			// Wait
+			time.Sleep(4 * time.Second)
+
+			item2 := &postgresqlv1alpha1.PostgresqlUserRole{}
+			Eventually(
+				func() error {
+					k8sClient.Get(ctx, types.NamespacedName{
+						Name:      pgurName,
+						Namespace: pgurNamespace,
+					}, item2)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					if item.Status.PostgresRole == item2.Status.PostgresRole {
+						return errors.New("pgur not updated")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			// Checks
+			Expect(item2.Status.Ready).To(BeTrue())
+			Expect(item2.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+			Expect(item2.Status.Message).To(Equal(""))
+			Expect(item2.Status.RolePrefix).To(Equal(pgurRolePrefix))
+			Expect(item2.Status.PostgresRole).To(Equal(username2))
+			Expect(item2.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item2.Status.OldPostgresRoles).To(Equal([]string{}))
+			d2, err := time.Parse(time.RFC3339, item2.Status.LastPasswordChangedTime)
+			Expect(err).To(Succeed())
+			Expect(d2.After(d)).To(BeTrue())
+			Expect(d2.After(preDate)).To(BeTrue())
+
+			// Get work secret
+			workSec2 := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item2.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, workSec2)).Should(Succeed())
+
+			Expect(string(workSec2.Data[UsernameSecretKey])).To(Equal(username2))
+			Expect(string(workSec2.Data[PasswordSecretKey])).ToNot(Equal(""))
+			Expect(string(workSec2.Data[PasswordSecretKey])).To(HaveLen(ManagedPasswordSize))
+			Expect(string(workSec2.Data[PasswordSecretKey])).ToNot(Equal(string(workSec.Data[PasswordSecretKey])))
+
+			// Get db secret
+			dbsec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurDBSecretName,
+				Namespace: pgurNamespace,
+			}, dbsec)).Should(Succeed())
+
+			// Validate
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username2, string(workSec2.Data[PasswordSecretKey]), pgec, v1alpha1.PrimaryConnectionType)
+
+			// Connect to check user
+			_, err = connectAs(username2, string(workSec2.Data[PasswordSecretKey]))
+			Expect(err).To(Succeed())
+
+			exists, err := isSQLRoleExists(username)
+			Expect(err).To(Succeed())
+			Expect(exists).To(BeFalse())
+
+			exists, err = isSQLRoleExists(username2)
+			Expect(err).To(Succeed())
+			Expect(exists).To(BeTrue())
 
 			sett, err := isSetRoleOnDatabasesRoleSettingsExists(username2, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
 			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: true, username2: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(username2)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: true}))
 		})
 
 		It("should be ok to have rolling password enabled and performed with old user still connected", func() {
@@ -3597,13 +4143,134 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(err).To(Succeed())
 			Expect(exists).To(BeTrue())
 
-			memberOf, err := isSQLUserMemberOf(username, pgdb.Status.Roles.Owner)
+			sett, err := isSetRoleOnDatabasesRoleSettingsExists(username, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
+			Expect(sett).To(BeTrue())
 
-			memberOf, err = isSQLUserMemberOf(username2, pgdb.Status.Roles.Owner)
+			sett, err = isSetRoleOnDatabasesRoleSettingsExists(username2, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
+			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, username2: false, username: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(username)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
+			username2WithAdminOption, err := getSQLRoleMembershipWithAdminOption(username2)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(username2WithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
+		})
+
+		It("should be ok to have rolling password enabled and performed with old user still connected and with a pgec with allow grant admin option enabled", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithAllowGrantAdminOption("30s", false)
+			// Create pgdb
+			pgdb := setupPGDB(false)
+
+			preDate := time.Now().Add(-time.Second)
+
+			item := setupManagedPGUR("5s")
+
+			username := pgurRolePrefix + Login0Suffix
+			username2 := pgurRolePrefix + Login1Suffix
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+			Expect(item.Status.Message).To(Equal(""))
+			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
+			Expect(item.Status.PostgresRole).To(Equal(username))
+			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
+			Expect(item.Status.OldPostgresRoles).To(Equal([]string{}))
+			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
+			Expect(err).To(Succeed())
+			Expect(d.After(preDate)).To(BeTrue())
+
+			// Get work secret
+			workSec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, workSec)).Should(Succeed())
+
+			// Connect
+			_, err = connectAs(username, string(workSec.Data[PasswordSecretKey]))
+			Expect(err).To(Succeed())
+
+			// Wait
+			time.Sleep(4 * time.Second)
+
+			item2 := &postgresqlv1alpha1.PostgresqlUserRole{}
+			Eventually(
+				func() error {
+					k8sClient.Get(ctx, types.NamespacedName{
+						Name:      pgurName,
+						Namespace: pgurNamespace,
+					}, item2)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					if item.Status.PostgresRole == item2.Status.PostgresRole {
+						return errors.New("pgur not updated")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			// Checks
+			Expect(item2.Status.Ready).To(BeTrue())
+			Expect(item2.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+			Expect(item2.Status.Message).To(Equal(""))
+			Expect(item2.Status.RolePrefix).To(Equal(pgurRolePrefix))
+			Expect(item2.Status.PostgresRole).To(Equal(username2))
+			Expect(item2.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item2.Status.OldPostgresRoles).To(Equal([]string{username}))
+			d2, err := time.Parse(time.RFC3339, item2.Status.LastPasswordChangedTime)
+			Expect(err).To(Succeed())
+			Expect(d2.After(d)).To(BeTrue())
+			Expect(d2.After(preDate)).To(BeTrue())
+
+			// Get work secret
+			workSec2 := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item2.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, workSec2)).Should(Succeed())
+
+			Expect(string(workSec2.Data[UsernameSecretKey])).To(Equal(username2))
+			Expect(string(workSec2.Data[PasswordSecretKey])).ToNot(Equal(""))
+			Expect(string(workSec2.Data[PasswordSecretKey])).To(HaveLen(ManagedPasswordSize))
+			Expect(string(workSec2.Data[PasswordSecretKey])).ToNot(Equal(string(workSec.Data[PasswordSecretKey])))
+
+			// Get db secret
+			dbsec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurDBSecretName,
+				Namespace: pgurNamespace,
+			}, dbsec)).Should(Succeed())
+
+			// Validate
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username2, string(workSec2.Data[PasswordSecretKey]), pgec, v1alpha1.PrimaryConnectionType)
+
+			// Connect to check user
+			_, err = connectAs(username2, string(workSec2.Data[PasswordSecretKey]))
+			Expect(err).To(Succeed())
+
+			exists, err := isSQLRoleExists(username)
+			Expect(err).To(Succeed())
+			Expect(exists).To(BeTrue())
+
+			exists, err = isSQLRoleExists(username2)
+			Expect(err).To(Succeed())
+			Expect(exists).To(BeTrue())
 
 			sett, err := isSetRoleOnDatabasesRoleSettingsExists(username, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
@@ -3612,6 +4279,16 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			sett, err = isSetRoleOnDatabasesRoleSettingsExists(username2, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
 			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: true, username2: false, username: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(username)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: true}))
+			username2WithAdminOption, err := getSQLRoleMembershipWithAdminOption(username2)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(username2WithAdminOption).To(Equal(map[string]bool{postgresUser: true}))
 		})
 
 		It("should be ok to have rolling password enabled and performed with old user still connected and finally released", func() {
@@ -3724,14 +4401,6 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(err).To(Succeed())
 			Expect(exists).To(BeTrue())
 
-			memberOf, err := isSQLUserMemberOf(username, pgdb.Status.Roles.Owner)
-			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
-
-			memberOf, err = isSQLUserMemberOf(username2, pgdb.Status.Roles.Owner)
-			Expect(err).To(Succeed())
-			Expect(memberOf).To(BeTrue())
-
 			sett, err := isSetRoleOnDatabasesRoleSettingsExists(username, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
 			Expect(sett).To(BeTrue())
@@ -3739,6 +4408,16 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			sett, err = isSetRoleOnDatabasesRoleSettingsExists(username2, pgdbDBName, pgdb.Status.Roles.Owner)
 			Expect(err).To(Succeed())
 			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, username: false, username2: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(username)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
+			username2WithAdminOption, err := getSQLRoleMembershipWithAdminOption(username2)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(username2WithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
 
 			// Disconnect old
 			Expect(disconnectConnFromKey(key)).To(Succeed())

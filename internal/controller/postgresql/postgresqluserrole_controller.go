@@ -146,7 +146,7 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 
 		// Delete roles
-		err = r.manageActiveSessionsAndDropOldRoles(ctx, reqLogger, instance, pgInstancesCache, pgecDBPrivilegeCache)
+		err = r.manageActiveSessionsAndDropOldRoles(ctx, reqLogger, instance, pgInstancesCache, pgecCache, pgecDBPrivilegeCache)
 		// Check error
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
@@ -283,6 +283,7 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 		reqLogger,
 		instance,
 		pgInstancesCache,
+		pgecCache,
 		pgecDBPrivilegeCache,
 	)
 	// Check error
@@ -298,7 +299,7 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Create or update user role if necessary
-	err = r.managePGUserRoles(ctx, reqLogger, instance, pgInstancesCache, username, password, passwordChanged)
+	err = r.managePGUserRoles(ctx, reqLogger, instance, pgInstancesCache, pgecCache, username, password, passwordChanged)
 	// Check error
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
@@ -577,7 +578,8 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRights(
 			// Check if it doesn't contain
 			if !contains {
 				// Add right
-				err = pgInstance.GrantRole(groupRole, username)
+				// Note: on this one, the admin option is disabled because we don't want that this user will be admin of the group
+				err = pgInstance.GrantRole(groupRole, username, false)
 				// Check error
 				if err != nil {
 					return err
@@ -675,6 +677,7 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRoles(
 	logger logr.Logger,
 	instance *v1alpha1.PostgresqlUserRole,
 	pgInstanceCache map[string]postgres.PG,
+	pgecCache map[string]*v1alpha1.PostgresqlEngineConfiguration,
 	username, password string,
 	passwordChanged bool,
 ) error {
@@ -713,6 +716,13 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRoles(
 
 			logger.Info("Successfully updated user password in engine", "postgresqlEngine", key)
 			r.Recorder.Eventf(instance, "Normal", "Updated", "Successfully updated user password in engine %s", key)
+		}
+
+		// Grant role to current role
+		err = pgInstance.GrantRole(username, pgInstance.GetUser(), pgecCache[key].Spec.AllowGrantAdminOption)
+		// Check error
+		if err != nil {
+			return err
 		}
 	}
 
@@ -990,6 +1000,7 @@ func (r *PostgresqlUserRoleReconciler) manageActiveSessionsAndDropOldRoles(
 	logger logr.Logger,
 	instance *v1alpha1.PostgresqlUserRole,
 	pgInstanceCache map[string]postgres.PG,
+	pgecCache map[string]*v1alpha1.PostgresqlEngineConfiguration,
 	pgecDBPrivilegeCache map[string][]*dbPrivilegeCache,
 ) error {
 	// Build new list of old roles
@@ -1023,7 +1034,7 @@ func (r *PostgresqlUserRoleReconciler) manageActiveSessionsAndDropOldRoles(
 					for _, item := range dbPrivilegeCacheList {
 						// Some PG instance are limited and this can be done in generic
 						// This limitation needs to add the main user as member of the current role
-						err = pgInstance.GrantRole(oldUsername, pgInstance.GetUser())
+						err = pgInstance.GrantRole(oldUsername, pgInstance.GetUser(), pgecCache[key].Spec.AllowGrantAdminOption)
 						// Check error
 						if err != nil {
 							return err
@@ -1085,6 +1096,7 @@ func (r *PostgresqlUserRoleReconciler) getPGInstances(
 		}
 
 		// Save
+		// Side note: The key is the same as for the pgec map. Do not change it, otherwise it will have side effect on other part of the global algo
 		res[key] = utils.CreatePgInstance(logger, sec.Data, pgec)
 	}
 
