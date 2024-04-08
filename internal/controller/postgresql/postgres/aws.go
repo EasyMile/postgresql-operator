@@ -24,7 +24,7 @@ func newAWSPG(postgres *pg) PG {
 func (c *awspg) AlterDefaultLoginRole(role, setRole string) error {
 	// On AWS RDS the postgres user isn't really superuser so he doesn't have permissions
 	// to ALTER USER unless he belongs to both roles
-	err := c.GrantRole(role, c.user)
+	err := c.GrantRole(role, c.user, false)
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func (c *awspg) CreateDB(dbname, role string) error {
 func (c *awspg) DropRoleAndDropAndChangeOwnedBy(role, newOwner, database string) error {
 	// On AWS RDS the postgres user isn't really superuser so he doesn't have permissions
 	// to REASSIGN OWNED BY unless he belongs to both roles
-	err := c.GrantRole(role, c.user)
+	err := c.GrantRole(role, c.user, false)
 	// Check error
 	if err != nil {
 		// Try to cast error
@@ -85,7 +85,7 @@ func (c *awspg) DropRoleAndDropAndChangeOwnedBy(role, newOwner, database string)
 		}
 	}
 
-	err = c.GrantRole(newOwner, c.user)
+	err = c.GrantRole(newOwner, c.user, false)
 	// Check error
 	if err != nil {
 		// Try to cast error
@@ -119,7 +119,7 @@ func (c *awspg) DropRoleAndDropAndChangeOwnedBy(role, newOwner, database string)
 func (c *awspg) ChangeAndDropOwnedBy(role, newOwner, database string) error {
 	// On AWS RDS the postgres user isn't really superuser so he doesn't have permissions
 	// to REASSIGN OWNED BY unless he belongs to both roles
-	err := c.GrantRole(role, c.user)
+	err := c.GrantRole(role, c.user, false)
 	// Check error
 	if err != nil {
 		// Try to cast error
@@ -137,7 +137,7 @@ func (c *awspg) ChangeAndDropOwnedBy(role, newOwner, database string) error {
 		}
 	}
 
-	err = c.GrantRole(newOwner, c.user)
+	err = c.GrantRole(newOwner, c.user, false)
 	// Check error
 	if err != nil {
 		// Try to cast error

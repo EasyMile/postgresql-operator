@@ -56,6 +56,12 @@ spec:
             description: PostgresqlEngineConfigurationSpec defines the desired state
               of PostgresqlEngineConfiguration.
             properties:
+              allowGrantAdminOption:
+                description: |-
+                  Allow grant admin on every created roles (group or user) for provided PGEC user in order to
+                  have power to administrate those roles even with a less powered "admin" user.
+                  Operator will create role and after grant PGEC provided user on those roles with admin option if enabled.
+                type: boolean
               checkInterval:
                 description: Duration between two checks for valid engine
                 type: string

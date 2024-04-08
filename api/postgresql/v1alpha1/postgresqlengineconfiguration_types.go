@@ -52,6 +52,10 @@ type PostgresqlEngineConfigurationSpec struct {
 	DefaultDatabase string `json:"defaultDatabase,omitempty"`
 	// Duration between two checks for valid engine
 	CheckInterval string `json:"checkInterval,omitempty"`
+	// Allow grant admin on every created roles (group or user) for provided PGEC user in order to
+	// have power to administrate those roles even with a less powered "admin" user.
+	// Operator will create role and after grant PGEC provided user on those roles with admin option if enabled.
+	AllowGrantAdminOption bool `json:"allowGrantAdminOption,omitempty"`
 	// Wait for linked resource to be deleted
 	WaitLinkedResourcesDeletion bool `json:"waitLinkedResourcesDeletion,omitempty"`
 	// User and password secret

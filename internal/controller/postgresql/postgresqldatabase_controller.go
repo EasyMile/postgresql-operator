@@ -191,7 +191,7 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Create owner role
-	err = r.manageOwnerRole(pg, owner, instance)
+	err = r.manageOwnerRole(pg, owner, instance, pgEngCfg.Spec.AllowGrantAdminOption)
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
@@ -203,13 +203,13 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Create reader role
-	err = r.manageReaderRole(pg, reader, instance)
+	err = r.manageReaderRole(pg, reader, instance, pgEngCfg.Spec.AllowGrantAdminOption)
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
 
 	// Create writer role
-	err = r.manageWriterRole(pg, writer, instance)
+	err = r.manageWriterRole(pg, writer, instance, pgEngCfg.Spec.AllowGrantAdminOption)
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
@@ -511,7 +511,7 @@ func (*PostgresqlDatabaseReconciler) manageExtensions(pg postgres.PG, instance *
 	return nil
 }
 
-func (*PostgresqlDatabaseReconciler) manageReaderRole(pg postgres.PG, reader string, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
+func (*PostgresqlDatabaseReconciler) manageReaderRole(pg postgres.PG, reader string, instance *postgresqlv1alpha1.PostgresqlDatabase, allowGrantAdminOption bool) error {
 	// Check if role was already created in the past
 	if instance.Status.Roles.Reader != "" {
 		// Check if role doesn't already exists
@@ -548,7 +548,7 @@ func (*PostgresqlDatabaseReconciler) manageReaderRole(pg postgres.PG, reader str
 	}
 
 	// Grant role to current role
-	err = pg.GrantRole(reader, pg.GetUser())
+	err = pg.GrantRole(reader, pg.GetUser(), allowGrantAdminOption)
 	// Check error
 	if err != nil {
 		return err
@@ -560,7 +560,7 @@ func (*PostgresqlDatabaseReconciler) manageReaderRole(pg postgres.PG, reader str
 	return nil
 }
 
-func (*PostgresqlDatabaseReconciler) manageWriterRole(pg postgres.PG, writer string, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
+func (*PostgresqlDatabaseReconciler) manageWriterRole(pg postgres.PG, writer string, instance *postgresqlv1alpha1.PostgresqlDatabase, allowGrantAdminOption bool) error {
 	// Check if role was already created in the past
 	if instance.Status.Roles.Writer != "" {
 		// Check if role doesn't already exists
@@ -597,7 +597,7 @@ func (*PostgresqlDatabaseReconciler) manageWriterRole(pg postgres.PG, writer str
 	}
 
 	// Grant role to current role
-	err = pg.GrantRole(writer, pg.GetUser())
+	err = pg.GrantRole(writer, pg.GetUser(), allowGrantAdminOption)
 	// Check error
 	if err != nil {
 		return err
@@ -609,7 +609,7 @@ func (*PostgresqlDatabaseReconciler) manageWriterRole(pg postgres.PG, writer str
 	return nil
 }
 
-func (*PostgresqlDatabaseReconciler) manageOwnerRole(pg postgres.PG, owner string, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
+func (*PostgresqlDatabaseReconciler) manageOwnerRole(pg postgres.PG, owner string, instance *postgresqlv1alpha1.PostgresqlDatabase, allowGrantAdminOption bool) error {
 	// Check if role was already created in the past
 	if instance.Status.Roles.Owner != "" {
 		// Check if role doesn't already exists
@@ -646,7 +646,7 @@ func (*PostgresqlDatabaseReconciler) manageOwnerRole(pg postgres.PG, owner strin
 	}
 
 	// Grant role to current role
-	err = pg.GrantRole(owner, pg.GetUser())
+	err = pg.GrantRole(owner, pg.GetUser(), allowGrantAdminOption)
 	// Check error
 	if err != nil {
 		return err
