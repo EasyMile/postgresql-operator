@@ -193,6 +193,14 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		readerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(item.Status.Roles.Reader)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(readerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
+
+		Expect(len(item.Status.Schemas)).To(Equal(1))
+		Expect(item.Status.Schemas).To(ContainElement(pgPublicSchemaName))
+
+		// Check schema exists in sql db
+		exists, err = isSQLSchemaExists(pgPublicSchemaName)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
 	})
 
 	It("should be ok to set all values (required & optional & with a custom owner role name)", func() {
@@ -288,6 +296,14 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		readerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(item.Status.Roles.Reader)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(readerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
+
+		Expect(len(item.Status.Schemas)).To(Equal(1))
+		Expect(item.Status.Schemas).To(ContainElement(pgPublicSchemaName))
+
+		// Check schema exists in sql db
+		exists, err = isSQLSchemaExists(pgPublicSchemaName)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
 	})
 
 	It("should drop database on crd deletion if DropOnDelete set to true", func() {
@@ -978,7 +994,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 				}
 
 				// Check if schemas has been removed in pgdb
-				if len(updatedItem.Status.Schemas) > 0 {
+				if len(updatedItem.Status.Schemas) == 0 || updatedItem.Status.Schemas[0] == pgdbSchemaName1 {
 					return errors.New("pgdb hasn't been updated by operator")
 				}
 
@@ -990,7 +1006,13 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		Expect(updatedItem.Status.Ready).To(BeTrue())
-		Expect(updatedItem.Status.Schemas).To(BeEmpty())
+		Expect(len(updatedItem.Status.Schemas)).To(Equal(1))
+		Expect(updatedItem.Status.Schemas).To(ContainElement(pgPublicSchemaName))
+
+		// Check schema exists in sql db
+		exists, err = isSQLSchemaExists(pgPublicSchemaName)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
 
 		// Schema should not be in sql db anymore
 		stillExists, stillErr := isSQLSchemaExists(pgdbSchemaName1)
@@ -1081,7 +1103,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 				}
 
 				// Check if schemas has been removed in pgdb
-				if len(updatedItem.Status.Schemas) > 0 {
+				if len(updatedItem.Status.Schemas) == 0 || updatedItem.Status.Schemas[0] == pgdbSchemaName1 {
 					return errors.New("pgdb hasn't been updated by operator")
 				}
 
@@ -1093,7 +1115,13 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		Expect(updatedItem.Status.Ready).To(BeTrue())
-		Expect(updatedItem.Status.Schemas).To(BeEmpty())
+		Expect(len(updatedItem.Status.Schemas)).To(Equal(1))
+		Expect(updatedItem.Status.Schemas).To(ContainElement(pgPublicSchemaName))
+
+		// Check schema exists in sql db
+		exists, err = isSQLSchemaExists(pgPublicSchemaName)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
 
 		// Schema should not be in sql db anymore
 		stillExists, stillErr := isSQLSchemaExists(pgdbSchemaName1)
