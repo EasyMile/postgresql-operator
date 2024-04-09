@@ -38,8 +38,9 @@ import (
 )
 
 const (
-	readerPrivs = "SELECT"
-	writerPrivs = "SELECT,INSERT,DELETE,UPDATE"
+	readerPrivs               = "SELECT"
+	writerPrivs               = "SELECT,INSERT,DELETE,UPDATE"
+	defaultPGPublicSchemaName = "public"
 )
 
 // PostgresqlDatabaseReconciler reconciles a PostgresqlDatabase object.
@@ -148,7 +149,7 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
 
-	// Add finalizer and owners
+	// Add finalizer, owners and default values
 	updated, err := r.updateInstance(ctx, instance)
 	// Check error
 	if err != nil {
@@ -410,6 +411,12 @@ func (r *PostgresqlDatabaseReconciler) updateInstance(
 
 	// Add finalizer
 	controllerutil.AddFinalizer(instance, config.Finalizer)
+
+	// Check if schema list is set or not
+	if len(instance.Spec.Schemas.List) == 0 {
+		// Add "public" schema as it is the default for PG
+		instance.Spec.Schemas.List = append(instance.Spec.Schemas.List, defaultPGPublicSchemaName)
+	}
 
 	// Check if update is needed
 	if !reflect.DeepEqual(oCopy.ObjectMeta, instance.ObjectMeta) {
