@@ -458,6 +458,46 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		Expect(stillExists).To(BeTrue())
 	})
 
+	It("should be ok to recover a wrong database owner", func() {
+		// Create pgec
+		setupPGECWithAllowGrantAdminOption("10s", false)
+
+		// Create pgdb
+		item := setupPGDB(true)
+
+		ownerRole := fmt.Sprintf("%s-owner", pgdbDBName)
+
+		Expect(item.Status.Ready).To(BeTrue())
+		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
+		Expect(item.Status.Database).To(Equal(pgdbDBName))
+
+		// Check DB ownership
+		isOwner, err := isRoleOwnerofSQLDB(pgdbDBName, ownerRole)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(isOwner).To(BeTrue())
+
+		// Change db owner to another user
+		err = changeDBOwner(pgdbDBName, postgresUser)
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(
+			func() error {
+				isOwner, err := isRoleOwnerofSQLDB(pgdbDBName, ownerRole)
+				if err != nil {
+					return err
+				}
+
+				if !isOwner {
+					return errors.New("not updated by operator")
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
+	})
+
 	It("should be ok to have a pgdb with a pgec with allow grant admin option on roles", func() {
 		// Create pgec
 		setupPGECWithAllowGrantAdminOption("10s", false)
@@ -2024,7 +2064,6 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		oldExists, oldErr := isSQLDBExists(pgdbDBName + "-old")
 		Expect(oldErr).ToNot(HaveOccurred())
 		Expect(oldExists).To(BeFalse())
-
 	})
 
 	It("should be ok to delete it with wait and nothing linked", func() {

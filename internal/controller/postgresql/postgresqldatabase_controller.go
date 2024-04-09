@@ -267,6 +267,12 @@ func (*PostgresqlDatabaseReconciler) manageDBCreationOrUpdate(pg postgres.PG, in
 		if err != nil {
 			return err
 		}
+	} else {
+		// Ensure owner is correct
+		err := pg.ChangeDBOwner(instance.Spec.Database, owner)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Update status
