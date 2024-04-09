@@ -10,6 +10,7 @@ const (
 	CascadeKeyword                = "CASCADE"
 	RestrictKeyword               = "RESTRICT"
 	CreateDBSQLTemplate           = `CREATE DATABASE "%s" WITH OWNER = "%s"`
+	ChangeDBOwnerSQLTemplate      = `ALTER DATABASE "%s" OWNER TO "%s"`
 	IsDatabaseExistSQLTemplate    = `SELECT 1 FROM pg_database WHERE datname='%s'`
 	RenameDatabaseSQLTemplate     = `ALTER DATABASE "%s" RENAME TO "%s"`
 	CreateSchemaSQLTemplate       = `CREATE SCHEMA IF NOT EXISTS "%s" AUTHORIZATION "%s"`
@@ -70,6 +71,20 @@ func (c *pg) CreateDB(dbname, role string) error {
 		if !ok || pqErr.Code != DuplicateDatabaseErrorCode {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (c *pg) ChangeDBOwner(dbname, owner string) error {
+	err := c.connect(c.defaultDatabase)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.db.Exec(fmt.Sprintf(ChangeDBOwnerSQLTemplate, dbname, owner))
+	if err != nil {
+		return err
 	}
 
 	return nil

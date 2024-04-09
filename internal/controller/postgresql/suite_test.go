@@ -1099,6 +1099,24 @@ func disconnectConnFromKey(key string) error {
 	return nil
 }
 
+func changeDBOwner(dbname, role string) error {
+	if mainDBConn == nil {
+		db, err := sql.Open("postgres", postgresUrl)
+		if err != nil {
+			return err
+		}
+		mainDBConn = db
+	}
+
+	sqlTemplate := `ALTER DATABASE "%s" OWNER TO "%s"`
+	_, err := mainDBConn.Exec(fmt.Sprintf(sqlTemplate, dbname, role))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func isRoleOwnerofSQLDB(dbname, role string) (bool, error) {
 	// Query template
 	IsRoleOwnerOfDbSQLTemplate := `SELECT 1 FROM pg_catalog.pg_database d WHERE d.datname = '%s' AND pg_catalog.pg_get_userbyid(d.datdba) = '%s';`
