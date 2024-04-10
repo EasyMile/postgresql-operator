@@ -40,10 +40,12 @@ All these names are available for `kubectl`:
 
 ### UserConnections
 
-| Field             | Description                                                                                                                              | Scheme                                          | Required |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | -------- |
-| primaryConnection | Primary connection is referring to the primary node connection. If not being set, all values will be set from spec (host, port, uriArgs) | [GenericUserConnection](#genericuserconnection) | false    |
-| bouncerConnection | Bouncer connection is referring to a pg bouncer node. The default port will be 6432 if other fields are filled but not port.             | [GenericUserConnection](#genericuserconnection) | false    |
+| Field                     | Description                                                                                                                              | Scheme                                            | Required |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | -------- |
+| primaryConnection         | Primary connection is referring to the primary node connection. If not being set, all values will be set from spec (host, port, uriArgs) | [GenericUserConnection](#genericuserconnection)   | false    |
+| bouncerConnection         | Bouncer connection is referring to a pg bouncer node. The default port will be 6432 if other fields are filled but not port.             | [GenericUserConnection](#genericuserconnection)   | false    |
+| replicaConnections        | Replica connections are referring to the replica nodes. The default port will be 6432 if other fields are filled but not port.           | [[GenericUserConnection](#genericuserconnection)] | false    |
+| replicaBouncerConnections | Replica Bouncer connections are referring to pg bouncer nodes. The default port will be 6432 if other fields are filled but not port.    | [[GenericUserConnection](#genericuserconnection)] | false    |
 
 ### GenericUserConnection
 

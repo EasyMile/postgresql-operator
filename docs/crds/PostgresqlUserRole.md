@@ -153,3 +153,31 @@ data:
   PORT: "5432"
   ARGS: sslmode=require
 ```
+
+Here is an example with replica:
+
+```yaml
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: managed-simple-rotation
+data:
+  ARGS: sslmode=disable
+  DATABASE: database1
+  HOST: localhost
+  LOGIN: fake-0
+  PASSWORD: password
+  PORT: "5432"
+  POSTGRES_URL: postgresql://fake-0:password@localhost:5432/database1
+  POSTGRES_URL_ARGS: postgresql://fake-0:password@localhost:5432/database1?sslmode=disable
+  REPLICA_0_ARGS: sslmode=disable
+  REPLICA_0_DATABASE: database1
+  REPLICA_0_HOST: localhost
+  REPLICA_0_LOGIN: fake-0
+  REPLICA_0_PASSWORD: password
+  REPLICA_0_PORT: "5432"
+  REPLICA_0_POSTGRES_URL: postgresql://fake-0:password@localhost:5432/database1
+  REPLICA_0_POSTGRES_URL_ARGS: postgresql://fake-0:password@localhost:5432/database1?sslmode=disable
+  # And so on, ... The numbers are the iteration number and so order in initial list.
+```

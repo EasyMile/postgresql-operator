@@ -78,6 +78,12 @@ type UserConnections struct {
 	// Bouncer connection is referring to a pg bouncer node.
 	// +optional
 	BouncerConnection *GenericUserConnection `json:"bouncerConnection,omitempty"`
+	// Replica connections are referring to the replica nodes.
+	// +optional
+	ReplicaConnections []*GenericUserConnection `json:"replicaConnections,omitempty"`
+	// Replica Bouncer connections are referring to pg bouncer nodes.
+	// +optional
+	ReplicaBouncerConnections []*GenericUserConnection `json:"replicaBouncerConnections,omitempty"`
 }
 
 type GenericUserConnection struct {

@@ -53,6 +53,17 @@ const (
 	UsernameSecretKey                          = "USERNAME"
 	PasswordSecretKey                          = "PASSWORD"
 	ManagedPasswordSize                        = 15
+
+	SecretMainKeyPostgresURL     = "POSTGRES_URL"      //nolint:gosec // Nothing here
+	SecretMainKeyPostgresURLArgs = "POSTGRES_URL_ARGS" //nolint:gosec // Nothing here
+	SecretMainKeyPassword        = "PASSWORD"
+	SecretMainKeyLogin           = "LOGIN"
+	SecretMainKeyDatabase        = "DATABASE"
+	SecretMainKeyHost            = "HOST"
+	SecretMainKeyPort            = "PORT"
+	SecretMainKeyArgs            = "ARGS"
+
+	SecretKeyReplicaPrefix = "REPLICA"
 )
 
 // PostgresqlUserRoleReconciler reconciles a PostgresqlUserRole object.
@@ -513,6 +524,44 @@ func (r *PostgresqlUserRoleReconciler) newSecretForPGUser(
 
 	pgUserURL := postgres.TemplatePostgresqlURL(uc.Host, username, password, dbInstance.Status.Database, uc.Port)
 	pgUserURLWArgs := postgres.TemplatePostgresqlURLWithArgs(uc.Host, username, password, uc.URIArgs, dbInstance.Status.Database, uc.Port)
+
+	// Create secret data
+	data := map[string][]byte{
+		SecretMainKeyPostgresURL:     []byte(pgUserURL),
+		SecretMainKeyPostgresURLArgs: []byte(pgUserURLWArgs),
+		SecretMainKeyPassword:        []byte(password),
+		SecretMainKeyLogin:           []byte(username),
+		SecretMainKeyDatabase:        []byte(dbInstance.Status.Database),
+		SecretMainKeyHost:            []byte(uc.Host),
+		SecretMainKeyPort:            []byte(strconv.Itoa(uc.Port)),
+		SecretMainKeyArgs:            []byte(uc.URIArgs),
+	}
+
+	// Manage replica connections
+	// Prepare replica user connections
+	rucList := pgec.Spec.UserConnections.ReplicaConnections
+	// Check if it is a bouncer connection
+	if rolePrivilege.ConnectionType == v1alpha1.BouncerConnectionType {
+		rucList = pgec.Spec.UserConnections.ReplicaBouncerConnections
+	}
+	// Loop over list to inject in data replica data
+	for i, ruc := range rucList {
+		replicaPGUserURL := postgres.TemplatePostgresqlURL(ruc.Host, username, password, dbInstance.Status.Database, ruc.Port)
+		replicaPGUserURLWArgs := postgres.TemplatePostgresqlURLWithArgs(ruc.Host, username, password, ruc.URIArgs, dbInstance.Status.Database, ruc.Port)
+
+		// Build template
+		keyTemplate := SecretKeyReplicaPrefix + "_" + strconv.Itoa(i) + "_%s"
+		// Inject into data
+		data[fmt.Sprintf(keyTemplate, SecretMainKeyPostgresURL)] = []byte(replicaPGUserURL)
+		data[fmt.Sprintf(keyTemplate, SecretMainKeyPostgresURLArgs)] = []byte(replicaPGUserURLWArgs)
+		data[fmt.Sprintf(keyTemplate, SecretMainKeyPassword)] = []byte(password)
+		data[fmt.Sprintf(keyTemplate, SecretMainKeyLogin)] = []byte(username)
+		data[fmt.Sprintf(keyTemplate, SecretMainKeyDatabase)] = []byte(dbInstance.Status.Database)
+		data[fmt.Sprintf(keyTemplate, SecretMainKeyHost)] = []byte(ruc.Host)
+		data[fmt.Sprintf(keyTemplate, SecretMainKeyPort)] = []byte(strconv.Itoa(ruc.Port))
+		data[fmt.Sprintf(keyTemplate, SecretMainKeyArgs)] = []byte(ruc.URIArgs)
+	}
+
 	labels := map[string]string{
 		"app": instance.Name,
 	}
@@ -522,16 +571,7 @@ func (r *PostgresqlUserRoleReconciler) newSecretForPGUser(
 			Namespace: instance.Namespace,
 			Labels:    labels,
 		},
-		Data: map[string][]byte{
-			"POSTGRES_URL":      []byte(pgUserURL),
-			"POSTGRES_URL_ARGS": []byte(pgUserURLWArgs),
-			"PASSWORD":          []byte(password),
-			"LOGIN":             []byte(username),
-			"DATABASE":          []byte(dbInstance.Status.Database),
-			"HOST":              []byte(uc.Host),
-			"PORT":              []byte(strconv.Itoa(uc.Port)),
-			"ARGS":              []byte(uc.URIArgs),
-		},
+		Data: data,
 	}
 
 	// Set owner references

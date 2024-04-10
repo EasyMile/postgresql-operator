@@ -317,6 +317,22 @@ func (*PostgresqlEngineConfigurationReconciler) addDefaultValues(instance *postg
 			instance.Spec.UserConnections.BouncerConnection.Port = DefaultBouncerPort
 		}
 	}
+
+	// Loop over replica connections
+	for _, item := range instance.Spec.UserConnections.ReplicaConnections {
+		// Check port
+		if item.Port == 0 {
+			item.Port = DefaultPGPort
+		}
+	}
+
+	// Loop over replica bouncer connections
+	for _, item := range instance.Spec.UserConnections.ReplicaBouncerConnections {
+		// Check port
+		if item.Port == 0 {
+			item.Port = DefaultBouncerPort
+		}
+	}
 }
 
 func (r *PostgresqlEngineConfigurationReconciler) manageError(
