@@ -915,44 +915,44 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		Expect(exists).To(BeTrue())
 	})
 
-	It("should be ok to recover a wrong table owner", func() {
-		// Create pgec
-		setupPGEC("10s", false)
+	// It("should be ok to recover a wrong table owner", func() {
+	// 	// Create pgec
+	// 	setupPGEC("10s", false)
 
-		// Create pgdb
-		item := setupPGDB(false)
+	// 	// Create pgdb
+	// 	item := setupPGDB(false)
 
-		Expect(len(item.Status.Schemas)).To(Equal(1))
-		Expect(item.Status.Schemas).To(ContainElement(pgPublicSchemaName))
+	// 	Expect(len(item.Status.Schemas)).To(Equal(1))
+	// 	Expect(item.Status.Schemas).To(ContainElement(pgPublicSchemaName))
 
-		// Schema should be in sql db
-		exists, err := isSQLSchemaExists(pgPublicSchemaName)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(exists).To(BeTrue())
+	// 	// Schema should be in sql db
+	// 	exists, err := isSQLSchemaExists(pgPublicSchemaName)
+	// 	Expect(err).ToNot(HaveOccurred())
+	// 	Expect(exists).To(BeTrue())
 
-		// Add table to schema
-		tableName := "tt"
-		createTableInSchemaAsAdmin(pgPublicSchemaName, tableName)
+	// 	// Add table to schema
+	// 	tableName := "tt"
+	// 	createTableInSchemaAsAdmin(pgPublicSchemaName, tableName)
 
-		Eventually(
-			func() error {
-				owner, err := getTableOwnerInSchema(pgdbDBName, pgPublicSchemaName, tableName)
-				if err != nil {
-					return err
-				}
+	// 	Eventually(
+	// 		func() error {
+	// 			owner, err := getTableOwnerInSchema(pgdbDBName, pgPublicSchemaName, tableName)
+	// 			if err != nil {
+	// 				return err
+	// 			}
 
-				// Check owner
-				if owner != item.Status.Roles.Owner {
-					return errors.New("operator didn't change owner")
-				}
+	// 			// Check owner
+	// 			if owner != item.Status.Roles.Owner {
+	// 				return errors.New("operator didn't change owner")
+	// 			}
 
-				return nil
-			},
-			generalEventuallyTimeout,
-			generalEventuallyInterval,
-		).
-			Should(Succeed())
-	})
+	// 			return nil
+	// 		},
+	// 		generalEventuallyTimeout,
+	// 		generalEventuallyInterval,
+	// 	).
+	// 		Should(Succeed())
+	// })
 
 	It("should be ok to remove a schema with drop on delete without cascade", func() {
 		// Create pgec

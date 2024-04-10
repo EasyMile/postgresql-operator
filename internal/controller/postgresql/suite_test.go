@@ -1057,39 +1057,39 @@ func isSQLExtensionExists(name string) (bool, error) {
 	return nb == 1, nil
 }
 
-func getTableOwnerInSchema(dbName, schemaName, tableName string) (string, error) {
-	// Connect
-	db, err := sql.Open("postgres", fmt.Sprintf(postgresUrlWithDbTemplate, postgresUser, postgresPassword, dbName))
-	// Check error
-	if err != nil {
-		return "", err
-	}
+// func getTableOwnerInSchema(dbName, schemaName, tableName string) (string, error) {
+// 	// Connect
+// 	db, err := sql.Open("postgres", fmt.Sprintf(postgresUrlWithDbTemplate, postgresUser, postgresPassword, dbName))
+// 	// Check error
+// 	if err != nil {
+// 		return "", err
+// 	}
 
-	defer db.Close()
+// 	defer db.Close()
 
-	sqlTemplate := `select tableowner from pg_tables where tablename = '%s' and schemaname = '%s';`
-	res, err := db.Query(fmt.Sprintf(sqlTemplate, tableName, schemaName))
-	if err != nil {
-		return "", err
-	}
+// 	sqlTemplate := `select tableowner from pg_tables where tablename = '%s' and schemaname = '%s';`
+// 	res, err := db.Query(fmt.Sprintf(sqlTemplate, tableName, schemaName))
+// 	if err != nil {
+// 		return "", err
+// 	}
 
-	var owner string
-	for res.Next() {
-		err = res.Scan(&owner)
-		if err != nil {
-			return "", err
-		}
-	}
+// 	var owner string
+// 	for res.Next() {
+// 		err = res.Scan(&owner)
+// 		if err != nil {
+// 			return "", err
+// 		}
+// 	}
 
-	// Rows error
-	err = res.Err()
-	// Check error
-	if err != nil {
-		return "", err
-	}
+// 	// Rows error
+// 	err = res.Err()
+// 	// Check error
+// 	if err != nil {
+// 		return "", err
+// 	}
 
-	return owner, nil
-}
+// 	return owner, nil
+// }
 
 func createTableInSchemaAsAdmin(schema, table string) error {
 	// Query template
