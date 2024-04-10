@@ -22,6 +22,7 @@ import (
 	gerrors "errors"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -617,7 +618,7 @@ func setupPGEC(
 		Host:    "localhost",
 		Port:    5432,
 		URIArgs: "sslmode=disable",
-	}, nil, false)
+	}, nil, nil, nil, false)
 }
 
 func setupPGECWithBouncer(
@@ -632,7 +633,36 @@ func setupPGECWithBouncer(
 		Host:    "localhost",
 		Port:    5433,
 		URIArgs: "sslmode=disable",
-	}, false)
+	}, nil, nil, false)
+}
+
+func setupPGECWithReplica(
+	checkInterval string,
+	waitLinkedResourcesDeletion bool,
+) (*postgresqlv1alpha1.PostgresqlEngineConfiguration, *corev1.Secret) {
+	uc := &postgresqlv1alpha1.GenericUserConnection{
+		Host:    "localhost",
+		Port:    5432,
+		URIArgs: "sslmode=disable",
+	}
+	return setupPGECInternal(checkInterval, waitLinkedResourcesDeletion, uc, nil, []*postgresqlv1alpha1.GenericUserConnection{uc}, nil, false)
+}
+
+func setupPGECWithBouncerAndReplica(
+	checkInterval string,
+	waitLinkedResourcesDeletion bool,
+) (*postgresqlv1alpha1.PostgresqlEngineConfiguration, *corev1.Secret) {
+	uc := &postgresqlv1alpha1.GenericUserConnection{
+		Host:    "localhost",
+		Port:    5432,
+		URIArgs: "sslmode=disable",
+	}
+	buc := &postgresqlv1alpha1.GenericUserConnection{
+		Host:    "localhost",
+		Port:    5433,
+		URIArgs: "sslmode=disable",
+	}
+	return setupPGECInternal(checkInterval, waitLinkedResourcesDeletion, uc, buc, []*postgresqlv1alpha1.GenericUserConnection{uc}, []*postgresqlv1alpha1.GenericUserConnection{buc}, false)
 }
 
 func setupPGECWithAllowGrantAdminOption(
@@ -643,13 +673,14 @@ func setupPGECWithAllowGrantAdminOption(
 		Host:    "localhost",
 		Port:    5432,
 		URIArgs: "sslmode=disable",
-	}, nil, true)
+	}, nil, nil, nil, true)
 }
 
 func setupPGECInternal(
 	checkInterval string,
 	waitLinkedResourcesDeletion bool,
 	primaryUserConnection, bouncerUserConnection *postgresqlv1alpha1.GenericUserConnection,
+	replicaUserConnections, replicaBouncerUserConnections []*postgresqlv1alpha1.GenericUserConnection,
 	allowGrantAdminOption bool,
 ) (*postgresqlv1alpha1.PostgresqlEngineConfiguration, *corev1.Secret) {
 	// Create secret
@@ -672,8 +703,10 @@ func setupPGECInternal(
 			WaitLinkedResourcesDeletion: waitLinkedResourcesDeletion,
 			SecretName:                  pgecSecretName,
 			UserConnections: &postgresqlv1alpha1.UserConnections{
-				PrimaryConnection: primaryUserConnection,
-				BouncerConnection: bouncerUserConnection,
+				PrimaryConnection:         primaryUserConnection,
+				BouncerConnection:         bouncerUserConnection,
+				ReplicaConnections:        replicaUserConnections,
+				ReplicaBouncerConnections: replicaBouncerUserConnections,
 			},
 		},
 	}
@@ -1302,4 +1335,25 @@ func checkPGURSecretValues(
 	Expect(string(secret.Data["HOST"])).To(Equal(userCon.Host))
 	Expect(string(secret.Data["PORT"])).To(Equal(fmt.Sprint(userCon.Port)))
 	Expect(string(secret.Data["ARGS"])).To(Equal(userCon.URIArgs))
+
+	// Check replica data
+	rucList := pgec.Spec.UserConnections.ReplicaConnections
+	// Check if bouncer is selected
+	if userConnectionType == postgresqlv1alpha1.BouncerConnectionType {
+		rucList = pgec.Spec.UserConnections.ReplicaBouncerConnections
+	}
+	// Loop over them to validate
+	for i, userCon := range rucList {
+		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_POSTGRES_URL"])).To(Equal(
+			fmt.Sprintf("postgresql://%s:%s@%s:%d/%s", secret.Data["LOGIN"], secret.Data["PASSWORD"], userCon.Host, userCon.Port, dbName),
+		))
+		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_POSTGRES_URL_ARGS"])).To(Equal(fmt.Sprintf("%s?%s", secret.Data["POSTGRES_URL"], secret.Data["ARGS"])))
+		Expect(secret.Data["REPLICA_"+strconv.Itoa(i)+"_PASSWORD"]).ToNot(BeEmpty())
+		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_PASSWORD"])).To(Equal(password))
+		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_LOGIN"])).To(Equal(username))
+		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_DATABASE"])).To(Equal(dbName))
+		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_HOST"])).To(Equal(userCon.Host))
+		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_PORT"])).To(Equal(fmt.Sprint(userCon.Port)))
+		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_ARGS"])).To(Equal(userCon.URIArgs))
+	}
 }

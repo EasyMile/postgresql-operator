@@ -2234,6 +2234,73 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			)
 		})
 
+		It("should be ok to generate a primary user role with a bouncer enabled pgec and replica enabled", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithBouncerAndReplica("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create secret
+			setupPGURImportSecret()
+
+			item := setupProvidedPGUR()
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			// Validate
+			checkPGURSecretValues(item.Spec.Privileges[0].GeneratedSecretName, pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword, pgec, v1alpha1.PrimaryConnectionType)
+		})
+
+		It("should be ok to generate a bouncer secret with a bouncer user role and replica", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithBouncerAndReplica("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create secret
+			setupPGURImportSecret()
+
+			item := setupProvidedPGURWithBouncer()
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			// Validate
+			checkPGURSecretValues(item.Spec.Privileges[0].GeneratedSecretName, pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword, pgec, v1alpha1.BouncerConnectionType)
+		})
+
+		It("should be ok to generate a bouncer and a primary secret with a bouncer and a primary user role with replica", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithBouncerAndReplica("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+			setupPGDB2()
+
+			// Create secret
+			setupPGURImportSecret()
+
+			item := setupProvidedPGURWith2DatabasesWithPrimaryAndBouncer()
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			// Validate
+			checkPGURSecretValues(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword, pgec,
+				v1alpha1.PrimaryConnectionType,
+			)
+			checkPGURSecretValues(
+				item.Spec.Privileges[1].GeneratedSecretName,
+				pgurNamespace, pgdbDBName2, pgurImportUsername, pgurImportPassword, pgec,
+				v1alpha1.BouncerConnectionType,
+			)
+		})
+
 		It("should be ok to create a primary user role and change it to a bouncer one", func() {
 			// Setup pgec
 			pgec, _ := setupPGECWithBouncer("30s", false)
@@ -4918,6 +4985,238 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 		It("should be ok to create a bouncer user role and change it to a primary one", func() {
 			// Setup pgec
 			pgec, _ := setupPGECWithBouncer("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			item := setupManagedPGURWithBouncer("")
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			username := pgurRolePrefix + Login0Suffix
+			// Get work secret
+			workSec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, workSec)).Should(Succeed())
+
+			// Validate
+			checkPGURSecretValues(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, username, string(workSec.Data[PasswordSecretKey]),
+				pgec, v1alpha1.BouncerConnectionType,
+			)
+
+			// Get current secret
+			sec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.Privileges[0].GeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, sec)).To(Succeed())
+
+			// Update privilege for a bouncer one
+			item.Spec.Privileges[0].ConnectionType = v1alpha1.PrimaryConnectionType
+			// Save
+			Expect(k8sClient.Update(ctx, item)).To(Succeed())
+
+			sec2 := &corev1.Secret{}
+			Eventually(
+				func() error {
+					err := k8sClient.Get(ctx, types.NamespacedName{
+						Name:      item.Spec.Privileges[0].GeneratedSecretName,
+						Namespace: pgurNamespace,
+					}, sec2)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check if sec have been updated
+					if string(sec.Data["POSTGRES_URL"]) == string(sec2.Data["POSTGRES_URL"]) {
+						return errors.New("Secret not updated")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+				// Validate
+			checkPGURSecretValues(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, username, string(workSec.Data[PasswordSecretKey]),
+				pgec, v1alpha1.PrimaryConnectionType,
+			)
+		})
+
+		It("should be ok to generate a primary secret with a bouncer enabled pgec and replica", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithBouncerAndReplica("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			item := setupManagedPGUR("")
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			username := pgurRolePrefix + Login0Suffix
+			// Get work secret
+			workSec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, workSec)).Should(Succeed())
+
+			// Validate
+			checkPGURSecretValues(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, username, string(workSec.Data[PasswordSecretKey]),
+				pgec, v1alpha1.PrimaryConnectionType,
+			)
+		})
+
+		It("should be ok to generate a bouncer secret with a bouncer user role and replica", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithBouncerAndReplica("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			item := setupManagedPGURWithBouncer("")
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			username := pgurRolePrefix + Login0Suffix
+			// Get work secret
+			workSec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, workSec)).Should(Succeed())
+
+			// Validate
+			checkPGURSecretValues(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, username, string(workSec.Data[PasswordSecretKey]),
+				pgec, v1alpha1.BouncerConnectionType,
+			)
+		})
+
+		It("should be ok to generate a bouncer and a primary secret with a bouncer and a primary user role and replica", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithBouncerAndReplica("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+			setupPGDB2()
+
+			item := setupManagedPGURWith2DatabasesWithPrimaryAndBouncer()
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			username := pgurRolePrefix + Login0Suffix
+			// Get work secret
+			workSec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, workSec)).Should(Succeed())
+
+			// Validate
+			checkPGURSecretValues(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, username, string(workSec.Data[PasswordSecretKey]),
+				pgec, v1alpha1.PrimaryConnectionType,
+			)
+			checkPGURSecretValues(
+				item.Spec.Privileges[1].GeneratedSecretName,
+				pgurNamespace, pgdbDBName2, username, string(workSec.Data[PasswordSecretKey]),
+				pgec, v1alpha1.BouncerConnectionType,
+			)
+		})
+
+		It("should be ok to create a primary user role and change it to a bouncer one and replica", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithBouncerAndReplica("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			item := setupManagedPGUR("")
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			username := pgurRolePrefix + Login0Suffix
+			// Get work secret
+			workSec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, workSec)).Should(Succeed())
+
+			// Validate
+			checkPGURSecretValues(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, username, string(workSec.Data[PasswordSecretKey]),
+				pgec, v1alpha1.PrimaryConnectionType,
+			)
+
+			// Get current secret
+			sec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.Privileges[0].GeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, sec)).To(Succeed())
+
+			// Update privilege for a bouncer one
+			item.Spec.Privileges[0].ConnectionType = v1alpha1.BouncerConnectionType
+			// Save
+			Expect(k8sClient.Update(ctx, item)).To(Succeed())
+
+			sec2 := &corev1.Secret{}
+			Eventually(
+				func() error {
+					err := k8sClient.Get(ctx, types.NamespacedName{
+						Name:      item.Spec.Privileges[0].GeneratedSecretName,
+						Namespace: pgurNamespace,
+					}, sec2)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check if sec have been updated
+					if string(sec.Data["POSTGRES_URL"]) == string(sec2.Data["POSTGRES_URL"]) {
+						return errors.New("Secret not updated")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+				// Validate
+			checkPGURSecretValues(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, username, string(workSec.Data[PasswordSecretKey]),
+				pgec, v1alpha1.BouncerConnectionType,
+			)
+		})
+
+		It("should be ok to create a bouncer user role and change it to a primary one and replica", func() {
+			// Setup pgec
+			pgec, _ := setupPGECWithBouncerAndReplica("30s", false)
 			// Create pgdb
 			setupPGDB(false)
 

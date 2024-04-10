@@ -129,6 +129,44 @@ spec:
                     - host
                     - uriArgs
                     type: object
+                  replicaBouncerConnections:
+                    description: Replica Bouncer connections are referring to pg bouncer
+                      nodes.
+                    items:
+                      properties:
+                        host:
+                          description: Hostname
+                          type: string
+                        port:
+                          description: Port
+                          type: integer
+                        uriArgs:
+                          description: URI args like sslmode, ...
+                          type: string
+                      required:
+                      - host
+                      - uriArgs
+                      type: object
+                    type: array
+                  replicaConnections:
+                    description: Replica connections are referring to the replica
+                      nodes.
+                    items:
+                      properties:
+                        host:
+                          description: Hostname
+                          type: string
+                        port:
+                          description: Port
+                          type: integer
+                        uriArgs:
+                          description: URI args like sslmode, ...
+                          type: string
+                      required:
+                      - host
+                      - uriArgs
+                      type: object
+                    type: array
                 type: object
               waitLinkedResourcesDeletion:
                 description: Wait for linked resource to be deleted

@@ -45,3 +45,16 @@ spec:
     #   host: localhost
     #   uriArgs: sslmode=disable
     #   port: 6432
+    # Replica connections are referring to the replica nodes.
+    # replicaConnections:
+    #   - host: localhost
+    #     uriArgs: sslmode=disable
+    #     port: 5433
+    #   - host: localhost
+    #     uriArgs: sslmode=disable
+    #     port: 5434
+    # Replica Bouncer connections are referring to pg bouncer nodes.
+    # replicaBouncerConnections:
+    #   - host: localhost
+    #     uriArgs: sslmode=disable
+    #     port: 6432
