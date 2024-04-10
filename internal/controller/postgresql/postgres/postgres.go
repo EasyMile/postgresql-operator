@@ -42,6 +42,8 @@ type PG interface { //nolint:interfacebloat // This is needed
 	DropSchema(database, schema string, cascade bool) error
 	DropExtension(database, extension string, cascade bool) error
 	GetRoleMembership(role string) ([]string, error)
+	GetTablesInSchema(db, schema string) ([]string, error)
+	ChangeTableOwner(db, table, owner string) error
 	GetUser() string
 	GetHost() string
 	GetPort() int

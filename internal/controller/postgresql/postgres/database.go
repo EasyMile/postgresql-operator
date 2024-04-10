@@ -7,21 +7,23 @@ import (
 )
 
 const (
-	CascadeKeyword                = "CASCADE"
-	RestrictKeyword               = "RESTRICT"
-	CreateDBSQLTemplate           = `CREATE DATABASE "%s" WITH OWNER = "%s"`
-	ChangeDBOwnerSQLTemplate      = `ALTER DATABASE "%s" OWNER TO "%s"`
-	IsDatabaseExistSQLTemplate    = `SELECT 1 FROM pg_database WHERE datname='%s'`
-	RenameDatabaseSQLTemplate     = `ALTER DATABASE "%s" RENAME TO "%s"`
-	CreateSchemaSQLTemplate       = `CREATE SCHEMA IF NOT EXISTS "%s" AUTHORIZATION "%s"`
-	CreateExtensionSQLTemplate    = `CREATE EXTENSION IF NOT EXISTS "%s"`
-	DropDatabaseSQLTemplate       = `DROP DATABASE "%s"`
-	DropExtensionSQLTemplate      = `DROP EXTENSION IF EXISTS "%s" %s`
-	DropSchemaSQLTemplate         = `DROP SCHEMA IF EXISTS "%s" %s`
-	GrantUsageSchemaSQLTemplate   = `GRANT USAGE ON SCHEMA "%s" TO "%s"`
-	GrantAllTablesSQLTemplate     = `GRANT %s ON ALL TABLES IN SCHEMA "%s" TO "%s"`
-	DefaultPrivsSchemaSQLTemplate = `ALTER DEFAULT PRIVILEGES FOR ROLE "%s" IN SCHEMA "%s" GRANT %s ON TABLES TO "%s"`
-	DuplicateDatabaseErrorCode    = "42P04"
+	CascadeKeyword                 = "CASCADE"
+	RestrictKeyword                = "RESTRICT"
+	CreateDBSQLTemplate            = `CREATE DATABASE "%s" WITH OWNER = "%s"`
+	ChangeDBOwnerSQLTemplate       = `ALTER DATABASE "%s" OWNER TO "%s"`
+	IsDatabaseExistSQLTemplate     = `SELECT 1 FROM pg_database WHERE datname='%s'`
+	RenameDatabaseSQLTemplate      = `ALTER DATABASE "%s" RENAME TO "%s"`
+	CreateSchemaSQLTemplate        = `CREATE SCHEMA IF NOT EXISTS "%s" AUTHORIZATION "%s"`
+	CreateExtensionSQLTemplate     = `CREATE EXTENSION IF NOT EXISTS "%s"`
+	DropDatabaseSQLTemplate        = `DROP DATABASE "%s"`
+	DropExtensionSQLTemplate       = `DROP EXTENSION IF EXISTS "%s" %s`
+	DropSchemaSQLTemplate          = `DROP SCHEMA IF EXISTS "%s" %s`
+	GrantUsageSchemaSQLTemplate    = `GRANT USAGE ON SCHEMA "%s" TO "%s"`
+	GrantAllTablesSQLTemplate      = `GRANT %s ON ALL TABLES IN SCHEMA "%s" TO "%s"`
+	DefaultPrivsSchemaSQLTemplate  = `ALTER DEFAULT PRIVILEGES FOR ROLE "%s" IN SCHEMA "%s" GRANT %s ON TABLES TO "%s"`
+	GetTablesFromSchemaSQLTemplate = `SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'`
+	ChangeTableOwnerSQLTemplate    = `ALTER TABLE IF EXISTS "%s" OWNER TO "%s"`
+	DuplicateDatabaseErrorCode     = "42P04"
 )
 
 func (c *pg) IsDatabaseExist(dbname string) (bool, error) {
@@ -97,6 +99,57 @@ func (c *pg) CreateSchema(db, role, schema string) error {
 	}
 
 	_, err = c.db.Exec(fmt.Sprintf(CreateSchemaSQLTemplate, schema, role))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *pg) GetTablesInSchema(db, schema string) ([]string, error) {
+	err := c.connect(db)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := c.db.Query(fmt.Sprintf(GetTablesFromSchemaSQLTemplate, schema))
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	res := []string{}
+
+	for rows.Next() {
+		tableName := ""
+		// Scan
+		err = rows.Scan(&tableName)
+		// Check error
+		if err != nil {
+			return nil, err
+		}
+		// Save
+		res = append(res, tableName)
+	}
+
+	// Rows error
+	err = rows.Err()
+	// Check error
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (c *pg) ChangeTableOwner(db, table, owner string) error {
+	err := c.connect(db)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.db.Exec(fmt.Sprintf(ChangeTableOwnerSQLTemplate, table, owner))
 	if err != nil {
 		return err
 	}
