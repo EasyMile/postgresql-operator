@@ -1272,25 +1272,6 @@ func isSetRoleOnDatabasesRoleSettingsExists(username, databaseInput, groupRole s
 	return false, nil
 }
 
-func checkPGUSecretValues(name, namespace, rolePrefix string, pgec *postgresqlv1alpha1.PostgresqlEngineConfiguration) {
-	secret := &corev1.Secret{}
-	err := k8sClient.Get(ctx, types.NamespacedName{
-		Name:      name,
-		Namespace: namespace,
-	}, secret)
-	Expect(err).ToNot(HaveOccurred())
-
-	Expect(string(secret.Data["POSTGRES_URL"])).To(Equal(fmt.Sprintf("postgresql://%s:%s@localhost:%d/%s", secret.Data["LOGIN"], secret.Data["PASSWORD"], pgec.Spec.Port, pgdbDBName)))
-	Expect(string(secret.Data["POSTGRES_URL_ARGS"])).To(Equal(fmt.Sprintf("%s?%s", secret.Data["POSTGRES_URL"], secret.Data["ARGS"])))
-	Expect(string(secret.Data["ROLE"])).To(MatchRegexp(fmt.Sprintf("%s-.+", rolePrefix)))
-	Expect(secret.Data["PASSWORD"]).ToNot(BeEmpty())
-	Expect(string(secret.Data["LOGIN"])).To(MatchRegexp(fmt.Sprintf("%s-.+", rolePrefix)))
-	Expect(string(secret.Data["DATABASE"])).To(Equal(pgdbDBName))
-	Expect(string(secret.Data["HOST"])).To(Equal(pgec.Spec.Host))
-	Expect(string(secret.Data["PORT"])).To(Equal(fmt.Sprint(pgec.Spec.Port)))
-	Expect(string(secret.Data["ARGS"])).To(Equal(pgec.Spec.URIArgs))
-}
-
 func checkPGURSecretValues(
 	name, namespace, dbName, username, password string,
 	pgec *postgresqlv1alpha1.PostgresqlEngineConfiguration,
