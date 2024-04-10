@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.1.0
+
+### Features
+
+- Add support for grant role with admin option if asked
+- Add public schema by default in PostgreSQLDatabase objects if nothing is set
+- Add support for replica urls (with bouncer supported)
+
+### Bugs
+
+- Ensure database owner is set correctly
+- Ensure all tables under listed schema have the right owner
+
 ## 3.0.0
 
 ### Breaking change
