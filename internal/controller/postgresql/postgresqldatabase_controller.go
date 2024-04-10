@@ -475,6 +475,21 @@ func (*PostgresqlDatabaseReconciler) manageSchemas(pg postgres.PG, instance *pos
 			return err
 		}
 
+		// Get list of tables inside schema
+		tableNames, err := pg.GetTablesInSchema(instance.Spec.Database, schema)
+		if err != nil {
+			return err
+		}
+
+		// Loop over all tables to force owner
+		for _, tableName := range tableNames {
+			// Force table owner
+			err = pg.ChangeTableOwner(instance.Spec.Database, tableName, owner)
+			if err != nil {
+				return err
+			}
+		}
+
 		// Check if schema was created. Skip if already added
 		if !funk.ContainsString(instance.Status.Schemas, schema) {
 			instance.Status.Schemas = append(instance.Status.Schemas, schema)

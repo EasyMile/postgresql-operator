@@ -87,7 +87,7 @@ var pgdbExtensionName1 = "uuid-ossp"
 var pgdbExtensionName2 = "cube"
 var postgresUser = "postgres"
 var postgresPassword = "postgres"
-var postgresUrlTemplate = "postgresql://%s:%s@localhost:5432/postgres?sslmode=disable"
+var postgresUrlWithDbTemplate = "postgresql://%s:%s@localhost:5432/%s?sslmode=disable"
 var postgresUrl = "postgresql://postgres:postgres@localhost:5432/?sslmode=disable"
 var postgresUrlToDB = "postgresql://postgres:postgres@localhost:5432/" + pgdbDBName + "?sslmode=disable"
 var editedSecretName = "updated-secret-name"
@@ -1024,7 +1024,41 @@ func isSQLExtensionExists(name string) (bool, error) {
 	return nb == 1, nil
 }
 
-func createTableInSchema(schema, table string) error {
+func getTableOwnerInSchema(dbName, schemaName, tableName string) (string, error) {
+	// Connect
+	db, err := sql.Open("postgres", fmt.Sprintf(postgresUrlWithDbTemplate, postgresUser, postgresPassword, dbName))
+	// Check error
+	if err != nil {
+		return "", err
+	}
+
+	defer db.Close()
+
+	sqlTemplate := `select tableowner from pg_tables where tablename = '%s' and schemaname = '%s';`
+	res, err := db.Query(fmt.Sprintf(sqlTemplate, tableName, schemaName))
+	if err != nil {
+		return "", err
+	}
+
+	var owner string
+	for res.Next() {
+		err = res.Scan(&owner)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	// Rows error
+	err = res.Err()
+	// Check error
+	if err != nil {
+		return "", err
+	}
+
+	return owner, nil
+}
+
+func createTableInSchemaAsAdmin(schema, table string) error {
 	// Query template
 	CreateTableInSchemaTemplate := `CREATE TABLE %s.%s()`
 
@@ -1054,7 +1088,7 @@ func checkRoleInSQLDb(role string) {
 }
 
 func connectAs(username, password string) (string, error) {
-	u := fmt.Sprintf(postgresUrlTemplate, username, password)
+	u := fmt.Sprintf(postgresUrlWithDbTemplate, username, password, "postgres")
 	// Connect
 	db, err := sql.Open("postgres", u)
 	// Check error
