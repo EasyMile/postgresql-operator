@@ -219,6 +219,10 @@ var _ = AfterSuite(func() {
 })
 
 func cleanupFunction() {
+	for k, _ := range dbConns {
+		disconnectConnFromKey(k)
+	}
+
 	// Force delete pgec
 	err := deletePGEC(ctx, k8sClient, pgecName, pgecNamespace)
 	Expect(err).ToNot(HaveOccurred())
@@ -243,10 +247,6 @@ func cleanupFunction() {
 	Expect(err).ToNot(HaveOccurred())
 	err = deleteSecret(ctx, k8sClient, editedSecretName, pgurNamespace)
 	Expect(err).ToNot(HaveOccurred())
-
-	for k, _ := range dbConns {
-		disconnectConnFromKey(k)
-	}
 }
 
 func getSecret(ctx context.Context, cli client.Client, name, namespace string) (*corev1.Secret, error) {
