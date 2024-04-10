@@ -49,6 +49,7 @@ import (
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
 	"github.com/easymile/postgresql-operator/internal/controller/config"
 	"github.com/easymile/postgresql-operator/internal/controller/postgresql/postgres"
+	"github.com/easymile/postgresql-operator/internal/controller/utils"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -232,6 +233,18 @@ func cleanupFunction() {
 	Expect(deletePGUR(ctx, k8sClient, pgurName, pgurNamespace)).ToNot(HaveOccurred())
 	Expect(deletePGDB(ctx, k8sClient, pgdbName, pgdbNamespace)).ToNot(HaveOccurred())
 	Expect(deletePGDB(ctx, k8sClient, pgdbName2, pgdbNamespace)).ToNot(HaveOccurred())
+
+	// Close all connections in operator pool
+	// For this, use utils methods and official pool methods
+	Expect(postgres.CloseDatabaseSavedPoolsForName(
+		utils.CreateNameKeyForSavedPools(pgecName, pgecNamespace),
+		pgdbDBName,
+	)).ToNot(HaveOccurred())
+	Expect(postgres.CloseDatabaseSavedPoolsForName(
+		utils.CreateNameKeyForSavedPools(pgecName, pgecNamespace),
+		pgdbDBName2,
+	)).ToNot(HaveOccurred())
+
 	Expect(deleteSQLDBs(pgdbDBName)).ToNot(HaveOccurred())
 	Expect(deleteSQLDBs(pgdbDBName2)).ToNot(HaveOccurred())
 	Expect(deleteSQLRoles()).ToNot(HaveOccurred())
