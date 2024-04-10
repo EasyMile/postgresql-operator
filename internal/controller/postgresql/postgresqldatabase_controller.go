@@ -96,6 +96,13 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Deletion case
 	if !instance.GetDeletionTimestamp().IsZero() {
 		// Deletion in progress detected
+		// Close saved pools
+		// This is done twice in the sequence, but function is idempotent => not a problem and should be kept otherwise a pool can survive
+		err = utils.CloseDatabaseSavedPoolsForName(instance, instance.Spec.Database)
+		if err != nil {
+			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+		}
+
 		// Test should delete database
 		shouldDelete, err := r.shouldDropDatabase(ctx, instance) //nolint:govet // Shadow err
 		if err != nil {
@@ -108,12 +115,6 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 			if err != nil {
 				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 			}
-		}
-		// Close saved pools
-		// This is done twice in the sequence, but function is idempotent => not a problem and should be kept otherwise a pool can survive
-		err = utils.CloseDatabaseSavedPoolsForName(instance, instance.Spec.Database)
-		if err != nil {
-			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
 		// Remove finalizer
 		controllerutil.RemoveFinalizer(instance, config.Finalizer)
