@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.2.0
+
+### Features
+
+- Add support for type ownership recover in database management
+
+### Bugs
+
+- Remove duplicated metadata in leader election role in Helm chart
+
 ## 3.1.0
 
 ### Features
