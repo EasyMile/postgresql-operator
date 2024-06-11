@@ -491,6 +491,21 @@ func (*PostgresqlDatabaseReconciler) manageSchemas(pg postgres.PG, instance *pos
 			}
 		}
 
+		// Get list of types inside schema
+		types, err := pg.GetTypesInSchema(instance.Spec.Database, schema)
+		if err != nil {
+			return err
+		}
+
+		// Loop over all types to force owner
+		for _, typeName := range types {
+			// Force table owner
+			err = pg.ChangeTypeOwnerInSchema(instance.Spec.Database, schema, typeName, owner)
+			if err != nil {
+				return err
+			}
+		}
+
 		// Check if schema was created. Skip if already added
 		if !funk.ContainsString(instance.Status.Schemas, schema) {
 			instance.Status.Schemas = append(instance.Status.Schemas, schema)

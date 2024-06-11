@@ -954,6 +954,46 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 	})
 
+	It("should be ok to recover a wrong type owner", func() {
+		// Create pgec
+		setupPGEC("10s", false)
+
+		// Create pgdb
+		item := setupPGDB(false)
+
+		Expect(len(item.Status.Schemas)).To(Equal(1))
+		Expect(item.Status.Schemas).To(ContainElement(pgPublicSchemaName))
+
+		// Schema should be in sql db
+		exists, err := isSQLSchemaExists(pgPublicSchemaName)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
+
+		// Add table to schema
+		typeName := "mytype"
+		err = createTypeInSchemaAsAdmin(pgPublicSchemaName, typeName)
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(
+			func() error {
+				owner, err := getTypeOwner(pgdbDBName, typeName)
+				if err != nil {
+					return err
+				}
+
+				// Check owner
+				if owner != item.Status.Roles.Owner {
+					return errors.New("operator didn't change owner: " + owner)
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).
+			Should(Succeed())
+	})
+
 	It("should be ok to remove a schema with drop on delete without cascade", func() {
 		// Create pgec
 		prov, _ := setupPGEC("10s", false)
