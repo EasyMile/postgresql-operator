@@ -1127,6 +1127,68 @@ func createTableInSchemaAsAdmin(schema, table string) error {
 	return nil
 }
 
+// Here we are considering that type cannot be in another schema just for test.
+// This is easier for test cases.
+func getTypeOwner(dbName, typeName string) (string, error) {
+	// Connect
+	db, err := sql.Open("postgres", fmt.Sprintf(postgresUrlWithDbTemplate, postgresUser, postgresPassword, dbName))
+	// Check error
+	if err != nil {
+		return "", err
+	}
+
+	defer db.Close()
+
+	sqlTemplate := `SELECT typowner::regrole FROM pg_type WHERE typname = '%s';`
+	res, err := db.Query(fmt.Sprintf(sqlTemplate, typeName))
+	if err != nil {
+		return "", err
+	}
+
+	var owner string
+	for res.Next() {
+		err = res.Scan(&owner)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	// Rows error
+	err = res.Err()
+	// Check error
+	if err != nil {
+		return "", err
+	}
+
+	// Clean member to remove extra "
+	owner = strings.ReplaceAll(owner, `"`, "")
+
+	return owner, nil
+}
+
+func createTypeInSchemaAsAdmin(schema, typeName string) error {
+	// Query template
+	CreateTypeInSchemaTemplate := `CREATE TYPE "%s"."%s" AS ENUM ('new', 'open', 'closed');`
+
+	// Connect
+	db, err := sql.Open("postgres", postgresUrlToDB)
+	// Check error
+	if err != nil {
+		return err
+	}
+
+	defer func() error {
+		return db.Close()
+	}()
+
+	_, err = db.Exec(fmt.Sprintf(CreateTypeInSchemaTemplate, schema, typeName))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func checkRoleInSQLDb(role string) {
 	roleExists, roleErr := isSQLRoleExists(role)
 	Expect(roleErr).ToNot(HaveOccurred())

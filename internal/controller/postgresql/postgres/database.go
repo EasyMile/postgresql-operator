@@ -23,7 +23,15 @@ const (
 	DefaultPrivsSchemaSQLTemplate  = `ALTER DEFAULT PRIVILEGES FOR ROLE "%s" IN SCHEMA "%s" GRANT %s ON TABLES TO "%s"`
 	GetTablesFromSchemaSQLTemplate = `SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'`
 	ChangeTableOwnerSQLTemplate    = `ALTER TABLE IF EXISTS "%s" OWNER TO "%s"`
-	DuplicateDatabaseErrorCode     = "42P04"
+	ChangeTypeOwnerSQLTemplate     = `ALTER TYPE "%s"."%s" OWNER TO "%s"`
+	// Got and edited from : https://stackoverflow.com/questions/3660787/how-to-list-custom-types-using-postgres-information-schema
+	GetTypesFromSchemaSQLTemplate = `SELECT      t.typname as type
+FROM        pg_type t
+LEFT JOIN   pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+WHERE       (t.typrelid = 0 OR (SELECT c.relkind = 'c' FROM pg_catalog.pg_class c WHERE c.oid = t.typrelid))
+AND     NOT EXISTS(SELECT 1 FROM pg_catalog.pg_type el WHERE el.oid = t.typelem AND el.typarray = t.oid)
+AND     n.nspname = '%s';`
+	DuplicateDatabaseErrorCode = "42P04"
 )
 
 func (c *pg) IsDatabaseExist(dbname string) (bool, error) {
@@ -150,6 +158,57 @@ func (c *pg) ChangeTableOwner(db, table, owner string) error {
 	}
 
 	_, err = c.db.Exec(fmt.Sprintf(ChangeTableOwnerSQLTemplate, table, owner))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *pg) GetTypesInSchema(db, schema string) ([]string, error) {
+	err := c.connect(db)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := c.db.Query(fmt.Sprintf(GetTypesFromSchemaSQLTemplate, schema))
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	res := []string{}
+
+	for rows.Next() {
+		typeName := ""
+		// Scan
+		err = rows.Scan(&typeName)
+		// Check error
+		if err != nil {
+			return nil, err
+		}
+		// Save
+		res = append(res, typeName)
+	}
+
+	// Rows error
+	err = rows.Err()
+	// Check error
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (c *pg) ChangeTypeOwnerInSchema(db, schema, typeName, owner string) error {
+	err := c.connect(db)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.db.Exec(fmt.Sprintf(ChangeTypeOwnerSQLTemplate, schema, typeName, owner))
 	if err != nil {
 		return err
 	}
