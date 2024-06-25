@@ -37,6 +37,20 @@ Moreover, a single User can only have rights to one Database.
 
 ### Using Helm
 
+#### From EasyMile Helm Chart Repository
+
+```bash
+helm repo add easymile https://easymile.github.io/helm-charts/
+```
+
+And then deploy:
+
+```bash
+helm install postgresql-operator easymile/postgresql-operator
+```
+
+#### From Git
+
 The project has a Helm 3 chart located in `deploy/helm/postgresql-operator`.
 
 It will deploy the operator running the command:
