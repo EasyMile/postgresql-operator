@@ -1,0 +1,179 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: postgresqlpublications.postgresql.easymile.com
+spec:
+  group: postgresql.easymile.com
+  names:
+    kind: PostgresqlPublication
+    listKind: PostgresqlPublicationList
+    plural: postgresqlpublications
+    shortNames:
+    - pgpublication
+    - pgpub
+    singular: postgresqlpublication
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: Publication
+      jsonPath: .status.name
+      name: Publication
+      type: string
+    - description: Status phase
+      jsonPath: .status.replicationSlotName
+      name: Replication slot name
+      type: string
+    - description: Status phase
+      jsonPath: .status.replicationSlotPlugin
+      name: Replication slot plugin
+      type: string
+    - description: Status phase
+      jsonPath: .status.phase
+      name: Phase
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: PostgresqlPublication is the Schema for the postgresqlpublications
+          API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: PostgresqlPublicationSpec defines the desired state of PostgresqlPublication.
+            properties:
+              allTables:
+                description: |-
+                  Publication for all tables
+                  Note: This is mutually exclusive with "tablesInSchema" & "tables"
+                type: boolean
+              database:
+                description: Postgresql Database
+                properties:
+                  name:
+                    description: Custom resource name
+                    type: string
+                  namespace:
+                    description: Custom resource namespace
+                    type: string
+                required:
+                - name
+                type: object
+              dropOnDelete:
+                description: Should drop database on Custom Resource deletion ?
+                type: boolean
+              name:
+                description: Postgresql Publication name
+                type: string
+              replicationSlotName:
+                description: |-
+                  Postgresql replication slot name
+                  Default value will the publication name
+                type: string
+              replicationSlotPlugin:
+                description: |-
+                  Postgresql replication slot plugin
+                  Default value will be "pgoutput"
+                type: string
+              tables:
+                description: Publication for selected tables
+                items:
+                  properties:
+                    additionalWhere:
+                      description: Additional WHERE for table
+                      type: string
+                    columns:
+                      description: Columns to export
+                      items:
+                        type: string
+                      type: array
+                    tableName:
+                      description: Table name to use for publication
+                      type: string
+                  required:
+                  - tableName
+                  type: object
+                type: array
+              tablesInSchema:
+                description: |-
+                  Publication for tables in schema
+                  Note: This is a list of schema
+                items:
+                  type: string
+                type: array
+              withParameters:
+                description: Publication with parameters
+                properties:
+                  publish:
+                    description: |-
+                      Publish param
+                      See here: https://www.postgresql.org/docs/current/sql-createpublication.html#SQL-CREATEPUBLICATION-PARAMS-WITH-PUBLISH
+                    type: string
+                  publishViaPartitionRoot:
+                    description: |-
+                      Publish via partition root param
+                      See here: https://www.postgresql.org/docs/current/sql-createpublication.html#SQL-CREATEPUBLICATION-PARAMS-WITH-PUBLISH
+                    type: boolean
+                required:
+                - publish
+                type: object
+            required:
+            - database
+            - name
+            type: object
+          status:
+            description: PostgresqlPublicationStatus defines the observed state of
+              PostgresqlPublication.
+            properties:
+              allTables:
+                description: Marker for save
+                type: boolean
+              hash:
+                description: Resource Spec hash
+                type: string
+              message:
+                description: Human-readable message indicating details about current
+                  operator phase or error.
+                type: string
+              name:
+                description: Created publication name
+                type: string
+              phase:
+                description: Current phase of the operator
+                type: string
+              ready:
+                description: True if all resources are in a ready state and all work
+                  is done.
+                type: boolean
+              replicationSlotName:
+                description: Created replication slot name
+                type: string
+              replicationSlotPlugin:
+                description: Created replication slot plugin
+                type: string
+            required:
+            - phase
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

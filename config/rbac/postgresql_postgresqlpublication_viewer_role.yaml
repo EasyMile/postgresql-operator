@@ -1,0 +1,27 @@
+# permissions for end users to view postgresqlpublications.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: postgresqlpublication-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: postgresql-operator
+    app.kubernetes.io/part-of: postgresql-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: postgresqlpublication-viewer-role
+rules:
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
+  - postgresqlpublications
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
+  - postgresqlpublications/status
+  verbs:
+  - get

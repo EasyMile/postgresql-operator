@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.3.0
+
+### Features
+
+- Add support for PostgreSQL Publication
+
 ## 3.2.0
 
 ### Features

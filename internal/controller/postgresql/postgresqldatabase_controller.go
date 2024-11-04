@@ -368,6 +368,19 @@ func (r *PostgresqlDatabaseReconciler) shouldDropDatabase(
 
 			return false, err
 		}
+
+		// Check if there are user role linked resource linked to this
+		existingPublication, err := r.getAnyPublicationLinked(ctx, instance)
+		if err != nil {
+			return false, err
+		}
+
+		if existingPublication != nil {
+			// Wait for children removal
+			err = fmt.Errorf("cannot remove resource because found publication %s in namespace %s linked to this resource and wait for deletion flag is enabled", existingPublication.Name, existingPublication.Namespace)
+
+			return false, err
+		}
 	}
 
 	// Check if drop on delete flag is enabled
@@ -377,6 +390,28 @@ func (r *PostgresqlDatabaseReconciler) shouldDropDatabase(
 
 	// Default case is no !
 	return false, nil
+}
+
+func (r *PostgresqlDatabaseReconciler) getAnyPublicationLinked(
+	ctx context.Context,
+	instance *postgresqlv1alpha1.PostgresqlDatabase,
+) (*postgresqlv1alpha1.PostgresqlPublication, error) {
+	// Initialize postgres user list
+	list := postgresqlv1alpha1.PostgresqlPublicationList{}
+	// Requests for list of users
+	err := r.List(ctx, &list)
+	if err != nil {
+		return nil, err
+	}
+	// Loop over the list
+	for _, item := range list.Items {
+		// Check if db is linked to pgdatabase
+		if item.Spec.Database.Name == instance.Name && (item.Spec.Database.Namespace == instance.Namespace || item.Namespace == instance.Namespace) {
+			return &item, nil
+		}
+	}
+
+	return nil, nil
 }
 
 func (r *PostgresqlDatabaseReconciler) getAnyUserRoleLinked(

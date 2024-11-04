@@ -63,6 +63,10 @@ var ctx context.Context
 var cancel context.CancelFunc
 var generalEventuallyTimeout = 60 * time.Second
 var generalEventuallyInterval = time.Second
+var pgpublicationNamespace = "pgpub-ns"
+var pgpublicationName = "pgpub-object"
+var pgpublicationPublicationName1 = "pub1"
+var pgpublicationCustomReplicationSlotName = "replslotname"
 var pgecNamespace = "pgec-ns"
 var pgecName = "pgec-object"
 var pgecSecretName = "pgec-secret"
@@ -173,6 +177,15 @@ var _ = BeforeSuite(func(_ context.Context) {
 		ControllerName:                      "postgresqluserrole",
 	}).SetupWithManager(k8sManager)).ToNot(HaveOccurred())
 
+	Expect((&PostgresqlPublicationReconciler{
+		Client:                              k8sClient,
+		Log:                                 logf.Log.WithName("controllers"),
+		Recorder:                            k8sManager.GetEventRecorderFor("controller"),
+		Scheme:                              scheme.Scheme,
+		ControllerRuntimeDetailedErrorTotal: controllerRuntimeDetailedErrorTotal,
+		ControllerName:                      "postgresqlpublication",
+	}).SetupWithManager(k8sManager)).ToNot(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -202,6 +215,12 @@ var _ = BeforeSuite(func(_ context.Context) {
 			Name: pgurNamespace,
 		},
 	})).ToNot(HaveOccurred())
+
+	Expect(k8sClient.Create(ctx, &corev1.Namespace{
+		ObjectMeta: v1.ObjectMeta{
+			Name: pgpublicationNamespace,
+		},
+	})).ToNot(HaveOccurred())
 }, NodeTimeout(60*time.Second))
 
 var _ = AfterSuite(func() {
@@ -219,6 +238,10 @@ var _ = AfterSuite(func() {
 	}
 })
 
+func starAny[T any](s T) *T {
+	return &s
+}
+
 func cleanupFunction() {
 	for k, _ := range dbConns {
 		disconnectConnFromKey(k)
@@ -230,6 +253,7 @@ func cleanupFunction() {
 	err = deleteSecret(ctx, k8sClient, pgecSecretName, pgecNamespace)
 	Expect(err).ToNot(HaveOccurred())
 
+	Expect(deletePGPublication(ctx, k8sClient, pgpublicationName, pgpublicationNamespace)).ToNot(HaveOccurred())
 	Expect(deletePGUR(ctx, k8sClient, pgurName, pgurNamespace)).ToNot(HaveOccurred())
 	Expect(deletePGDB(ctx, k8sClient, pgdbName, pgdbNamespace)).ToNot(HaveOccurred())
 	Expect(deletePGDB(ctx, k8sClient, pgdbName2, pgdbNamespace)).ToNot(HaveOccurred())
@@ -245,6 +269,8 @@ func cleanupFunction() {
 		pgdbDBName2,
 	)).ToNot(HaveOccurred())
 
+	Expect(dropReplicationSlot(pgpublicationPublicationName1))
+	Expect(dropReplicationSlot(pgpublicationCustomReplicationSlotName))
 	Expect(deleteSQLDBs(pgdbDBName)).ToNot(HaveOccurred())
 	Expect(deleteSQLDBs(pgdbDBName2)).ToNot(HaveOccurred())
 	Expect(deleteSQLRoles()).ToNot(HaveOccurred())
@@ -281,7 +307,7 @@ func deleteObject(
 	ctx context.Context,
 	cl client.Client,
 	name, namespace string,
-	obj controllerutil.Object,
+	obj client.Object,
 ) error {
 	// Get item
 	err := cl.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, obj)
@@ -623,6 +649,59 @@ func setupSavePGURInternal(it *postgresqlv1alpha1.PostgresqlUserRole) *postgresq
 	return it
 }
 
+func setupPGPublicationWithPartialSpec(partialSpec postgresqlv1alpha1.PostgresqlPublicationSpec) *postgresqlv1alpha1.PostgresqlPublication {
+	it := &postgresqlv1alpha1.PostgresqlPublication{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pgpublicationName,
+			Namespace: pgpublicationNamespace,
+		},
+		Spec: postgresqlv1alpha1.PostgresqlPublicationSpec{
+			Database:              &common.CRLink{Name: pgdbName, Namespace: pgdbNamespace},
+			Name:                  pgpublicationPublicationName1,
+			AllTables:             partialSpec.AllTables,
+			TablesInSchema:        partialSpec.TablesInSchema,
+			Tables:                partialSpec.Tables,
+			WithParameters:        partialSpec.WithParameters,
+			DropOnDelete:          partialSpec.DropOnDelete,
+			ReplicationSlotName:   partialSpec.ReplicationSlotName,
+			ReplicationSlotPlugin: partialSpec.ReplicationSlotPlugin,
+		},
+	}
+
+	return setupSavePGPublicationInternal(it)
+}
+
+func setupSavePGPublicationInternal(it *postgresqlv1alpha1.PostgresqlPublication) *postgresqlv1alpha1.PostgresqlPublication {
+	// Create user
+	Expect(k8sClient.Create(ctx, it)).Should(Succeed())
+
+	// Get updated user
+	Eventually(
+		func() error {
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      it.Name,
+				Namespace: it.Namespace,
+			}, it)
+			// Check error
+			if err != nil {
+				return err
+			}
+
+			// Check if status hasn't been updated
+			if it.Status.Phase == postgresqlv1alpha1.PublicationNoPhase {
+				return gerrors.New("pgpub hasn't been updated by operator")
+			}
+
+			return nil
+		},
+		generalEventuallyTimeout,
+		generalEventuallyInterval,
+	).
+		Should(Succeed())
+
+	return it
+}
+
 func setupPGEC(
 	checkInterval string,
 	waitLinkedResourcesDeletion bool,
@@ -843,6 +922,13 @@ func deletePGDB(ctx context.Context, cl client.Client, name, namespace string) e
 func deletePGUR(ctx context.Context, cl client.Client, name, namespace string) error {
 	// Create structure
 	st := &postgresqlv1alpha1.PostgresqlUserRole{}
+	// Delete
+	return deleteObject(ctx, cl, name, namespace, st)
+}
+
+func deletePGPublication(ctx context.Context, cl client.Client, name, namespace string) error {
+	// Create structure
+	st := &postgresqlv1alpha1.PostgresqlPublication{}
 	// Delete
 	return deleteObject(ctx, cl, name, namespace, st)
 }
@@ -1104,6 +1190,26 @@ func getTableOwnerInSchema(dbName, schemaName, tableName string) (string, error)
 	return owner, nil
 }
 
+func rawSQLQuery(raw string) error {
+	// Connect
+	db, err := sql.Open("postgres", postgresUrlToDB)
+	// Check error
+	if err != nil {
+		return err
+	}
+
+	defer func() error {
+		return db.Close()
+	}()
+
+	_, err = db.Exec(raw)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func createTableInSchemaAsAdmin(schema, table string) error {
 	// Query template
 	CreateTableInSchemaTemplate := `CREATE TABLE %s.%s()`
@@ -1120,6 +1226,64 @@ func createTableInSchemaAsAdmin(schema, table string) error {
 	}()
 
 	_, err = db.Exec(fmt.Sprintf(CreateTableInSchemaTemplate, schema, table))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func createColumnInTable(table, columnName, columnType string) error {
+	tmpl := `ALTER TABLE IF EXISTS %s ADD COLUMN %s %s;`
+
+	// Connect
+	db, err := sql.Open("postgres", postgresUrlToDB)
+	// Check error
+	if err != nil {
+		return err
+	}
+
+	defer func() error {
+		return db.Close()
+	}()
+
+	_, err = db.Exec(fmt.Sprintf(tmpl, table, columnName, columnType))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func create2KnownTablesWithColumnsInPublicSchema() error {
+	err := createTableInSchemaAsAdmin("public", "fake")
+	if err != nil {
+		return err
+	}
+
+	err = createTableInSchemaAsAdmin("public", "fake2")
+	if err != nil {
+		return err
+	}
+
+	err = createColumnInTable("public.fake", "id", "text")
+	if err != nil {
+		return err
+	}
+	err = createColumnInTable("public.fake", "nb", "integer")
+	if err != nil {
+		return err
+	}
+	err = createColumnInTable("public.fake", "nb2", "integer")
+	if err != nil {
+		return err
+	}
+
+	err = createColumnInTable("public.fake2", "id", "text")
+	if err != nil {
+		return err
+	}
+	err = createColumnInTable("public.fake2", "test", "integer")
 	if err != nil {
 		return err
 	}
@@ -1187,6 +1351,263 @@ func createTypeInSchemaAsAdmin(schema, typeName string) error {
 	}
 
 	return nil
+}
+
+type PublicationResult struct {
+	AllTables          bool
+	Insert             bool
+	Update             bool
+	Delete             bool
+	Truncate           bool
+	PublicationViaRoot bool
+}
+
+func getPublication(name string) (*PublicationResult, error) {
+	// Connect
+	db, err := sql.Open("postgres", postgresUrlToDB)
+	// Check error
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() error {
+		return db.Close()
+	}()
+
+	// Get rows
+	rows, err := db.Query(fmt.Sprintf(`SELECT
+  puballtables, pubinsert, pubupdate, pubdelete, pubtruncate, pubviaroot
+FROM pg_catalog.pg_publication
+WHERE pubname = '%s';`, name))
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var res PublicationResult
+
+	var foundOne bool
+
+	for rows.Next() {
+		// Scan
+		err = rows.Scan(&res.AllTables, &res.Insert, &res.Update, &res.Delete, &res.Truncate, &res.PublicationViaRoot)
+		// Check error
+		if err != nil {
+			return nil, err
+		}
+
+		// Update marker
+		foundOne = true
+	}
+
+	// Rows error
+	err = rows.Err()
+	// Check error
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if found marker isn't set
+	if !foundOne {
+		return nil, nil
+	}
+
+	return &res, nil
+}
+
+type PublicationTableDetail struct {
+	SchemaName      string
+	TableName       string
+	Columns         []string
+	AdditionalWhere *string
+}
+
+func getPublicationTableDetails(name string) ([]*PublicationTableDetail, error) {
+	// Connect
+	db, err := sql.Open("postgres", postgresUrlToDB)
+	// Check error
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() error {
+		return db.Close()
+	}()
+
+	// Get rows
+	rows, err := db.Query(fmt.Sprintf(`SELECT
+  schemaname, tablename, attnames, rowfilter
+FROM pg_catalog.pg_publication_tables
+WHERE pubname = '%s';`, name))
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	res := make([]*PublicationTableDetail, 0)
+
+	for rows.Next() {
+		var it PublicationTableDetail
+		var pqSA pq.StringArray
+		// Scan
+		err = rows.Scan(&it.SchemaName, &it.TableName, &pqSA, &it.AdditionalWhere)
+		// Check error
+		if err != nil {
+			return nil, err
+		}
+		// Save
+		// ? Note: getting a list of string from pg imply a decode
+		// ? See issue: https://github.com/cockroachdb/cockroach/issues/39770#issuecomment-576170805
+		it.Columns = pqSA
+
+		// Save value
+		res = append(res, &it)
+	}
+
+	// Rows error
+	err = rows.Err()
+	// Check error
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func dropReplicationSlot(name string) error {
+	// Connect
+	db, err := sql.Open("postgres", postgresUrlToDB)
+	// Check error
+	if err != nil {
+		return err
+	}
+
+	defer func() error {
+		return db.Close()
+	}()
+
+	DropReplicationSlotSQLTemplate := `SELECT pg_drop_replication_slot('%s')`
+	count := 0
+
+	for count <= 20 {
+		repl1, err := getReplicationSlotInternal(db, name)
+		if err != nil {
+			return err
+		}
+
+		if repl1 != nil {
+			_, err = db.Exec(fmt.Sprintf(DropReplicationSlotSQLTemplate, name))
+			if err != nil {
+				return err
+			}
+
+			count += 1
+			// Wait
+			time.Sleep(100 * time.Millisecond)
+		} else {
+			break
+		}
+	}
+
+	repl1, err := getReplicationSlotInternal(db, name)
+	if err != nil {
+		return err
+	}
+
+	if repl1 != nil {
+		return fmt.Errorf("replication slot not deleted after %d round", count)
+	}
+
+	// Default
+	return nil
+}
+
+func createReplicationSlotInMainDB(name, plugin string) error {
+	// Connect
+	db, err := sql.Open("postgres", postgresUrl)
+	// Check error
+	if err != nil {
+		return err
+	}
+
+	defer func() error {
+		return db.Close()
+	}()
+
+	CreateReplicationSlotSQLTemplate := `SELECT pg_create_logical_replication_slot('%s', '%s')`
+
+	_, err = db.Exec(fmt.Sprintf(CreateReplicationSlotSQLTemplate, name, plugin))
+	if err != nil {
+		return err
+	}
+
+	// Default
+	return nil
+}
+
+type replicationSlotResult struct {
+	SlotName string
+	Plugin   string
+	Database string
+}
+
+func getReplicationSlot(name string) (*replicationSlotResult, error) {
+	// Connect
+	db, err := sql.Open("postgres", postgresUrlToDB)
+	// Check error
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() error {
+		return db.Close()
+	}()
+
+	return getReplicationSlotInternal(db, name)
+}
+
+func getReplicationSlotInternal(db *sql.DB, name string) (*replicationSlotResult, error) {
+	GetReplicationSlotSQLTemplate := `SELECT slot_name,plugin,database FROM pg_replication_slots WHERE slot_name = '%s'`
+
+	// Get rows
+	rows, err := db.Query(fmt.Sprintf(GetReplicationSlotSQLTemplate, name))
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var res replicationSlotResult
+
+	var foundOne bool
+
+	for rows.Next() {
+		// Scan
+		err = rows.Scan(&res.SlotName, &res.Plugin, &res.Database)
+		// Check error
+		if err != nil {
+			return nil, err
+		}
+
+		// Update marker
+		foundOne = true
+	}
+
+	// Rows error
+	err = rows.Err()
+	// Check error
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if found marker isn't set
+	if !foundOne {
+		return nil, nil
+	}
+
+	return &res, nil
 }
 
 func checkRoleInSQLDb(role string) {

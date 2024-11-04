@@ -46,6 +46,14 @@ type PG interface { //nolint:interfacebloat // This is needed
 	ChangeTableOwner(db, table, owner string) error
 	GetTypesInSchema(db, schema string) ([]string, error)
 	ChangeTypeOwnerInSchema(db, schema, typeName, owner string) error
+	DropPublication(dbname, name string) error
+	RenamePublication(dbname, oldname, newname string) error
+	GetPublication(dbname, name string) (*PublicationResult, error)
+	CreatePublication(dbname string, builder *CreatePublicationBuilder) error
+	UpdatePublication(dbname, publicationName string, builder *UpdatePublicationBuilder) error
+	DropReplicationSlot(name string) error
+	CreateReplicationSlot(dbname, name, plugin string) error
+	GetReplicationSlot(name string) (*ReplicationSlotResult, error)
 	GetUser() string
 	GetHost() string
 	GetPort() int

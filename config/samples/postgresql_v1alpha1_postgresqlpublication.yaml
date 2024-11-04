@@ -1,0 +1,45 @@
+apiVersion: postgresql.easymile.com/v1alpha1
+kind: PostgresqlPublication
+metadata:
+  labels:
+    app.kubernetes.io/name: postgresqlpublication
+    app.kubernetes.io/instance: postgresqlpublication-sample
+    app.kubernetes.io/part-of: postgresql-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: postgresql-operator
+  name: postgresqlpublication-sample
+spec:
+  # Database custom resource reference
+  database:
+    name: postgresqldatabase-sample
+  # Publication name in PostgreSQL
+  name: my-publication
+  # Drop on delete
+  dropOnDelete: false
+  # Enable publication for all tables in database
+  allTables: false
+  # Tables in schema to select for publication
+  tablesInSchema:
+    []
+    # - table1
+    # - table2
+  # Table selection for publication
+  tables:
+    - # Table name
+      tableName: table1
+      # Columns to select (Empty array will select all of them)
+      columns:
+        - id
+        - created_at
+        # - updated_at
+        - number1
+      # WHERE clause on selected table
+      additionalWhere: number1 > 5
+  # Publication with parameters
+  withParameters:
+    # Publish param
+    # See here: https://www.postgresql.org/docs/current/sql-createpublication.html#SQL-CREATEPUBLICATION-PARAMS-WITH-PUBLISH
+    # publish: 'TRUNCATE'
+    # Publish via partition root param
+    # See here: https://www.postgresql.org/docs/current/sql-createpublication.html#SQL-CREATEPUBLICATION-PARAMS-WITH-PUBLISH
+    publishViaPartitionRoot: false

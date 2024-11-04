@@ -34,9 +34,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
 	postgresqlcontrollers "github.com/easymile/postgresql-operator/internal/controller/postgresql"
-	"github.com/prometheus/client_golang/prometheus"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -171,6 +172,25 @@ func main() {
 		ControllerName:                      "postgresqluserrole",
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PostgresqlUserRole")
+		os.Exit(1)
+	}
+
+	if err = (&postgresqlcontrollers.PostgresqlPublicationReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("postgresqlpublication-controller"),
+		Log: ctrl.Log.WithValues(
+			"controller",
+			"postgresqlpublication",
+			"controllerKind",
+			"PostgresqlPublication",
+			"controllerGroup",
+			"postgresql.easymile.com",
+		),
+		ControllerRuntimeDetailedErrorTotal: controllerRuntimeDetailedErrorTotal,
+		ControllerName:                      "postgresqlpublication",
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "PostgresqlPublication")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

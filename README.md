@@ -32,6 +32,7 @@ Moreover, a single User can only have rights to one Database.
 | [PostgresqlEngineConfiguration](docs/crds/PostgresqlEngineConfiguration.md) | Represents a PostgreSQL Engine Configuration with all necessary data to connect it |
 | [PostgresqlDatabase](docs/crds/PostgresqlDatabase.md)                       | Represents a PostgreSQL Database                                                   |
 | [PostgresqlUserRole](docs/crds/PostgresqlUserRole.md)                       | Represents a PostgreSQL User Role                                                  |
+| [PostgresqlPublication](docs/crds/PostgresqlPublication.md)                 | Represents a PostgreSQL Publication                                                |
 
 ## How to deploy ?
 

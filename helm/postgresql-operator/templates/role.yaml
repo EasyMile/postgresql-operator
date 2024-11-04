@@ -80,6 +80,32 @@ rules:
 - apiGroups:
   - postgresql.easymile.com
   resources:
+  - postgresqlpublications
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
+  - postgresqlpublications/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
+  - postgresqlpublications/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - postgresql.easymile.com
+  resources:
   - postgresqluserroles
   verbs:
   - create
