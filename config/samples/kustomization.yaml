@@ -5,4 +5,5 @@ resources:
 - postgresql_v1alpha1_postgresqluser.yaml
 - postgresql_v1alpha2_postgresqluser.yaml
 - postgresql_v1alpha1_postgresqluserrole.yaml
+- postgresql_v1alpha1_postgresqlpublication.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples
