@@ -5,6 +5,7 @@
 ### Features
 
 - Add support for PostgreSQL Publication
+- Add support for role attributes in UserRole objects
 
 ## 3.2.0
 

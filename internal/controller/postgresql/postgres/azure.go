@@ -26,8 +26,8 @@ func newAzurePG(postgres *pg) PG {
 	}
 }
 
-func (azpg *azurepg) CreateUserRole(role, password string) (string, error) {
-	returnedRole, err := azpg.pg.CreateUserRole(role, password)
+func (azpg *azurepg) CreateUserRole(role, password string, attributes *RoleAttributes) (string, error) {
+	returnedRole, err := azpg.pg.CreateUserRole(role, password, attributes)
 	if err != nil {
 		return "", err
 	}

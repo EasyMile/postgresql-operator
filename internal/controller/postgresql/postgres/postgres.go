@@ -23,7 +23,9 @@ type PG interface { //nolint:interfacebloat // This is needed
 	CreateSchema(db, role, schema string) error
 	CreateExtension(db, extension string) error
 	CreateGroupRole(role string) error
-	CreateUserRole(role, password string) (string, error)
+	CreateUserRole(role, password string, attributes *RoleAttributes) (string, error)
+	AlterRoleAttributes(role string, attributes *RoleAttributes) error
+	GetRoleAttributes(role string) (*RoleAttributes, error)
 	IsRoleExist(role string) (bool, error)
 	RenameRole(oldname, newname string) error
 	UpdatePassword(role, password string) error

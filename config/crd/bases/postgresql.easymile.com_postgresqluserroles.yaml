@@ -110,6 +110,28 @@ spec:
                   - privilege
                   type: object
                 type: array
+              roleAttributes:
+                description: |-
+                  Role attributes
+                  Note: Only attributes that aren't conflicting with operator are supported.
+                properties:
+                  bypassRLS:
+                    description: |-
+                      BYPASSRLS attribute
+                      Note: This can be either true, false or null (to ignore this parameter)
+                    type: boolean
+                  connectionLimit:
+                    description: |-
+                      CONNECTION LIMIT connlimit attribute
+                      Note: This can be either -1, a number or null (to ignore this parameter)
+                      Note: Increase your number by one because operator is using the created user to perform some operations.
+                    type: integer
+                  replication:
+                    description: |-
+                      REPLICATION attribute
+                      Note: This can be either true, false or null (to ignore this parameter)
+                    type: boolean
+                type: object
               rolePrefix:
                 description: User role prefix
                 type: string

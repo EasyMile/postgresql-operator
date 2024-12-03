@@ -2,13 +2,14 @@ package postgres
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/lib/pq"
 )
 
 const (
 	CreateGroupRoleSQLTemplate             = `CREATE ROLE "%s"`
-	CreateUserRoleSQLTemplate              = `CREATE ROLE "%s" WITH LOGIN PASSWORD '%s'`
+	CreateUserRoleSQLTemplate              = `CREATE ROLE "%s" WITH LOGIN PASSWORD '%s' %s`
 	GrantRoleSQLTemplate                   = `GRANT "%s" TO "%s"`
 	GrantRoleWithAdminOptionSQLTemplate    = `GRANT "%s" TO "%s" WITH ADMIN OPTION`
 	AlterUserSetRoleSQLTemplate            = `ALTER USER "%s" SET ROLE "%s"`
@@ -21,8 +22,10 @@ const (
 	ReassignObjectsSQLTemplate             = `REASSIGN OWNED BY "%s" TO "%s"`
 	IsRoleExistSQLTemplate                 = `SELECT 1 FROM pg_roles WHERE rolname='%s'`
 	RenameRoleSQLTemplate                  = `ALTER ROLE "%s" RENAME TO "%s"`
+	AlterRoleWithOptionSQLTemplate         = `ALTER ROLE "%s" WITH %s`
 	// Source: https://dba.stackexchange.com/questions/136858/postgresql-display-role-members
 	GetRoleMembershipSQLTemplate = `SELECT r1.rolname as "role" FROM pg_catalog.pg_roles r JOIN pg_catalog.pg_auth_members m ON (m.member = r.oid) JOIN pg_roles r1 ON (m.roleid=r1.oid) WHERE r.rolcanlogin AND r.rolname='%s'`
+	GetRoleAttributesSQLTemplate = `select rolconnlimit, rolreplication, rolbypassrls FROM pg_roles WHERE rolname = '%s'`
 	// DO NOT TOUCH THIS
 	// Cannot filter on compute value so... cf line before.
 	GetRoleSettingsSQLTemplate           = `SELECT pg_catalog.split_part(pg_catalog.unnest(setconfig), '=', 1) as parameter_type, pg_catalog.split_part(pg_catalog.unnest(setconfig), '=', 2) as parameter_value, d.datname as database FROM pg_catalog.pg_roles r JOIN pg_catalog.pg_db_role_setting c ON (c.setrole = r.oid) JOIN pg_catalog.pg_database d ON (d.oid = c.setdatabase) WHERE r.rolcanlogin AND r.rolname='%s'` //nolint:lll//Because
@@ -31,6 +34,111 @@ const (
 	RoleNotFoundErrorCode                = "42704"
 	InvalidGrantOperationErrorCode       = "0LP01"
 )
+
+var (
+	DefaultAttributeConnectionLimit = -1
+	DefaultAttributeReplication     = false
+	DefaultAttributeBypassRLS       = false
+)
+
+type RoleAttributes struct {
+	ConnectionLimit *int
+	Replication     *bool
+	BypassRLS       *bool
+}
+
+func (*pg) buildAttributesString(attributes *RoleAttributes) string {
+	// Check nil
+	if attributes == nil {
+		return ""
+	}
+
+	res := make([]string, 0)
+
+	// Connection limit case
+	if attributes.ConnectionLimit != nil {
+		res = append(res, fmt.Sprintf("CONNECTION LIMIT %d", *attributes.ConnectionLimit))
+	}
+
+	// Replication case
+	if attributes.Replication != nil {
+		if *attributes.Replication {
+			res = append(res, "REPLICATION")
+		} else {
+			res = append(res, "NOREPLICATION")
+		}
+	}
+
+	// BypassRLS case
+	if attributes.BypassRLS != nil {
+		if *attributes.BypassRLS {
+			res = append(res, "BYPASSRLS")
+		} else {
+			res = append(res, "NOBYPASSRLS")
+		}
+	}
+
+	return strings.Join(res, " ")
+}
+
+func (c *pg) AlterRoleAttributes(role string, attributes *RoleAttributes) error {
+	// Build attributes str
+	attributesSQLStr := c.buildAttributesString(attributes)
+	// Check if it is empty
+	if attributesSQLStr == "" {
+		return nil
+	}
+
+	err := c.connect(c.defaultDatabase)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.db.Exec(fmt.Sprintf(AlterRoleWithOptionSQLTemplate, role, attributesSQLStr))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *pg) GetRoleAttributes(role string) (*RoleAttributes, error) {
+	res := &RoleAttributes{
+		ConnectionLimit: new(int),
+		Replication:     new(bool),
+		BypassRLS:       new(bool),
+	}
+
+	err := c.connect(c.defaultDatabase)
+	if err != nil {
+		return res, err
+	}
+
+	rows, err := c.db.Query(fmt.Sprintf(GetRoleAttributesSQLTemplate, role))
+	if err != nil {
+		return res, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		// Scan
+		err = rows.Scan(res.ConnectionLimit, res.Replication, res.BypassRLS)
+		// Check error
+		if err != nil {
+			return res, err
+		}
+	}
+
+	// Rows error
+	err = rows.Err()
+	// Check error
+	if err != nil {
+		return res, err
+	}
+
+	return res, nil
+}
 
 func (c *pg) GetRoleMembership(role string) ([]string, error) {
 	res := make([]string, 0)
@@ -91,13 +199,16 @@ func (c *pg) CreateGroupRole(role string) error {
 	return nil
 }
 
-func (c *pg) CreateUserRole(role, password string) (string, error) {
+func (c *pg) CreateUserRole(role, password string, attributes *RoleAttributes) (string, error) {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return "", err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(CreateUserRoleSQLTemplate, role, password))
+	// Build attributes sql
+	attributesSQLStr := c.buildAttributesString(attributes)
+
+	_, err = c.db.Exec(fmt.Sprintf(CreateUserRoleSQLTemplate, role, password, attributesSQLStr))
 	if err != nil {
 		return "", err
 	}

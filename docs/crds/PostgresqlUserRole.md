@@ -33,6 +33,7 @@ All these names are available for `kubectl`:
 | importSecretName             | Used in `PROVIDED` mode to give username/password to operator to create and manage                                                                                                                                                                                                   | String                                                        | true in `PROVIDED` mode, false otherwise |
 | userPasswordRotationDuration | User password rotation interval between 2 user/password rotation. This can be used only in `MANAGED` mode.                                                                                                                                                                           | String                                                        | false                                    |
 | workGeneratedSecretName      | This is a secret used internally by operator. You can specify the name of this one, otherwise it will be generated                                                                                                                                                                   | String                                                        | false                                    |
+| roleAttributes               | Role attributes. Note: Only attributes that aren't conflicting with operator are supported.                                                                                                                                                                                          | [PostgresqlUserRoleAttributes](#postgresqluserroleattributes) | false                                    |
 
 ### PostgresqlUserRolePrivilege
 
@@ -42,6 +43,14 @@ All these names are available for `kubectl`:
 | connectionType      | Connection type to be used for secret generation (Can be set to BOUNCER if wanted and supported by engine configuration). Enumeration is `PRIMARY`, `BOUNCER`. Default value is `PRIMARY` | String            | false    |
 | database            | [PostgresqlDatabase](./PostgresqlDatabase.md) object reference                                                                                                                            | [CRLink](#crlink) | true     |
 | generatedSecretName | Generated secret name used for secret generation.                                                                                                                                         | String            | true     |
+
+### PostgresqlUserRoleAttributes
+
+| Field           | Description                                                                                                                                                                                                                  | Scheme    | Required |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | -------- |
+| replication     | REPLICATION attribute. Note: This can be either true, false or null (to ignore this parameter)                                                                                                                               | \*Boolean | false    |
+| bypassRLS       | BYPASSRLS attribute. Note: This can be either true, false or null (to ignore this parameter)                                                                                                                                 | \*Boolean | false    |
+| connectionLimit | CONNECTION LIMIT _connlimit_ attribute. Note: This can be either -1, a number or null (to ignore this parameter). Note 2: Increase your number by one because operator is using the created user to perform some operations. | \*Integer | false    |
 
 ### CRLink
 
@@ -89,6 +98,19 @@ spec:
       generatedSecretName: simple1
   # Import secret that will contain "USERNAME" and "PASSWORD" for provided mode
   importSecretName: provided-simple
+  # Role attributes
+  # Note: Only attributes that aren't conflicting with operator are supported.
+  roleAttributes:
+    # REPLICATION attribute
+    # Note: This can be either true, false or null (to ignore this parameter)
+    replication: null # false / true for example
+    # BYPASSRLS attribute
+    # Note: This can be either true, false or null (to ignore this parameter)
+    bypassRLS: null # false / true for example
+    # CONNECTION LIMIT connlimit attribute
+    # Note: This can be either -1, a number or null (to ignore this parameter)
+    # Note: Increase your number by one because operator is using the created user to perform some operations.
+    connectionLimit: null # 10 for example
 ```
 
 with import secret:

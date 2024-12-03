@@ -718,6 +718,14 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgurImportUsername)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
+
+			attr, err := getRoleAttributes(item.Status.PostgresRole)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(attr).To(Equal(&RoleAttributes{
+				ConnectionLimit: starAny(-1),
+				Replication:     starAny(false),
+				BypassRLS:       starAny(false),
+			}))
 		})
 
 		It("should be ok without work secret name and with a pgec with allow grant admin option", func() {
@@ -828,6 +836,14 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgurImportUsername)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: true}))
+
+			attr, err := getRoleAttributes(item.Status.PostgresRole)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(attr).To(Equal(&RoleAttributes{
+				ConnectionLimit: starAny(-1),
+				Replication:     starAny(false),
+				BypassRLS:       starAny(false),
+			}))
 		})
 
 		It("should be ok with work secret name", func() {
@@ -893,6 +909,87 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgurImportUsername)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
+
+			attr, err := getRoleAttributes(item.Status.PostgresRole)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(attr).To(Equal(&RoleAttributes{
+				ConnectionLimit: starAny(-1),
+				Replication:     starAny(false),
+				BypassRLS:       starAny(false),
+			}))
+		})
+
+		It("should be ok with custom attributes", func() {
+			// Setup pgec
+			pgec, _ := setupPGEC("30s", false)
+			// Create pgdb
+			pgdb := setupPGDB(false)
+
+			// Create secret
+			setupPGURImportSecret()
+
+			preDate := time.Now().Add(-time.Second)
+
+			item := setupProvidedPGURAndPartialCustomAttributes()
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+			Expect(item.Status.Message).To(Equal(""))
+			Expect(item.Status.RolePrefix).To(Equal(""))
+			Expect(item.Status.PostgresRole).To(Equal(pgurImportUsername))
+			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
+			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
+			Expect(err).To(Succeed())
+			Expect(d.After(preDate)).To(BeTrue())
+
+			// Get work secret
+			sec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, sec)).Should(Succeed())
+
+			Expect(string(sec.Data[UsernameSecretKey])).To(Equal(pgurImportUsername))
+			Expect(string(sec.Data[PasswordSecretKey])).To(Equal(pgurImportPassword))
+
+			// Get db secret
+			sec = &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurDBSecretName,
+				Namespace: pgurNamespace,
+			}, sec)).Should(Succeed())
+
+			// Validate
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword, pgec, v1alpha1.PrimaryConnectionType)
+
+			// Connect to check user
+			_, err = connectAs(pgurImportUsername, pgurImportPassword)
+			Expect(err).To(Succeed())
+
+			exists, err := isSQLRoleExists(pgurImportUsername)
+			Expect(err).To(Succeed())
+			Expect(exists).To(BeTrue())
+
+			sett, err := isSetRoleOnDatabasesRoleSettingsExists(pgurImportUsername, pgdbDBName, pgdb.Status.Roles.Owner)
+			Expect(err).To(Succeed())
+			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, pgurImportUsername: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgurImportUsername)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
+
+			attr, err := getRoleAttributes(item.Status.PostgresRole)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(attr).To(Equal(&RoleAttributes{
+				ConnectionLimit: starAny(5),
+				Replication:     starAny(true),
+				BypassRLS:       starAny(false),
+			}))
 		})
 
 		It("should be ok with 2 databases", func() {
@@ -972,6 +1069,14 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgurImportUsername)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
+
+			attr, err := getRoleAttributes(item.Status.PostgresRole)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(attr).To(Equal(&RoleAttributes{
+				ConnectionLimit: starAny(-1),
+				Replication:     starAny(false),
+				BypassRLS:       starAny(false),
+			}))
 		})
 
 		It("should be ok with 2 databases and with a pgec with allow grand admin option", func() {
@@ -1051,6 +1156,14 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgurImportUsername)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: true}))
+
+			attr, err := getRoleAttributes(item.Status.PostgresRole)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(attr).To(Equal(&RoleAttributes{
+				ConnectionLimit: starAny(-1),
+				Replication:     starAny(false),
+				BypassRLS:       starAny(false),
+			}))
 		})
 
 		It("should be ok to edit work secret", func() {
@@ -2150,6 +2263,192 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			Expect(worksecOri.Data[UsernameSecretKey]).To(Equal(worksec.Data[UsernameSecretKey]))
 		})
 
+		It("should be ok to change custom attributes", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create secret
+			setupPGURImportSecret()
+
+			item := setupProvidedPGURAndPartialCustomAttributes()
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			// Edit
+			item.Spec.RoleAttributes.Replication = starAny(false)
+			item.Spec.RoleAttributes.ConnectionLimit = starAny(10)
+
+			Expect(k8sClient.Update(ctx, item)).To(Succeed())
+
+			Eventually(
+				func() error {
+					attr, err := getRoleAttributes(item.Status.PostgresRole)
+					if err != nil {
+						return err
+					}
+
+					if attr == nil || attr.ConnectionLimit == nil || attr.Replication == nil || *attr.Replication || *attr.ConnectionLimit != 10 {
+						return errors.New("not updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			item2 := &postgresqlv1alpha1.PostgresqlUserRole{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurName,
+				Namespace: pgurNamespace,
+			}, item2)).To(Succeed())
+
+			Expect(item2.Status.Ready).To(BeTrue())
+
+			attr, err := getRoleAttributes(item.Status.PostgresRole)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(attr).To(Equal(&RoleAttributes{
+				ConnectionLimit: starAny(10),
+				Replication:     starAny(false),
+				BypassRLS:       starAny(false),
+			}))
+		})
+
+		It("should be ok to remove a custom attribute", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create secret
+			setupPGURImportSecret()
+
+			item := setupProvidedPGURAndPartialCustomAttributes()
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			// Edit
+			item.Spec.RoleAttributes.ConnectionLimit = nil
+
+			Expect(k8sClient.Update(ctx, item)).To(Succeed())
+
+			item3 := &postgresqlv1alpha1.PostgresqlUserRole{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurName,
+				Namespace: pgurNamespace,
+			}, item3)).To(Succeed())
+
+			Expect(item3.Spec.RoleAttributes).To(Equal(&postgresqlv1alpha1.PostgresqlUserRoleAttributes{
+				Replication:     starAny(true),
+				BypassRLS:       nil,
+				ConnectionLimit: nil,
+			}))
+
+			Eventually(
+				func() error {
+					attr, err := getRoleAttributes(item.Status.PostgresRole)
+					if err != nil {
+						return err
+					}
+
+					if attr == nil || attr.ConnectionLimit == nil || *attr.ConnectionLimit != -1 {
+						return errors.New("not updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			item2 := &postgresqlv1alpha1.PostgresqlUserRole{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurName,
+				Namespace: pgurNamespace,
+			}, item2)).To(Succeed())
+
+			Expect(item2.Status.Ready).To(BeTrue())
+
+			attr, err := getRoleAttributes(item.Status.PostgresRole)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(attr).To(Equal(&RoleAttributes{
+				ConnectionLimit: starAny(-1),
+				Replication:     starAny(true),
+				BypassRLS:       starAny(false),
+			}))
+		})
+
+		It("should be ok to add a custom attribute", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create secret
+			setupPGURImportSecret()
+
+			item := setupProvidedPGUR()
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			worksecOri := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurWorkSecretName,
+				Namespace: pgurNamespace,
+			}, worksecOri)).To(Succeed())
+
+			// Edit
+			item.Spec.RoleAttributes = &postgresqlv1alpha1.PostgresqlUserRoleAttributes{
+				ConnectionLimit: starAny(50),
+			}
+
+			Expect(k8sClient.Update(ctx, item)).To(Succeed())
+
+			Eventually(
+				func() error {
+					attr, err := getRoleAttributes(item.Status.PostgresRole)
+					if err != nil {
+						return err
+					}
+
+					if attr == nil || attr.ConnectionLimit == nil || *attr.ConnectionLimit == -1 {
+						return errors.New("not updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			item2 := &postgresqlv1alpha1.PostgresqlUserRole{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurName,
+				Namespace: pgurNamespace,
+			}, item2)).To(Succeed())
+
+			Expect(item2.Status.Ready).To(BeTrue())
+
+			attr, err := getRoleAttributes(item.Status.PostgresRole)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(attr).To(Equal(&RoleAttributes{
+				ConnectionLimit: starAny(50),
+				Replication:     starAny(false),
+				BypassRLS:       starAny(false),
+			}))
+		})
+
 		It("should be ok to generate a primary user role with a bouncer enabled pgec", func() {
 			// Setup pgec
 			pgec, _ := setupPGECWithBouncer("30s", false)
@@ -2926,6 +3225,14 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(username)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
+
+			attr, err := getRoleAttributes(item.Status.PostgresRole)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(attr).To(Equal(&RoleAttributes{
+				ConnectionLimit: starAny(-1),
+				Replication:     starAny(false),
+				BypassRLS:       starAny(false),
+			}))
 		})
 
 		It("should be ok without work secret name and with a pgec with allow grant admin option", func() {
@@ -3034,6 +3341,14 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(username)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: true}))
+
+			attr, err := getRoleAttributes(item.Status.PostgresRole)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(attr).To(Equal(&RoleAttributes{
+				ConnectionLimit: starAny(-1),
+				Replication:     starAny(false),
+				BypassRLS:       starAny(false),
+			}))
 		})
 
 		It("should be ok with work secret name", func() {
@@ -3098,6 +3413,86 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(username)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
+
+			attr, err := getRoleAttributes(item.Status.PostgresRole)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(attr).To(Equal(&RoleAttributes{
+				ConnectionLimit: starAny(-1),
+				Replication:     starAny(false),
+				BypassRLS:       starAny(false),
+			}))
+		})
+
+		It("should be ok with custom attributes", func() {
+			// Setup pgec
+			pgec, _ := setupPGEC("30s", false)
+			// Create pgdb
+			pgdb := setupPGDB(false)
+
+			preDate := time.Now().Add(-time.Second)
+
+			item := setupManagedPGURWithPartialCustomAttributes()
+
+			username := pgurRolePrefix + Login0Suffix
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+			Expect(item.Status.Message).To(Equal(""))
+			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
+			Expect(item.Status.PostgresRole).To(Equal(username))
+			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
+			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
+			Expect(err).To(Succeed())
+			Expect(d.After(preDate)).To(BeTrue())
+
+			// Get work secret
+			sec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, sec)).Should(Succeed())
+
+			Expect(string(sec.Data[UsernameSecretKey])).To(Equal(username))
+			Expect(string(sec.Data[PasswordSecretKey])).ToNot(Equal(""))
+			Expect(string(sec.Data[PasswordSecretKey])).To(HaveLen(ManagedPasswordSize))
+
+			// Get db secret
+			dbsec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurDBSecretName,
+				Namespace: pgurNamespace,
+			}, dbsec)).Should(Succeed())
+
+			// Validate
+			checkPGURSecretValues(pgurDBSecretName, pgurNamespace, pgdbDBName, username, string(sec.Data[PasswordSecretKey]), pgec, v1alpha1.PrimaryConnectionType)
+
+			// Connect to check user
+			_, err = connectAs(username, string(sec.Data[PasswordSecretKey]))
+			Expect(err).To(Succeed())
+
+			exists, err := isSQLRoleExists(username)
+			Expect(err).To(Succeed())
+			Expect(exists).To(BeTrue())
+
+			sett, err := isSetRoleOnDatabasesRoleSettingsExists(username, pgdbDBName, pgdb.Status.Roles.Owner)
+			Expect(err).To(Succeed())
+			Expect(sett).To(BeTrue())
+
+			ownerMemberWithAdminOption, err := getSQLRoleMembershipWithAdminOption(pgdb.Status.Roles.Owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerMemberWithAdminOption).To(Equal(map[string]bool{postgresUser: false, username: false}))
+			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(username)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
+
+			attr, err := getRoleAttributes(item.Status.PostgresRole)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(attr).To(Equal(&RoleAttributes{
+				ConnectionLimit: starAny(5),
+				Replication:     starAny(true),
+				BypassRLS:       starAny(false),
+			}))
 		})
 
 		It("should be ok with 2 databases", func() {
@@ -3177,6 +3572,14 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(username)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: false}))
+
+			attr, err := getRoleAttributes(item.Status.PostgresRole)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(attr).To(Equal(&RoleAttributes{
+				ConnectionLimit: starAny(-1),
+				Replication:     starAny(false),
+				BypassRLS:       starAny(false),
+			}))
 		})
 
 		It("should be ok with 2 databases with a pgec with allow grant admin option", func() {
@@ -3256,6 +3659,218 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 			usernameWithAdminOption, err := getSQLRoleMembershipWithAdminOption(username)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(usernameWithAdminOption).To(Equal(map[string]bool{postgresUser: true}))
+
+			attr, err := getRoleAttributes(item.Status.PostgresRole)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(attr).To(Equal(&RoleAttributes{
+				ConnectionLimit: starAny(-1),
+				Replication:     starAny(false),
+				BypassRLS:       starAny(false),
+			}))
+		})
+
+		It("should be ok to change custom attributes", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			preDate := time.Now().Add(-time.Second)
+
+			item := setupManagedPGURWithPartialCustomAttributes()
+
+			username := pgurRolePrefix + Login0Suffix
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+			Expect(item.Status.Message).To(Equal(""))
+			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
+			Expect(item.Status.PostgresRole).To(Equal(username))
+			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
+			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
+			Expect(err).To(Succeed())
+			Expect(d.After(preDate)).To(BeTrue())
+
+			item.Spec.RoleAttributes.Replication = starAny(false)
+			item.Spec.RoleAttributes.ConnectionLimit = starAny(10)
+			// Save
+			Expect(k8sClient.Update(ctx, item)).To(Succeed())
+
+			Eventually(
+				func() error {
+					attr, err := getRoleAttributes(item.Status.PostgresRole)
+					if err != nil {
+						return err
+					}
+
+					if attr == nil || attr.ConnectionLimit == nil || attr.Replication == nil || *attr.Replication || *attr.ConnectionLimit != 10 {
+						return errors.New("not updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			item2 := &postgresqlv1alpha1.PostgresqlUserRole{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurName,
+				Namespace: pgurNamespace,
+			}, item2)).To(Succeed())
+
+			Expect(item2.Status.Ready).To(BeTrue())
+
+			attr, err := getRoleAttributes(item.Status.PostgresRole)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(attr).To(Equal(&RoleAttributes{
+				ConnectionLimit: starAny(10),
+				Replication:     starAny(false),
+				BypassRLS:       starAny(false),
+			}))
+		})
+
+		It("should be ok to remove a custom attributes", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			preDate := time.Now().Add(-time.Second)
+
+			item := setupManagedPGURWithPartialCustomAttributes()
+
+			username := pgurRolePrefix + Login0Suffix
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+			Expect(item.Status.Message).To(Equal(""))
+			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
+			Expect(item.Status.PostgresRole).To(Equal(username))
+			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
+			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
+			Expect(err).To(Succeed())
+			Expect(d.After(preDate)).To(BeTrue())
+
+			item.Spec.RoleAttributes.ConnectionLimit = nil
+			// Save
+			Expect(k8sClient.Update(ctx, item)).To(Succeed())
+
+			item3 := &postgresqlv1alpha1.PostgresqlUserRole{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurName,
+				Namespace: pgurNamespace,
+			}, item3)).To(Succeed())
+
+			Expect(item3.Spec.RoleAttributes).To(Equal(&postgresqlv1alpha1.PostgresqlUserRoleAttributes{
+				Replication:     starAny(true),
+				BypassRLS:       nil,
+				ConnectionLimit: nil,
+			}))
+
+			Eventually(
+				func() error {
+					attr, err := getRoleAttributes(item.Status.PostgresRole)
+					if err != nil {
+						return err
+					}
+
+					if attr == nil || attr.ConnectionLimit == nil || *attr.ConnectionLimit != -1 {
+						return errors.New("not updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			item2 := &postgresqlv1alpha1.PostgresqlUserRole{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurName,
+				Namespace: pgurNamespace,
+			}, item2)).To(Succeed())
+
+			Expect(item2.Status.Ready).To(BeTrue())
+
+			attr, err := getRoleAttributes(item.Status.PostgresRole)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(attr).To(Equal(&RoleAttributes{
+				ConnectionLimit: starAny(-1),
+				Replication:     starAny(true),
+				BypassRLS:       starAny(false),
+			}))
+		})
+
+		It("should be ok to add a custom attributes", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			preDate := time.Now().Add(-time.Second)
+
+			item := setupManagedPGUR("")
+
+			username := pgurRolePrefix + Login0Suffix
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+			Expect(item.Status.Message).To(Equal(""))
+			Expect(item.Status.RolePrefix).To(Equal(pgurRolePrefix))
+			Expect(item.Status.PostgresRole).To(Equal(username))
+			Expect(item.Spec.WorkGeneratedSecretName).To(Equal(pgurWorkSecretName))
+			Expect(item.Spec.Privileges[0].ConnectionType).To(Equal(postgresqlv1alpha1.PrimaryConnectionType))
+			d, err := time.Parse(time.RFC3339, item.Status.LastPasswordChangedTime)
+			Expect(err).To(Succeed())
+			Expect(d.After(preDate)).To(BeTrue())
+
+			item.Spec.RoleAttributes = &postgresqlv1alpha1.PostgresqlUserRoleAttributes{
+				ConnectionLimit: starAny(50),
+			}
+			// Save
+			Expect(k8sClient.Update(ctx, item)).To(Succeed())
+
+			Eventually(
+				func() error {
+					attr, err := getRoleAttributes(item.Status.PostgresRole)
+					if err != nil {
+						return err
+					}
+
+					if attr == nil || attr.ConnectionLimit == nil || *attr.ConnectionLimit != -1 {
+						return errors.New("not updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			item2 := &postgresqlv1alpha1.PostgresqlUserRole{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurName,
+				Namespace: pgurNamespace,
+			}, item2)).To(Succeed())
+
+			Expect(item2.Status.Ready).To(BeTrue())
+
+			attr, err := getRoleAttributes(item.Status.PostgresRole)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(attr).To(Equal(&RoleAttributes{
+				ConnectionLimit: starAny(50),
+				Replication:     starAny(false),
+				BypassRLS:       starAny(false),
+			}))
 		})
 
 		It("should be ok to edit work secret", func() {

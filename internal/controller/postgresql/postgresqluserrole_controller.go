@@ -712,6 +712,91 @@ func (*PostgresqlUserRoleReconciler) getDBRoleFromPrivilege(
 	}
 }
 
+func convertPostgresqlUserRoleAttributesToRoleAttributes(item *v1alpha1.PostgresqlUserRoleAttributes) *postgres.RoleAttributes {
+	// Check nil
+	if item == nil {
+		return nil
+	}
+
+	return &postgres.RoleAttributes{
+		ConnectionLimit: item.ConnectionLimit,
+		Replication:     item.Replication,
+		BypassRLS:       item.BypassRLS,
+	}
+}
+
+func diffAttributes(sqlAttributes, wantedAttributes *postgres.RoleAttributes) *postgres.RoleAttributes {
+	// Init result & vars
+	attributes := &postgres.RoleAttributes{}
+
+	// Check if we are in the case of wanted have been flushed and database have different configuration
+	// Need to reset to default
+	if wantedAttributes == nil {
+		// Check connection limit
+		if sqlAttributes.ConnectionLimit != nil && *sqlAttributes.ConnectionLimit != postgres.DefaultAttributeConnectionLimit {
+			// Change value needed => Reset to default
+			attributes.ConnectionLimit = &postgres.DefaultAttributeConnectionLimit
+		}
+
+		// Check replication
+		if sqlAttributes.Replication != nil && *sqlAttributes.Replication != postgres.DefaultAttributeReplication {
+			// Change value needed => Reset to default
+			attributes.Replication = &postgres.DefaultAttributeReplication
+		}
+
+		// Check BypassRLS
+		if sqlAttributes.BypassRLS != nil && *sqlAttributes.BypassRLS != postgres.DefaultAttributeBypassRLS {
+			// Change value needed => Reset to default
+			attributes.BypassRLS = &postgres.DefaultAttributeBypassRLS
+		}
+
+		// Stop here
+		return attributes
+	}
+
+	//
+	// Now we are in the case of an update is needed
+	//
+
+	// Check differences for ConnectionLimit
+	if !reflect.DeepEqual(sqlAttributes.ConnectionLimit, wantedAttributes.ConnectionLimit) {
+		// Check if we are in a reset case
+		if wantedAttributes.ConnectionLimit == nil && sqlAttributes.ConnectionLimit != nil && *sqlAttributes.ConnectionLimit != postgres.DefaultAttributeConnectionLimit {
+			// Change value needed => Reset to default
+			attributes.ConnectionLimit = &postgres.DefaultAttributeConnectionLimit
+		} else {
+			// New value asked
+			attributes.ConnectionLimit = wantedAttributes.ConnectionLimit
+		}
+	}
+
+	// Check differences for Replication
+	if !reflect.DeepEqual(sqlAttributes.Replication, wantedAttributes.Replication) {
+		// Check if we are in a reset case
+		if wantedAttributes.Replication == nil && sqlAttributes.Replication != nil && *sqlAttributes.Replication != postgres.DefaultAttributeReplication {
+			// Change value needed => Reset to default
+			attributes.Replication = &postgres.DefaultAttributeReplication
+		} else {
+			// New value asked
+			attributes.Replication = wantedAttributes.Replication
+		}
+	}
+
+	// Check differences for BypassRLS
+	if !reflect.DeepEqual(sqlAttributes.BypassRLS, wantedAttributes.BypassRLS) {
+		// Check if we are in a reset case
+		if wantedAttributes.BypassRLS == nil && sqlAttributes.BypassRLS != nil && *sqlAttributes.BypassRLS != postgres.DefaultAttributeBypassRLS {
+			// Change value needed => Reset to default
+			attributes.BypassRLS = &postgres.DefaultAttributeBypassRLS
+		} else {
+			// New value asked
+			attributes.BypassRLS = wantedAttributes.BypassRLS
+		}
+	}
+
+	return attributes
+}
+
 func (r *PostgresqlUserRoleReconciler) managePGUserRoles(
 	_ context.Context,
 	logger logr.Logger,
@@ -721,6 +806,9 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRoles(
 	username, password string,
 	passwordChanged bool,
 ) error {
+	// Build wantedAttributes
+	wantedAttributes := convertPostgresqlUserRoleAttributesToRoleAttributes(instance.Spec.RoleAttributes)
+
 	// Loop over all pg instances
 	for key, pgInstance := range pgInstanceCache {
 		// Check if user exists in database
@@ -732,7 +820,7 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRoles(
 		// Check if role doesn't exist to create it
 		if !exists {
 			// Create role
-			_, err = pgInstance.CreateUserRole(username, password)
+			_, err = pgInstance.CreateUserRole(username, password, wantedAttributes)
 			// Check error
 			if err != nil {
 				return err
@@ -742,6 +830,30 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRoles(
 			r.Recorder.Eventf(instance, "Normal", "Updated", "Successfully created user in engine %s", key)
 			// Stop here
 			continue
+		}
+
+		// Get role attributes
+		sqlAttributes, err := pgInstance.GetRoleAttributes(username)
+		// Check error
+		if err != nil {
+			return err
+		}
+		// Check if results haven't been found
+		if sqlAttributes == nil {
+			return errors.NewBadRequest("seems that role attributes cannot be found (maybe role has been removed)")
+		}
+
+		// Diff attributes
+		newAttributes := diffAttributes(sqlAttributes, wantedAttributes)
+
+		// Check if new attributes are defined
+		if newAttributes != nil {
+			// Alter
+			err = pgInstance.AlterRoleAttributes(username, newAttributes)
+			// Check error
+			if err != nil {
+				return err
+			}
 		}
 
 		// Check if it is the first time this instance is managed
