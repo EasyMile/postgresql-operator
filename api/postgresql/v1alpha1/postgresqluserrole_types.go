@@ -58,6 +58,19 @@ type PostgresqlUserRolePrivilege struct {
 	GeneratedSecretName string `json:"generatedSecretName"`
 }
 
+type PostgresqlUserRoleAttributes struct {
+	// REPLICATION attribute
+	// Note: This can be either true, false or null (to ignore this parameter)
+	Replication *bool `json:"replication,omitempty"`
+	// BYPASSRLS attribute
+	// Note: This can be either true, false or null (to ignore this parameter)
+	BypassRLS *bool `json:"bypassRLS,omitempty"` //nolint:tagliatelle
+	// CONNECTION LIMIT connlimit attribute
+	// Note: This can be either -1, a number or null (to ignore this parameter)
+	// Note: Increase your number by one because operator is using the created user to perform some operations.
+	ConnectionLimit *int `json:"connectionLimit,omitempty"`
+}
+
 type ModeEnum string
 
 const ProvidedMode ModeEnum = "PROVIDED"
@@ -90,6 +103,10 @@ type PostgresqlUserRoleSpec struct {
 	// Import secret name
 	// +optional
 	ImportSecretName string `json:"importSecretName,omitempty"`
+	// Role attributes
+	// Note: Only attributes that aren't conflicting with operator are supported.
+	// +optional
+	RoleAttributes *PostgresqlUserRoleAttributes `json:"roleAttributes,omitempty"`
 }
 
 type UserRoleStatusPhase string

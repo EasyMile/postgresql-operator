@@ -428,6 +428,32 @@ func setupProvidedPGUR() *postgresqlv1alpha1.PostgresqlUserRole {
 
 	return setupSavePGURInternal(it)
 }
+func setupProvidedPGURAndPartialCustomAttributes() *postgresqlv1alpha1.PostgresqlUserRole {
+	it := &postgresqlv1alpha1.PostgresqlUserRole{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pgurName,
+			Namespace: pgurNamespace,
+		},
+		Spec: postgresqlv1alpha1.PostgresqlUserRoleSpec{
+			Mode:                    postgresqlv1alpha1.ProvidedMode,
+			ImportSecretName:        pgurImportSecretName,
+			WorkGeneratedSecretName: pgurWorkSecretName,
+			Privileges: []*postgresqlv1alpha1.PostgresqlUserRolePrivilege{
+				{
+					Privilege:           postgresqlv1alpha1.OwnerPrivilege,
+					Database:            &common.CRLink{Name: pgdbName, Namespace: pgdbNamespace},
+					GeneratedSecretName: pgurDBSecretName,
+				},
+			},
+			RoleAttributes: &postgresqlv1alpha1.PostgresqlUserRoleAttributes{
+				Replication:     starAny(true),
+				ConnectionLimit: starAny(5),
+			},
+		},
+	}
+
+	return setupSavePGURInternal(it)
+}
 
 func setupProvidedPGURWithBouncer() *postgresqlv1alpha1.PostgresqlUserRole {
 	it := &postgresqlv1alpha1.PostgresqlUserRole{
@@ -553,6 +579,33 @@ func setupManagedPGUR(userPasswordRotationDuration string) *postgresqlv1alpha1.P
 					Database:            &common.CRLink{Name: pgdbName, Namespace: pgdbNamespace},
 					GeneratedSecretName: pgurDBSecretName,
 				},
+			},
+		},
+	}
+
+	return setupSavePGURInternal(it)
+}
+
+func setupManagedPGURWithPartialCustomAttributes() *postgresqlv1alpha1.PostgresqlUserRole {
+	it := &postgresqlv1alpha1.PostgresqlUserRole{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pgurName,
+			Namespace: pgurNamespace,
+		},
+		Spec: postgresqlv1alpha1.PostgresqlUserRoleSpec{
+			Mode:                    postgresqlv1alpha1.ManagedMode,
+			RolePrefix:              pgurRolePrefix,
+			WorkGeneratedSecretName: pgurWorkSecretName,
+			Privileges: []*postgresqlv1alpha1.PostgresqlUserRolePrivilege{
+				{
+					Privilege:           postgresqlv1alpha1.OwnerPrivilege,
+					Database:            &common.CRLink{Name: pgdbName, Namespace: pgdbNamespace},
+					GeneratedSecretName: pgurDBSecretName,
+				},
+			},
+			RoleAttributes: &postgresqlv1alpha1.PostgresqlUserRoleAttributes{
+				Replication:     starAny(true),
+				ConnectionLimit: starAny(5),
 			},
 		},
 	}
@@ -1608,6 +1661,57 @@ func getReplicationSlotInternal(db *sql.DB, name string) (*replicationSlotResult
 	}
 
 	return &res, nil
+}
+
+type RoleAttributes struct {
+	ConnectionLimit *int
+	Replication     *bool
+	BypassRLS       *bool
+}
+
+func getRoleAttributes(role string) (*RoleAttributes, error) {
+	res := &RoleAttributes{
+		ConnectionLimit: new(int),
+		Replication:     new(bool),
+		BypassRLS:       new(bool),
+	}
+
+	// Connect
+	db, err := sql.Open("postgres", postgresUrl)
+	// Check error
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() error {
+		return db.Close()
+	}()
+
+	GetRoleAttributesSQLTemplate := `select rolconnlimit, rolreplication, rolbypassrls FROM pg_roles WHERE rolname = '%s'`
+	rows, err := db.Query(fmt.Sprintf(GetRoleAttributesSQLTemplate, role))
+	if err != nil {
+		return res, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		// Scan
+		err = rows.Scan(res.ConnectionLimit, res.Replication, res.BypassRLS)
+		// Check error
+		if err != nil {
+			return res, err
+		}
+	}
+
+	// Rows error
+	err = rows.Err()
+	// Check error
+	if err != nil {
+		return res, err
+	}
+
+	return res, nil
 }
 
 func checkRoleInSQLDb(role string) {
