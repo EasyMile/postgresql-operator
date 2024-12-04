@@ -23,6 +23,14 @@ spec:
       name: Publication
       type: string
     - description: Status phase
+      jsonPath: .status.replicationSlotName
+      name: Replication slot name
+      type: string
+    - description: Status phase
+      jsonPath: .status.replicationSlotPlugin
+      name: Replication slot plugin
+      type: string
+    - description: Status phase
       jsonPath: .status.phase
       name: Phase
       type: string
@@ -74,6 +82,16 @@ spec:
                 type: boolean
               name:
                 description: Postgresql Publication name
+                type: string
+              replicationSlotName:
+                description: |-
+                  Postgresql replication slot name
+                  Default value will the publication name
+                type: string
+              replicationSlotPlugin:
+                description: |-
+                  Postgresql replication slot plugin
+                  Default value will be "pgoutput"
                 type: string
               tables:
                 description: Publication for selected tables
@@ -145,6 +163,12 @@ spec:
                 description: True if all resources are in a ready state and all work
                   is done.
                 type: boolean
+              replicationSlotName:
+                description: Created replication slot name
+                type: string
+              replicationSlotPlugin:
+                description: Created replication slot plugin
+                type: string
             required:
             - phase
             type: object
