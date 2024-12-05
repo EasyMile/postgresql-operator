@@ -15,6 +15,8 @@ spec:
       labels:
         app.kubernetes.io/name: {{ include "postgresql-operator.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        {{- toYaml .Values.podAnnotations | nindent 8 }}
     spec:
       serviceAccountName: {{ include "postgresql-operator.serviceAccountName" . }}
     {{- with .Values.imagePullSecrets }}
