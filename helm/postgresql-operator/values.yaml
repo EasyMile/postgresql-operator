@@ -9,6 +9,7 @@ rbac:
 ## Service account name and whether to create it
 serviceAccount:
   create: true
+  annotations: {}
   name:
 
 ## Let it empty to watch all namespaces
@@ -76,6 +77,8 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+podAnnotations: {}
 
 grafanaDashboards:
   enabled: false
