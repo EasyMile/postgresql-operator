@@ -3,6 +3,7 @@ package postgresql
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/easymile/postgresql-operator/api/postgresql/common"
@@ -2729,6 +2730,176 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 				item.Spec.Privileges[0].GeneratedSecretName,
 				pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword,
 				pgec, v1alpha1.PrimaryConnectionType,
+			)
+		})
+
+		It("should be ok to add a role extra url parameters", func() {
+			// Setup pgec
+			pgec, _ := setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create secret
+			setupPGURImportSecret()
+
+			item := setupProvidedPGUR()
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			// Edit
+			item.Spec.Privileges[0].ExtraConnectionURLParameters = map[string]string{
+				"fake":  "fake",
+				"fake2": "fake2",
+			}
+
+			Expect(k8sClient.Update(ctx, item)).To(Succeed())
+
+			sec2 := &corev1.Secret{}
+			Eventually(
+				func() error {
+					err := k8sClient.Get(ctx, types.NamespacedName{
+						Name:      item.Spec.Privileges[0].GeneratedSecretName,
+						Namespace: pgurNamespace,
+					}, sec2)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check if sec have been updated
+					if !strings.Contains(string(sec2.Data["POSTGRES_URL_ARGS"]), "fake=fake&fake2=fake2") {
+						return errors.New("Secret not updated")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			item2 := &postgresqlv1alpha1.PostgresqlUserRole{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurName,
+				Namespace: pgurNamespace,
+			}, item2)).To(Succeed())
+
+			Expect(item2.Status.Ready).To(BeTrue())
+
+			checkPGURSecretValuesWithExtraArgs(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword,
+				pgec, v1alpha1.PrimaryConnectionType,
+				item.Spec.Privileges[0].ExtraConnectionURLParameters,
+			)
+		})
+
+		It("should be ok to add and remove a role extra url parameters", func() {
+			// Setup pgec
+			pgec, _ := setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create secret
+			setupPGURImportSecret()
+
+			item := setupProvidedPGUR()
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			// Edit
+			item.Spec.Privileges[0].ExtraConnectionURLParameters = map[string]string{
+				"fake":  "fake",
+				"fake2": "fake2",
+			}
+
+			Expect(k8sClient.Update(ctx, item)).To(Succeed())
+
+			sec2 := &corev1.Secret{}
+			Eventually(
+				func() error {
+					err := k8sClient.Get(ctx, types.NamespacedName{
+						Name:      item.Spec.Privileges[0].GeneratedSecretName,
+						Namespace: pgurNamespace,
+					}, sec2)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check if sec have been updated
+					if !strings.Contains(string(sec2.Data["POSTGRES_URL_ARGS"]), "fake=fake&fake2=fake2") {
+						return errors.New("Secret not updated")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			item2 := &postgresqlv1alpha1.PostgresqlUserRole{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurName,
+				Namespace: pgurNamespace,
+			}, item2)).To(Succeed())
+
+			Expect(item2.Status.Ready).To(BeTrue())
+
+			checkPGURSecretValuesWithExtraArgs(
+				item2.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword,
+				pgec, v1alpha1.PrimaryConnectionType,
+				item2.Spec.Privileges[0].ExtraConnectionURLParameters,
+			)
+
+			// Edit
+			item2.Spec.Privileges[0].ExtraConnectionURLParameters = map[string]string{}
+
+			Expect(k8sClient.Update(ctx, item2)).To(Succeed())
+
+			sec2 = &corev1.Secret{}
+			Eventually(
+				func() error {
+					err := k8sClient.Get(ctx, types.NamespacedName{
+						Name:      item2.Spec.Privileges[0].GeneratedSecretName,
+						Namespace: pgurNamespace,
+					}, sec2)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check if sec have been updated
+					if strings.Contains(string(sec2.Data["POSTGRES_URL_ARGS"]), "fake=fake&fake2=fake2") {
+						return errors.New("Secret not updated")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			item3 := &postgresqlv1alpha1.PostgresqlUserRole{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurName,
+				Namespace: pgurNamespace,
+			}, item3)).To(Succeed())
+
+			Expect(item3.Status.Ready).To(BeTrue())
+
+			checkPGURSecretValuesWithExtraArgs(
+				item3.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, pgurImportUsername, pgurImportPassword,
+				pgec, v1alpha1.PrimaryConnectionType,
+				item3.Spec.Privileges[0].ExtraConnectionURLParameters,
 			)
 		})
 	})
@@ -5897,6 +6068,192 @@ var _ = Describe("PostgresqlUserRole tests", func() {
 				item.Spec.Privileges[0].GeneratedSecretName,
 				pgurNamespace, pgdbDBName, username, string(workSec.Data[PasswordSecretKey]),
 				pgec, v1alpha1.PrimaryConnectionType,
+			)
+		})
+
+		It("should be ok to add a role extra url parameters", func() {
+			// Setup pgec
+			pgec, _ := setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create secret
+			setupPGURImportSecret()
+
+			item := setupManagedPGUR("")
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			username := pgurRolePrefix + Login0Suffix
+			// Get work secret
+			workSec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, workSec)).Should(Succeed())
+
+			// Edit
+			item.Spec.Privileges[0].ExtraConnectionURLParameters = map[string]string{
+				"fake":  "fake",
+				"fake2": "fake2",
+			}
+
+			Expect(k8sClient.Update(ctx, item)).To(Succeed())
+
+			sec2 := &corev1.Secret{}
+			Eventually(
+				func() error {
+					err := k8sClient.Get(ctx, types.NamespacedName{
+						Name:      item.Spec.Privileges[0].GeneratedSecretName,
+						Namespace: pgurNamespace,
+					}, sec2)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check if sec have been updated
+					if !strings.Contains(string(sec2.Data["POSTGRES_URL_ARGS"]), "fake=fake&fake2=fake2") {
+						return errors.New("Secret not updated")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			item2 := &postgresqlv1alpha1.PostgresqlUserRole{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Name,
+				Namespace: pgurNamespace,
+			}, item2)).To(Succeed())
+
+			Expect(item2.Status.Ready).To(BeTrue())
+
+			checkPGURSecretValuesWithExtraArgs(
+				item.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, username, string(workSec.Data[PasswordSecretKey]),
+				pgec, v1alpha1.PrimaryConnectionType,
+				item.Spec.Privileges[0].ExtraConnectionURLParameters,
+			)
+		})
+
+		It("should be ok to add and remove a role extra url parameters", func() {
+			// Setup pgec
+			pgec, _ := setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create secret
+			setupPGURImportSecret()
+
+			item := setupManagedPGUR("")
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.UserRoleCreatedPhase))
+
+			username := pgurRolePrefix + Login0Suffix
+			// Get work secret
+			workSec := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Spec.WorkGeneratedSecretName,
+				Namespace: pgurNamespace,
+			}, workSec)).Should(Succeed())
+
+			// Edit
+			item.Spec.Privileges[0].ExtraConnectionURLParameters = map[string]string{
+				"fake":  "fake",
+				"fake2": "fake2",
+			}
+
+			Expect(k8sClient.Update(ctx, item)).To(Succeed())
+
+			sec2 := &corev1.Secret{}
+			Eventually(
+				func() error {
+					err := k8sClient.Get(ctx, types.NamespacedName{
+						Name:      item.Spec.Privileges[0].GeneratedSecretName,
+						Namespace: pgurNamespace,
+					}, sec2)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check if sec have been updated
+					if !strings.Contains(string(sec2.Data["POSTGRES_URL_ARGS"]), "fake=fake&fake2=fake2") {
+						return errors.New("Secret not updated")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			item2 := &postgresqlv1alpha1.PostgresqlUserRole{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      item.Name,
+				Namespace: pgurNamespace,
+			}, item2)).To(Succeed())
+
+			Expect(item2.Status.Ready).To(BeTrue())
+
+			checkPGURSecretValuesWithExtraArgs(
+				item2.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, username, string(workSec.Data[PasswordSecretKey]),
+				pgec, v1alpha1.PrimaryConnectionType,
+				item2.Spec.Privileges[0].ExtraConnectionURLParameters,
+			)
+
+			// Edit
+			item2.Spec.Privileges[0].ExtraConnectionURLParameters = map[string]string{}
+
+			Expect(k8sClient.Update(ctx, item2)).To(Succeed())
+
+			sec2 = &corev1.Secret{}
+			Eventually(
+				func() error {
+					err := k8sClient.Get(ctx, types.NamespacedName{
+						Name:      item2.Spec.Privileges[0].GeneratedSecretName,
+						Namespace: pgurNamespace,
+					}, sec2)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check if sec have been updated
+					if strings.Contains(string(sec2.Data["POSTGRES_URL_ARGS"]), "fake=fake&fake2=fake2") {
+						return errors.New("Secret not updated")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			item3 := &postgresqlv1alpha1.PostgresqlUserRole{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pgurName,
+				Namespace: pgurNamespace,
+			}, item3)).To(Succeed())
+
+			Expect(item3.Status.Ready).To(BeTrue())
+
+			checkPGURSecretValuesWithExtraArgs(
+				item3.Spec.Privileges[0].GeneratedSecretName,
+				pgurNamespace, pgdbDBName, username, string(workSec.Data[PasswordSecretKey]),
+				pgec, v1alpha1.PrimaryConnectionType,
+				item3.Spec.Privileges[0].ExtraConnectionURLParameters,
 			)
 		})
 	})

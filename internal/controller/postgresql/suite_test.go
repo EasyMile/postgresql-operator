@@ -1914,6 +1914,15 @@ func checkPGURSecretValues(
 	pgec *postgresqlv1alpha1.PostgresqlEngineConfiguration,
 	userConnectionType postgresqlv1alpha1.ConnectionTypesSpecEnum,
 ) {
+	checkPGURSecretValuesWithExtraArgs(name, namespace, dbName, username, password, pgec, userConnectionType, map[string]string{})
+}
+
+func checkPGURSecretValuesWithExtraArgs(
+	name, namespace, dbName, username, password string,
+	pgec *postgresqlv1alpha1.PostgresqlEngineConfiguration,
+	userConnectionType postgresqlv1alpha1.ConnectionTypesSpecEnum,
+	extraArgsMap map[string]string,
+) {
 	secret := &corev1.Secret{}
 	err := k8sClient.Get(ctx, types.NamespacedName{
 		Name:      name,
@@ -1928,6 +1937,15 @@ func checkPGURSecretValues(
 		userCon = pgec.Spec.UserConnections.BouncerConnection
 	}
 
+	// Compute uri args from main ones to user defined ones
+	uriArgList := []string{userCon.URIArgs}
+	// Loop over user defined list
+	for k, v := range extraArgsMap {
+		uriArgList = append(uriArgList, fmt.Sprintf("%s=%s", k, v))
+	}
+	// Join
+	uriArgs := strings.Join(uriArgList, "&")
+
 	Expect(string(secret.Data["POSTGRES_URL"])).To(Equal(
 		fmt.Sprintf("postgresql://%s:%s@%s:%d/%s", secret.Data["LOGIN"], secret.Data["PASSWORD"], userCon.Host, userCon.Port, dbName),
 	))
@@ -1938,7 +1956,7 @@ func checkPGURSecretValues(
 	Expect(string(secret.Data["DATABASE"])).To(Equal(dbName))
 	Expect(string(secret.Data["HOST"])).To(Equal(userCon.Host))
 	Expect(string(secret.Data["PORT"])).To(Equal(fmt.Sprint(userCon.Port)))
-	Expect(string(secret.Data["ARGS"])).To(Equal(userCon.URIArgs))
+	Expect(string(secret.Data["ARGS"])).To(Equal(uriArgs))
 
 	// Check replica data
 	rucList := pgec.Spec.UserConnections.ReplicaConnections
@@ -1948,6 +1966,15 @@ func checkPGURSecretValues(
 	}
 	// Loop over them to validate
 	for i, userCon := range rucList {
+		// Compute uri args from main ones to user defined ones
+		uriArgList := []string{userCon.URIArgs}
+		// Loop over user defined list
+		for k, v := range extraArgsMap {
+			uriArgList = append(uriArgList, fmt.Sprintf("%s=%s", k, v))
+		}
+		// Join
+		uriArgs := strings.Join(uriArgList, "&")
+
 		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_POSTGRES_URL"])).To(Equal(
 			fmt.Sprintf("postgresql://%s:%s@%s:%d/%s", secret.Data["LOGIN"], secret.Data["PASSWORD"], userCon.Host, userCon.Port, dbName),
 		))
@@ -1958,6 +1985,6 @@ func checkPGURSecretValues(
 		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_DATABASE"])).To(Equal(dbName))
 		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_HOST"])).To(Equal(userCon.Host))
 		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_PORT"])).To(Equal(fmt.Sprint(userCon.Port)))
-		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_ARGS"])).To(Equal(userCon.URIArgs))
+		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_ARGS"])).To(Equal(uriArgs))
 	}
 }

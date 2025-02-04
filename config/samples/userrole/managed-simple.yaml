@@ -18,6 +18,10 @@ spec:
         name: simple
       # Generated secret name with information for the selected database
       generatedSecretName: managed-simple
+      # Extra connection URL Parameters
+      extraConnectionUrlParameters:
+        {}
+        # param1: value1
   # Role attributes
   # Note: Only attributes that aren't conflicting with operator are supported.
   roleAttributes:

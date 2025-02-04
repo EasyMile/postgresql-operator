@@ -16,6 +16,10 @@ spec:
         name: simple
       # Generated secret name with information for the selected database
       generatedSecretName: simple1
+      # Extra connection URL Parameters
+      extraConnectionUrlParameters:
+        {}
+        # param1: value1
   # Import secret that will contain "USERNAME" and "PASSWORD" for provided mode
   importSecretName: provided-simple
   # Role attributes
