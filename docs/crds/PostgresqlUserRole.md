@@ -37,12 +37,13 @@ All these names are available for `kubectl`:
 
 ### PostgresqlUserRolePrivilege
 
-| Field               | Description                                                                                                                                                                               | Scheme            | Required |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | -------- |
-| privilege           | User privilege on database. Enumeration is `OWNER`, `WRITER`, `READER`.                                                                                                                   | String            | true     |
-| connectionType      | Connection type to be used for secret generation (Can be set to BOUNCER if wanted and supported by engine configuration). Enumeration is `PRIMARY`, `BOUNCER`. Default value is `PRIMARY` | String            | false    |
-| database            | [PostgresqlDatabase](./PostgresqlDatabase.md) object reference                                                                                                                            | [CRLink](#crlink) | true     |
-| generatedSecretName | Generated secret name used for secret generation.                                                                                                                                         | String            | true     |
+| Field                        | Description                                                                                                                                                                               | Scheme              | Required |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- | -------- |
+| privilege                    | User privilege on database. Enumeration is `OWNER`, `WRITER`, `READER`.                                                                                                                   | String              | true     |
+| connectionType               | Connection type to be used for secret generation (Can be set to BOUNCER if wanted and supported by engine configuration). Enumeration is `PRIMARY`, `BOUNCER`. Default value is `PRIMARY` | String              | false    |
+| database                     | [PostgresqlDatabase](./PostgresqlDatabase.md) object reference                                                                                                                            | [CRLink](#crlink)   | true     |
+| generatedSecretName          | Generated secret name used for secret generation.                                                                                                                                         | String              | true     |
+| extraConnectionUrlParameters | Extra connection url parameters that will be added into `POSTGRES_URL_ARGS` and `ARGS` fields in generated secret                                                                         | `map[string]string` | false    |
 
 ### PostgresqlUserRoleAttributes
 
@@ -96,6 +97,9 @@ spec:
         name: simple
       # Generated secret name with information for the selected database
       generatedSecretName: simple1
+      # Extra connection URL Parameters
+      extraConnectionUrlParameters: {}
+      #   param1: value1
   # Import secret that will contain "USERNAME" and "PASSWORD" for provided mode
   importSecretName: provided-simple
   # Role attributes

@@ -56,6 +56,8 @@ type PostgresqlUserRolePrivilege struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	GeneratedSecretName string `json:"generatedSecretName"`
+	// Extra connection URL Parameters
+	ExtraConnectionURLParameters map[string]string `json:"extraConnectionUrlParameters,omitempty"`
 }
 
 type PostgresqlUserRoleAttributes struct {
