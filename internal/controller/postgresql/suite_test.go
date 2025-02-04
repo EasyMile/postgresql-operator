@@ -157,6 +157,7 @@ var _ = BeforeSuite(func(_ context.Context) {
 		Scheme:                              scheme.Scheme,
 		ControllerRuntimeDetailedErrorTotal: controllerRuntimeDetailedErrorTotal,
 		ControllerName:                      "postgresqlengineconfiguration",
+		ReconcileTimeout:                    10 * time.Second,
 	}).SetupWithManager(k8sManager)).ToNot(HaveOccurred())
 
 	Expect((&PostgresqlDatabaseReconciler{
@@ -166,6 +167,7 @@ var _ = BeforeSuite(func(_ context.Context) {
 		Scheme:                              scheme.Scheme,
 		ControllerRuntimeDetailedErrorTotal: controllerRuntimeDetailedErrorTotal,
 		ControllerName:                      "postgresqldatabase",
+		ReconcileTimeout:                    10 * time.Second,
 	}).SetupWithManager(k8sManager)).ToNot(HaveOccurred())
 
 	Expect((&PostgresqlUserRoleReconciler{
@@ -175,6 +177,7 @@ var _ = BeforeSuite(func(_ context.Context) {
 		Scheme:                              scheme.Scheme,
 		ControllerRuntimeDetailedErrorTotal: controllerRuntimeDetailedErrorTotal,
 		ControllerName:                      "postgresqluserrole",
+		ReconcileTimeout:                    10 * time.Second,
 	}).SetupWithManager(k8sManager)).ToNot(HaveOccurred())
 
 	Expect((&PostgresqlPublicationReconciler{
@@ -184,6 +187,7 @@ var _ = BeforeSuite(func(_ context.Context) {
 		Scheme:                              scheme.Scheme,
 		ControllerRuntimeDetailedErrorTotal: controllerRuntimeDetailedErrorTotal,
 		ControllerName:                      "postgresqlpublication",
+		ReconcileTimeout:                    10 * time.Second,
 	}).SetupWithManager(k8sManager)).ToNot(HaveOccurred())
 
 	go func() {

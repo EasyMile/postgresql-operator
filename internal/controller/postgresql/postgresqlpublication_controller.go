@@ -19,6 +19,7 @@ package postgresql
 import (
 	"context"
 	"reflect"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -47,6 +48,7 @@ type PostgresqlPublicationReconciler struct {
 	ControllerRuntimeDetailedErrorTotal *prometheus.CounterVec
 	Log                                 logr.Logger
 	ControllerName                      string
+	ReconcileTimeout                    time.Duration
 }
 
 //+kubebuilder:rbac:groups=postgresql.easymile.com,resources=postgresqlpublications,verbs=get;list;watch;create;update;patch;delete
@@ -89,6 +91,44 @@ func (r *PostgresqlPublicationReconciler) Reconcile(ctx context.Context, req ctr
 	// Original patch
 	originalPatch := client.MergeFrom(instance.DeepCopy())
 
+	// Create timeout in ctx
+	timeoutCtx, cancel := context.WithTimeout(ctx, r.ReconcileTimeout)
+	// Defer cancel
+	defer cancel()
+
+	// Init result
+	var res ctrl.Result
+
+	errC := make(chan error, 1)
+
+	// Create wrapping function
+	cb := func() {
+		a, err := r.mainReconcile(timeoutCtx, reqLogger, instance, originalPatch)
+		// Save result
+		res = a
+		// Send error
+		errC <- err
+	}
+
+	// Start wrapped function
+	go cb()
+
+	// Run or timeout
+	select {
+	case <-timeoutCtx.Done():
+		// ? Note: Here use primary context otherwise update to set error will be aborted
+		return r.manageError(ctx, reqLogger, instance, originalPatch, timeoutCtx.Err())
+	case err := <-errC:
+		return res, err
+	}
+}
+
+func (r *PostgresqlPublicationReconciler) mainReconcile(
+	ctx context.Context,
+	reqLogger logr.Logger,
+	instance *v1alpha1.PostgresqlPublication,
+	originalPatch client.Patch,
+) (ctrl.Result, error) {
 	// Deletion case
 	if !instance.GetDeletionTimestamp().IsZero() { //nolint:wsl
 		// Deletion detected
@@ -96,7 +136,7 @@ func (r *PostgresqlPublicationReconciler) Reconcile(ctx context.Context, req ctr
 		// Check if drop on delete is enabled
 		if instance.Spec.DropOnDelete {
 			// Delete publication
-			err = r.manageDropPublication(ctx, reqLogger, instance)
+			err := r.manageDropPublication(ctx, reqLogger, instance)
 			if err != nil {
 				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 			}
@@ -106,7 +146,7 @@ func (r *PostgresqlPublicationReconciler) Reconcile(ctx context.Context, req ctr
 		controllerutil.RemoveFinalizer(instance, config.Finalizer)
 
 		// Update CR
-		err = r.Update(ctx, instance)
+		err := r.Update(ctx, instance)
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
@@ -119,7 +159,7 @@ func (r *PostgresqlPublicationReconciler) Reconcile(ctx context.Context, req ctr
 	// Creation / Update case
 
 	// Validate
-	err = r.validate(instance)
+	err := r.validate(instance)
 	// Check error
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)

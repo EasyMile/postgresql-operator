@@ -64,13 +64,14 @@ func init() {
 } //nolint: wsl // Needed by operator
 
 func main() {
-	var metricsAddr, probeAddr, resyncPeriodStr string
+	var metricsAddr, probeAddr, resyncPeriodStr, reconcileTimeoutStr string
 
 	var enableLeaderElection bool
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.StringVar(&resyncPeriodStr, "resync-period", "30s", "The resync period to reload all resources for auto-heal procedures.")
+	flag.StringVar(&reconcileTimeoutStr, "reconcile-timeout", "5s", "The reconcile max timeout.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -88,6 +89,13 @@ func main() {
 	// Check error
 	if err != nil {
 		setupLog.Error(err, "unable to parse resync period")
+		os.Exit(1)
+	}
+	// Parse duration
+	reconcileTimeout, err := time.ParseDuration(reconcileTimeoutStr)
+	// Check error
+	if err != nil {
+		setupLog.Error(err, "unable to parse reconcile timeout")
 		os.Exit(1)
 	}
 	// Log
@@ -132,6 +140,7 @@ func main() {
 		),
 		ControllerRuntimeDetailedErrorTotal: controllerRuntimeDetailedErrorTotal,
 		ControllerName:                      "postgresqlengineconfiguration",
+		ReconcileTimeout:                    reconcileTimeout,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PostgresqlEngineConfiguration")
 		os.Exit(1)
@@ -151,6 +160,7 @@ func main() {
 		),
 		ControllerRuntimeDetailedErrorTotal: controllerRuntimeDetailedErrorTotal,
 		ControllerName:                      "postgresqldatabase",
+		ReconcileTimeout:                    reconcileTimeout,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PostgresqlDatabase")
 		os.Exit(1)
@@ -170,6 +180,7 @@ func main() {
 		),
 		ControllerRuntimeDetailedErrorTotal: controllerRuntimeDetailedErrorTotal,
 		ControllerName:                      "postgresqluserrole",
+		ReconcileTimeout:                    reconcileTimeout,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PostgresqlUserRole")
 		os.Exit(1)
@@ -189,6 +200,7 @@ func main() {
 		),
 		ControllerRuntimeDetailedErrorTotal: controllerRuntimeDetailedErrorTotal,
 		ControllerName:                      "postgresqlpublication",
+		ReconcileTimeout:                    reconcileTimeout,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PostgresqlPublication")
 		os.Exit(1)

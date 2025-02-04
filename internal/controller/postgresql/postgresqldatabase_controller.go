@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -51,6 +52,7 @@ type PostgresqlDatabaseReconciler struct {
 	ControllerRuntimeDetailedErrorTotal *prometheus.CounterVec
 	Log                                 logr.Logger
 	ControllerName                      string
+	ReconcileTimeout                    time.Duration
 }
 
 //+kubebuilder:rbac:groups=postgresql.easymile.com,resources=postgresqldatabases,verbs=get;list;watch;create;update;patch;delete
@@ -93,11 +95,49 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Original patch
 	originalPatch := client.MergeFrom(instance.DeepCopy())
 
+	// Create timeout in ctx
+	timeoutCtx, cancel := context.WithTimeout(ctx, r.ReconcileTimeout)
+	// Defer cancel
+	defer cancel()
+
+	// Init result
+	var res ctrl.Result
+
+	errC := make(chan error, 1)
+
+	// Create wrapping function
+	cb := func() {
+		a, err := r.mainReconcile(timeoutCtx, reqLogger, instance, originalPatch)
+		// Save result
+		res = a
+		// Send error
+		errC <- err
+	}
+
+	// Start wrapped function
+	go cb()
+
+	// Run or timeout
+	select {
+	case <-timeoutCtx.Done():
+		// ? Note: Here use primary context otherwise update to set error will be aborted
+		return r.manageError(ctx, reqLogger, instance, originalPatch, timeoutCtx.Err())
+	case err := <-errC:
+		return res, err
+	}
+}
+
+func (r *PostgresqlDatabaseReconciler) mainReconcile(
+	ctx context.Context,
+	reqLogger logr.Logger,
+	instance *postgresqlv1alpha1.PostgresqlDatabase,
+	originalPatch client.Patch,
+) (ctrl.Result, error) {
 	// Deletion case
 	if !instance.GetDeletionTimestamp().IsZero() {
 		// Deletion in progress detected
 		// Test should delete database
-		shouldDelete, err := r.shouldDropDatabase(ctx, instance) //nolint:govet // Shadow err
+		shouldDelete, err := r.shouldDropDatabase(ctx, instance)
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 		}
