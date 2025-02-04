@@ -311,9 +311,12 @@ func (r *PostgresqlDatabaseReconciler) manageDropDatabase(
 
 	// Drop roles first
 
+	// Init variable
+	var exists bool
+
 	// Drop owner
 	if instance.Status.Roles.Owner != "" {
-		exists, err := pg.IsRoleExist(instance.Status.Roles.Owner)
+		exists, err = pg.IsRoleExist(instance.Status.Roles.Owner)
 		// Check error
 		if err != nil {
 			return err
@@ -331,7 +334,7 @@ func (r *PostgresqlDatabaseReconciler) manageDropDatabase(
 	}
 	// Drop writer
 	if instance.Status.Roles.Writer != "" {
-		exists, err := pg.IsRoleExist(instance.Status.Roles.Writer)
+		exists, err = pg.IsRoleExist(instance.Status.Roles.Writer)
 		// Check error
 		if err != nil {
 			return err
@@ -349,7 +352,7 @@ func (r *PostgresqlDatabaseReconciler) manageDropDatabase(
 	}
 	// Drop reader
 	if instance.Status.Roles.Reader != "" {
-		exists, err := pg.IsRoleExist(instance.Status.Roles.Reader)
+		exists, err = pg.IsRoleExist(instance.Status.Roles.Reader)
 		// Check error
 		if err != nil {
 			return err
@@ -373,7 +376,7 @@ func (r *PostgresqlDatabaseReconciler) manageDropDatabase(
 		return err
 	}
 
-	exists, err := pg.IsDatabaseExist(instance.Spec.Database)
+	exists, err = pg.IsDatabaseExist(instance.Spec.Database)
 	// Check error
 	if err != nil {
 		return err

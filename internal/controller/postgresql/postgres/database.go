@@ -34,16 +34,6 @@ AND     n.nspname = '%s';`
 	DuplicateDatabaseErrorCode = "42P04"
 )
 
-type TableOwnership struct {
-	TableName string
-	Owner     string
-}
-
-type TypeOwnership struct {
-	TypeName string
-	Owner    string
-}
-
 func (c *pg) IsDatabaseExist(dbname string) (bool, error) {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
