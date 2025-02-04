@@ -15,6 +15,16 @@ type SetRoleOnDatabaseRoleSetting struct {
 	Database string
 }
 
+type TableOwnership struct {
+	TableName string
+	Owner     string
+}
+
+type TypeOwnership struct {
+	TypeName string
+	Owner    string
+}
+
 type PG interface { //nolint:interfacebloat // This is needed
 	CreateDB(dbname, username string) error
 	ChangeDBOwner(dbname, owner string) error
