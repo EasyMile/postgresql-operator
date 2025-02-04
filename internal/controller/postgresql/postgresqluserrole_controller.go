@@ -584,7 +584,7 @@ func (r *PostgresqlUserRoleReconciler) newSecretForPGUser(
 }
 
 func (r *PostgresqlUserRoleReconciler) managePGUserRights(
-	_ context.Context,
+	ctx context.Context,
 	logger logr.Logger,
 	instance *v1alpha1.PostgresqlUserRole,
 	pgInstanceCache map[string]postgres.PG,
@@ -594,14 +594,14 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRights(
 	// Loop on pg instances
 	for key, pgInstance := range pgInstanceCache {
 		// Get membership
-		memberOf, err := pgInstance.GetRoleMembership(username)
+		memberOf, err := pgInstance.GetRoleMembership(ctx, username)
 		// Check error
 		if err != nil {
 			return err
 		}
 
 		// Get set role settings for user
-		setRoleSettings, err := pgInstance.GetSetRoleOnDatabasesRoleSettings(username)
+		setRoleSettings, err := pgInstance.GetSetRoleOnDatabasesRoleSettings(ctx, username)
 		// Check error
 		if err != nil {
 			return err
@@ -619,7 +619,7 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRights(
 			if !contains {
 				// Add right
 				// Note: on this one, the admin option is disabled because we don't want that this user will be admin of the group
-				err = pgInstance.GrantRole(groupRole, username, false)
+				err = pgInstance.GrantRole(ctx, groupRole, username, false)
 				// Check error
 				if err != nil {
 					return err
@@ -639,7 +639,7 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRights(
 			// Check if not found or if group role have changed
 			if found == nil || found.(*postgres.SetRoleOnDatabaseRoleSetting).Role != groupRole { //nolint:forcetypeassert//We know
 				// Add alter
-				err = pgInstance.AlterDefaultLoginRoleOnDatabase(username, groupRole, pcache.DBInstance.Status.Database)
+				err = pgInstance.AlterDefaultLoginRoleOnDatabase(ctx, username, groupRole, pcache.DBInstance.Status.Database)
 				// Check error
 				if err != nil {
 					return err
@@ -671,7 +671,7 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRights(
 		// Manage revoke
 		for _, role := range memberOf {
 			// Revoke
-			err = pgInstance.RevokeRole(role, username)
+			err = pgInstance.RevokeRole(ctx, role, username)
 			// Check error
 			if err != nil {
 				return err
@@ -683,7 +683,7 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRights(
 
 		// Manage revoke set role
 		for _, item := range setRoleSettings {
-			err = pgInstance.RevokeUserSetRoleOnDatabase(item.Role, item.Database)
+			err = pgInstance.RevokeUserSetRoleOnDatabase(ctx, item.Role, item.Database)
 			// Check error
 			if err != nil {
 				return err
@@ -798,7 +798,7 @@ func diffAttributes(sqlAttributes, wantedAttributes *postgres.RoleAttributes) *p
 }
 
 func (r *PostgresqlUserRoleReconciler) managePGUserRoles(
-	_ context.Context,
+	ctx context.Context,
 	logger logr.Logger,
 	instance *v1alpha1.PostgresqlUserRole,
 	pgInstanceCache map[string]postgres.PG,
@@ -812,7 +812,7 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRoles(
 	// Loop over all pg instances
 	for key, pgInstance := range pgInstanceCache {
 		// Check if user exists in database
-		exists, err := pgInstance.IsRoleExist(username)
+		exists, err := pgInstance.IsRoleExist(ctx, username)
 		// Check error
 		if err != nil {
 			return err
@@ -820,7 +820,7 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRoles(
 		// Check if role doesn't exist to create it
 		if !exists {
 			// Create role
-			_, err = pgInstance.CreateUserRole(username, password, wantedAttributes)
+			_, err = pgInstance.CreateUserRole(ctx, username, password, wantedAttributes)
 			// Check error
 			if err != nil {
 				return err
@@ -833,7 +833,7 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRoles(
 		}
 
 		// Get role attributes
-		sqlAttributes, err := pgInstance.GetRoleAttributes(username)
+		sqlAttributes, err := pgInstance.GetRoleAttributes(ctx, username)
 		// Check error
 		if err != nil {
 			return err
@@ -849,7 +849,7 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRoles(
 		// Check if new attributes are defined
 		if newAttributes != nil {
 			// Alter
-			err = pgInstance.AlterRoleAttributes(username, newAttributes)
+			err = pgInstance.AlterRoleAttributes(ctx, username, newAttributes)
 			// Check error
 			if err != nil {
 				return err
@@ -860,7 +860,7 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRoles(
 		// If yes and if the user exist, the password must be ensured
 		// Or if the password have changed, change password
 		if passwordChanged || instance.Status.Phase == v1alpha1.UserRoleNoPhase {
-			err = pgInstance.UpdatePassword(username, password)
+			err = pgInstance.UpdatePassword(ctx, username, password)
 			// Check error
 			if err != nil {
 				return err
@@ -871,7 +871,7 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRoles(
 		}
 
 		// Grant role to current role
-		err = pgInstance.GrantRole(username, pgInstance.GetUser(), pgecCache[key].Spec.AllowGrantAdminOption)
+		err = pgInstance.GrantRole(ctx, username, pgInstance.GetUser(), pgecCache[key].Spec.AllowGrantAdminOption)
 		// Check error
 		if err != nil {
 			return err
@@ -1148,7 +1148,7 @@ func (r *PostgresqlUserRoleReconciler) newWorkSecret(instance *v1alpha1.Postgres
 }
 
 func (r *PostgresqlUserRoleReconciler) manageActiveSessionsAndDropOldRoles(
-	_ context.Context,
+	ctx context.Context,
 	logger logr.Logger,
 	instance *v1alpha1.PostgresqlUserRole,
 	pgInstanceCache map[string]postgres.PG,
@@ -1163,7 +1163,7 @@ func (r *PostgresqlUserRoleReconciler) manageActiveSessionsAndDropOldRoles(
 		// Loop over db cache
 		for key, pgInstance := range pgInstanceCache {
 			// Check if old username exists
-			exists, err := pgInstance.IsRoleExist(oldUsername)
+			exists, err := pgInstance.IsRoleExist(ctx, oldUsername)
 			// Check error
 			if err != nil {
 				return err
@@ -1172,7 +1172,7 @@ func (r *PostgresqlUserRoleReconciler) manageActiveSessionsAndDropOldRoles(
 			// Check if it exists
 			if exists {
 				// Check if there is a currently active session with this user
-				sessionDetected, err := pgInstance.DoesRoleHaveActiveSession(oldUsername)
+				sessionDetected, err := pgInstance.DoesRoleHaveActiveSession(ctx, oldUsername)
 				// Check error
 				if err != nil {
 					return err
@@ -1186,20 +1186,20 @@ func (r *PostgresqlUserRoleReconciler) manageActiveSessionsAndDropOldRoles(
 					for _, item := range dbPrivilegeCacheList {
 						// Some PG instance are limited and this can be done in generic
 						// This limitation needs to add the main user as member of the current role
-						err = pgInstance.GrantRole(oldUsername, pgInstance.GetUser(), pgecCache[key].Spec.AllowGrantAdminOption)
+						err = pgInstance.GrantRole(ctx, oldUsername, pgInstance.GetUser(), pgecCache[key].Spec.AllowGrantAdminOption)
 						// Check error
 						if err != nil {
 							return err
 						}
 						// Change and drop owner by
-						err = pgInstance.ChangeAndDropOwnedBy(oldUsername, item.DBInstance.Status.Roles.Owner, item.DBInstance.Status.Database)
+						err = pgInstance.ChangeAndDropOwnedBy(ctx, oldUsername, item.DBInstance.Status.Roles.Owner, item.DBInstance.Status.Database)
 						// Check error
 						if err != nil {
 							return err
 						}
 					}
 					// Drop it
-					err = pgInstance.DropRole(oldUsername)
+					err = pgInstance.DropRole(ctx, oldUsername)
 					// Check error
 					if err != nil {
 						return err

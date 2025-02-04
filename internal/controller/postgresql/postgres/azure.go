@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"fmt"
 	"strings"
 )
@@ -26,8 +27,8 @@ func newAzurePG(postgres *pg) PG {
 	}
 }
 
-func (azpg *azurepg) CreateUserRole(role, password string, attributes *RoleAttributes) (string, error) {
-	returnedRole, err := azpg.pg.CreateUserRole(role, password, attributes)
+func (azpg *azurepg) CreateUserRole(ctx context.Context, role, password string, attributes *RoleAttributes) (string, error) {
+	returnedRole, err := azpg.pg.CreateUserRole(ctx, role, password, attributes)
 	if err != nil {
 		return "", err
 	}
@@ -44,12 +45,12 @@ func (azpg *azurepg) GetRoleForLogin(login string) string {
 	return login
 }
 
-func (azpg *azurepg) CreateDB(dbname, role string) error {
+func (azpg *azurepg) CreateDB(ctx context.Context, dbname, role string) error {
 	// Have to add the master role to the group role before we can transfer the database owner
-	err := azpg.GrantRole(role, azpg.GetRoleForLogin(azpg.user), false)
+	err := azpg.GrantRole(ctx, role, azpg.GetRoleForLogin(azpg.user), false)
 	if err != nil {
 		return err
 	}
 
-	return azpg.pg.CreateDB(dbname, role)
+	return azpg.pg.CreateDB(ctx, dbname, role)
 }

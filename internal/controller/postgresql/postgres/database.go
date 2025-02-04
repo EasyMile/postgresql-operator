@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/lib/pq"
@@ -34,13 +35,13 @@ AND     n.nspname = '%s';`
 	DuplicateDatabaseErrorCode = "42P04"
 )
 
-func (c *pg) IsDatabaseExist(dbname string) (bool, error) {
+func (c *pg) IsDatabaseExist(ctx context.Context, dbname string) (bool, error) {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return false, err
 	}
 
-	res, err := c.db.Exec(fmt.Sprintf(IsDatabaseExistSQLTemplate, dbname))
+	res, err := c.db.ExecContext(ctx, fmt.Sprintf(IsDatabaseExistSQLTemplate, dbname))
 	if err != nil {
 		return false, err
 	}
@@ -53,13 +54,13 @@ func (c *pg) IsDatabaseExist(dbname string) (bool, error) {
 	return nb == 1, nil
 }
 
-func (c *pg) RenameDatabase(oldname, newname string) error {
+func (c *pg) RenameDatabase(ctx context.Context, oldname, newname string) error {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(RenameDatabaseSQLTemplate, oldname, newname))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(RenameDatabaseSQLTemplate, oldname, newname))
 	if err != nil {
 		return err
 	}
@@ -67,13 +68,13 @@ func (c *pg) RenameDatabase(oldname, newname string) error {
 	return nil
 }
 
-func (c *pg) CreateDB(dbname, role string) error {
+func (c *pg) CreateDB(ctx context.Context, dbname, role string) error {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(CreateDBSQLTemplate, dbname, role))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(CreateDBSQLTemplate, dbname, role))
 	if err != nil {
 		// eat DUPLICATE DATABASE ERROR
 		// Try to cast error
@@ -86,13 +87,13 @@ func (c *pg) CreateDB(dbname, role string) error {
 	return nil
 }
 
-func (c *pg) ChangeDBOwner(dbname, owner string) error {
+func (c *pg) ChangeDBOwner(ctx context.Context, dbname, owner string) error {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(ChangeDBOwnerSQLTemplate, dbname, owner))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(ChangeDBOwnerSQLTemplate, dbname, owner))
 	if err != nil {
 		return err
 	}
@@ -100,13 +101,13 @@ func (c *pg) ChangeDBOwner(dbname, owner string) error {
 	return nil
 }
 
-func (c *pg) CreateSchema(db, role, schema string) error {
+func (c *pg) CreateSchema(ctx context.Context, db, role, schema string) error {
 	err := c.connect(db)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(CreateSchemaSQLTemplate, schema, role))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(CreateSchemaSQLTemplate, schema, role))
 	if err != nil {
 		return err
 	}
@@ -114,13 +115,13 @@ func (c *pg) CreateSchema(db, role, schema string) error {
 	return nil
 }
 
-func (c *pg) GetTablesInSchema(db, schema string) ([]*TableOwnership, error) {
+func (c *pg) GetTablesInSchema(ctx context.Context, db, schema string) ([]*TableOwnership, error) {
 	err := c.connect(db)
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := c.db.Query(fmt.Sprintf(GetTablesFromSchemaSQLTemplate, schema))
+	rows, err := c.db.QueryContext(ctx, fmt.Sprintf(GetTablesFromSchemaSQLTemplate, schema))
 	if err != nil {
 		return nil, err
 	}
@@ -151,13 +152,13 @@ func (c *pg) GetTablesInSchema(db, schema string) ([]*TableOwnership, error) {
 	return res, nil
 }
 
-func (c *pg) ChangeTableOwner(db, table, owner string) error {
+func (c *pg) ChangeTableOwner(ctx context.Context, db, table, owner string) error {
 	err := c.connect(db)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(ChangeTableOwnerSQLTemplate, table, owner))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(ChangeTableOwnerSQLTemplate, table, owner))
 	if err != nil {
 		return err
 	}
@@ -165,13 +166,13 @@ func (c *pg) ChangeTableOwner(db, table, owner string) error {
 	return nil
 }
 
-func (c *pg) GetTypesInSchema(db, schema string) ([]*TypeOwnership, error) {
+func (c *pg) GetTypesInSchema(ctx context.Context, db, schema string) ([]*TypeOwnership, error) {
 	err := c.connect(db)
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := c.db.Query(fmt.Sprintf(GetTypesFromSchemaSQLTemplate, schema))
+	rows, err := c.db.QueryContext(ctx, fmt.Sprintf(GetTypesFromSchemaSQLTemplate, schema))
 	if err != nil {
 		return nil, err
 	}
@@ -202,13 +203,13 @@ func (c *pg) GetTypesInSchema(db, schema string) ([]*TypeOwnership, error) {
 	return res, nil
 }
 
-func (c *pg) ChangeTypeOwnerInSchema(db, schema, typeName, owner string) error {
+func (c *pg) ChangeTypeOwnerInSchema(ctx context.Context, db, schema, typeName, owner string) error {
 	err := c.connect(db)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(ChangeTypeOwnerSQLTemplate, schema, typeName, owner))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(ChangeTypeOwnerSQLTemplate, schema, typeName, owner))
 	if err != nil {
 		return err
 	}
@@ -216,13 +217,13 @@ func (c *pg) ChangeTypeOwnerInSchema(db, schema, typeName, owner string) error {
 	return nil
 }
 
-func (c *pg) DropDatabase(database string) error {
+func (c *pg) DropDatabase(ctx context.Context, database string) error {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(DropDatabaseSQLTemplate, database))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(DropDatabaseSQLTemplate, database))
 	// Error code 3D000 is returned if database doesn't exist
 	if err != nil {
 		// Try to cast error
@@ -237,7 +238,7 @@ func (c *pg) DropDatabase(database string) error {
 	return nil
 }
 
-func (c *pg) DropExtension(database, extension string, cascade bool) error {
+func (c *pg) DropExtension(ctx context.Context, database, extension string, cascade bool) error {
 	err := c.connect(database)
 	if err != nil {
 		return err
@@ -248,7 +249,7 @@ func (c *pg) DropExtension(database, extension string, cascade bool) error {
 		param = CascadeKeyword
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(DropExtensionSQLTemplate, extension, param))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(DropExtensionSQLTemplate, extension, param))
 	if err != nil {
 		return err
 	}
@@ -258,7 +259,7 @@ func (c *pg) DropExtension(database, extension string, cascade bool) error {
 	return nil
 }
 
-func (c *pg) DropSchema(database, schema string, cascade bool) error {
+func (c *pg) DropSchema(ctx context.Context, database, schema string, cascade bool) error {
 	err := c.connect(database)
 	if err != nil {
 		return err
@@ -269,7 +270,7 @@ func (c *pg) DropSchema(database, schema string, cascade bool) error {
 		param = CascadeKeyword
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(DropSchemaSQLTemplate, schema, param))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(DropSchemaSQLTemplate, schema, param))
 	if err != nil {
 		return err
 	}
@@ -279,13 +280,13 @@ func (c *pg) DropSchema(database, schema string, cascade bool) error {
 	return nil
 }
 
-func (c *pg) CreateExtension(db, extension string) error {
+func (c *pg) CreateExtension(ctx context.Context, db, extension string) error {
 	err := c.connect(db)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(CreateExtensionSQLTemplate, extension))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(CreateExtensionSQLTemplate, extension))
 	if err != nil {
 		return err
 	}
@@ -293,26 +294,26 @@ func (c *pg) CreateExtension(db, extension string) error {
 	return nil
 }
 
-func (c *pg) SetSchemaPrivileges(db, creator, role, schema, privs string) error {
+func (c *pg) SetSchemaPrivileges(ctx context.Context, db, creator, role, schema, privs string) error {
 	err := c.connect(db)
 	if err != nil {
 		return err
 	}
 
 	// Grant role usage on schema
-	_, err = c.db.Exec(fmt.Sprintf(GrantUsageSchemaSQLTemplate, schema, role))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(GrantUsageSchemaSQLTemplate, schema, role))
 	if err != nil {
 		return err
 	}
 
 	// Grant role privs on existing tables in schema
-	_, err = c.db.Exec(fmt.Sprintf(GrantAllTablesSQLTemplate, privs, schema, role))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(GrantAllTablesSQLTemplate, privs, schema, role))
 	if err != nil {
 		return err
 	}
 
 	// Grant role privs on future tables in schema
-	_, err = c.db.Exec(fmt.Sprintf(DefaultPrivsSchemaSQLTemplate, creator, schema, privs, role))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(DefaultPrivsSchemaSQLTemplate, creator, schema, privs, role))
 	if err != nil {
 		return err
 	}

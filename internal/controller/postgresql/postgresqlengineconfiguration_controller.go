@@ -221,7 +221,7 @@ func (r *PostgresqlEngineConfigurationReconciler) Reconcile(ctx context.Context,
 	pg := utils.CreatePgInstance(reqLogger, secret.Data, instance)
 
 	// Try to connect
-	err = pg.Ping()
+	err = pg.Ping(ctx)
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}

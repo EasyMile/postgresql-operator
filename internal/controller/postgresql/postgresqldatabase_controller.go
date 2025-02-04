@@ -193,37 +193,37 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Create owner role
-	err = r.manageOwnerRole(pg, owner, instance, pgEngCfg.Spec.AllowGrantAdminOption)
+	err = r.manageOwnerRole(ctx, pg, owner, instance, pgEngCfg.Spec.AllowGrantAdminOption)
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
 
 	// Create or update database
-	err = r.manageDBCreationOrUpdate(pg, instance, owner)
+	err = r.manageDBCreationOrUpdate(ctx, pg, instance, owner)
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
 
 	// Create reader role
-	err = r.manageReaderRole(pg, reader, instance, pgEngCfg.Spec.AllowGrantAdminOption)
+	err = r.manageReaderRole(ctx, pg, reader, instance, pgEngCfg.Spec.AllowGrantAdminOption)
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
 
 	// Create writer role
-	err = r.manageWriterRole(pg, writer, instance, pgEngCfg.Spec.AllowGrantAdminOption)
+	err = r.manageWriterRole(ctx, pg, writer, instance, pgEngCfg.Spec.AllowGrantAdminOption)
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
 
 	// Manage extensions
-	err = r.manageExtensions(pg, instance)
+	err = r.manageExtensions(ctx, pg, instance)
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
 
 	// Manage schema
-	err = r.manageSchemas(pg, instance)
+	err = r.manageSchemas(ctx, pg, instance)
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewInternalError(err))
 	}
@@ -231,11 +231,16 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 	return r.manageSuccess(ctx, reqLogger, instance, originalPatch)
 }
 
-func (*PostgresqlDatabaseReconciler) manageDBCreationOrUpdate(pg postgres.PG, instance *postgresqlv1alpha1.PostgresqlDatabase, owner string) error {
+func (*PostgresqlDatabaseReconciler) manageDBCreationOrUpdate(
+	ctx context.Context,
+	pg postgres.PG,
+	instance *postgresqlv1alpha1.PostgresqlDatabase,
+	owner string,
+) error {
 	// Check if database was already created in the past
 	if instance.Status.Database != "" {
 		// Check if database already exists
-		exists, err := pg.IsDatabaseExist(instance.Status.Database)
+		exists, err := pg.IsDatabaseExist(ctx, instance.Status.Database)
 		// Check error
 		if err != nil {
 			return err
@@ -249,7 +254,7 @@ func (*PostgresqlDatabaseReconciler) manageDBCreationOrUpdate(pg postgres.PG, in
 				return err
 			}
 			// Rename
-			err = pg.RenameDatabase(instance.Status.Database, instance.Spec.Database)
+			err = pg.RenameDatabase(ctx, instance.Status.Database, instance.Spec.Database)
 			if err != nil {
 				return err
 			}
@@ -257,7 +262,7 @@ func (*PostgresqlDatabaseReconciler) manageDBCreationOrUpdate(pg postgres.PG, in
 	}
 
 	// Check if database already exists
-	exists, err := pg.IsDatabaseExist(instance.Spec.Database)
+	exists, err := pg.IsDatabaseExist(ctx, instance.Spec.Database)
 	// Check error
 	if err != nil {
 		return err
@@ -265,13 +270,13 @@ func (*PostgresqlDatabaseReconciler) manageDBCreationOrUpdate(pg postgres.PG, in
 	// Check if exists
 	if !exists {
 		// Create database
-		err := pg.CreateDB(instance.Spec.Database, owner)
+		err := pg.CreateDB(ctx, instance.Spec.Database, owner)
 		if err != nil {
 			return err
 		}
 	} else {
 		// Ensure owner is correct
-		err := pg.ChangeDBOwner(instance.Spec.Database, owner)
+		err := pg.ChangeDBOwner(ctx, instance.Spec.Database, owner)
 		if err != nil {
 			return err
 		}
@@ -316,7 +321,7 @@ func (r *PostgresqlDatabaseReconciler) manageDropDatabase(
 
 	// Drop owner
 	if instance.Status.Roles.Owner != "" {
-		exists, err = pg.IsRoleExist(instance.Status.Roles.Owner)
+		exists, err = pg.IsRoleExist(ctx, instance.Status.Roles.Owner)
 		// Check error
 		if err != nil {
 			return err
@@ -324,7 +329,7 @@ func (r *PostgresqlDatabaseReconciler) manageDropDatabase(
 		// Check if role exists before trying to delete it
 		if exists {
 			// Delete
-			err = pg.DropRoleAndDropAndChangeOwnedBy(instance.Status.Roles.Owner, pg.GetUser(), instance.Spec.Database)
+			err = pg.DropRoleAndDropAndChangeOwnedBy(ctx, instance.Status.Roles.Owner, pg.GetUser(), instance.Spec.Database)
 			if err != nil {
 				return err
 			}
@@ -334,7 +339,7 @@ func (r *PostgresqlDatabaseReconciler) manageDropDatabase(
 	}
 	// Drop writer
 	if instance.Status.Roles.Writer != "" {
-		exists, err = pg.IsRoleExist(instance.Status.Roles.Writer)
+		exists, err = pg.IsRoleExist(ctx, instance.Status.Roles.Writer)
 		// Check error
 		if err != nil {
 			return err
@@ -342,7 +347,7 @@ func (r *PostgresqlDatabaseReconciler) manageDropDatabase(
 		// Check if role exists before trying to delete it
 		if exists {
 			// Delete
-			err = pg.DropRoleAndDropAndChangeOwnedBy(instance.Status.Roles.Writer, pg.GetUser(), instance.Spec.Database)
+			err = pg.DropRoleAndDropAndChangeOwnedBy(ctx, instance.Status.Roles.Writer, pg.GetUser(), instance.Spec.Database)
 			if err != nil {
 				return err
 			}
@@ -352,7 +357,7 @@ func (r *PostgresqlDatabaseReconciler) manageDropDatabase(
 	}
 	// Drop reader
 	if instance.Status.Roles.Reader != "" {
-		exists, err = pg.IsRoleExist(instance.Status.Roles.Reader)
+		exists, err = pg.IsRoleExist(ctx, instance.Status.Roles.Reader)
 		// Check error
 		if err != nil {
 			return err
@@ -360,7 +365,7 @@ func (r *PostgresqlDatabaseReconciler) manageDropDatabase(
 		// Check if role exists before trying to delete it
 		if exists {
 			// Delete
-			err = pg.DropRoleAndDropAndChangeOwnedBy(instance.Status.Roles.Reader, pg.GetUser(), instance.Spec.Database)
+			err = pg.DropRoleAndDropAndChangeOwnedBy(ctx, instance.Status.Roles.Reader, pg.GetUser(), instance.Spec.Database)
 			if err != nil {
 				return err
 			}
@@ -376,7 +381,7 @@ func (r *PostgresqlDatabaseReconciler) manageDropDatabase(
 		return err
 	}
 
-	exists, err = pg.IsDatabaseExist(instance.Spec.Database)
+	exists, err = pg.IsDatabaseExist(ctx, instance.Spec.Database)
 	// Check error
 	if err != nil {
 		return err
@@ -384,7 +389,7 @@ func (r *PostgresqlDatabaseReconciler) manageDropDatabase(
 	// Check if role exists before trying to delete it
 	if exists {
 		// Drop database
-		err = pg.DropDatabase(instance.Spec.Database)
+		err = pg.DropDatabase(ctx, instance.Spec.Database)
 		// Check error
 		if err != nil {
 			return err
@@ -507,7 +512,7 @@ func (r *PostgresqlDatabaseReconciler) updateInstance(
 	return false, nil
 }
 
-func (*PostgresqlDatabaseReconciler) manageSchemas(pg postgres.PG, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
+func (*PostgresqlDatabaseReconciler) manageSchemas(ctx context.Context, pg postgres.PG, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
 	// Check if were deleted from list and asked to be deleted
 	if instance.Status.Schemas != nil && instance.Spec.Schemas.DropOnOnDelete {
 		newStatusSchemas := make([]string, 0)
@@ -522,7 +527,7 @@ func (*PostgresqlDatabaseReconciler) manageSchemas(pg postgres.PG, instance *pos
 			}
 			// Not present anymore
 			// Need to delete it
-			err := pg.DropSchema(instance.Spec.Database, schemaExt, instance.Spec.Schemas.DeleteWithCascade)
+			err := pg.DropSchema(ctx, instance.Spec.Database, schemaExt, instance.Spec.Schemas.DeleteWithCascade)
 			if err != nil {
 				return err
 			}
@@ -540,24 +545,24 @@ func (*PostgresqlDatabaseReconciler) manageSchemas(pg postgres.PG, instance *pos
 
 	for _, schema := range instance.Spec.Schemas.List {
 		// Create schema
-		err := pg.CreateSchema(instance.Spec.Database, owner, schema)
+		err := pg.CreateSchema(ctx, instance.Spec.Database, owner, schema)
 		if err != nil {
 			return err
 		}
 
 		// Set privileges on schema
-		err = pg.SetSchemaPrivileges(instance.Spec.Database, owner, reader, schema, readerPrivs)
+		err = pg.SetSchemaPrivileges(ctx, instance.Spec.Database, owner, reader, schema, readerPrivs)
 		if err != nil {
 			return err
 		}
 
-		err = pg.SetSchemaPrivileges(instance.Spec.Database, owner, writer, schema, writerPrivs)
+		err = pg.SetSchemaPrivileges(ctx, instance.Spec.Database, owner, writer, schema, writerPrivs)
 		if err != nil {
 			return err
 		}
 
 		// Get list of tables inside schema
-		tableOwnerships, err := pg.GetTablesInSchema(instance.Spec.Database, schema)
+		tableOwnerships, err := pg.GetTablesInSchema(ctx, instance.Spec.Database, schema)
 		if err != nil {
 			return err
 		}
@@ -567,7 +572,7 @@ func (*PostgresqlDatabaseReconciler) manageSchemas(pg postgres.PG, instance *pos
 			// Check if it is needed to patch owner
 			if tableOwnershipItem.Owner != owner {
 				// Force table owner
-				err = pg.ChangeTableOwner(instance.Spec.Database, tableOwnershipItem.TableName, owner)
+				err = pg.ChangeTableOwner(ctx, instance.Spec.Database, tableOwnershipItem.TableName, owner)
 				if err != nil {
 					return err
 				}
@@ -575,7 +580,7 @@ func (*PostgresqlDatabaseReconciler) manageSchemas(pg postgres.PG, instance *pos
 		}
 
 		// Get list of typeOwnerships inside schema
-		typeOwnerships, err := pg.GetTypesInSchema(instance.Spec.Database, schema)
+		typeOwnerships, err := pg.GetTypesInSchema(ctx, instance.Spec.Database, schema)
 		if err != nil {
 			return err
 		}
@@ -585,7 +590,7 @@ func (*PostgresqlDatabaseReconciler) manageSchemas(pg postgres.PG, instance *pos
 			// Check if it is needed to patch owner
 			if typeOwnershipItem.Owner != owner {
 				// Force table owner
-				err = pg.ChangeTypeOwnerInSchema(instance.Spec.Database, schema, typeOwnershipItem.TypeName, owner)
+				err = pg.ChangeTypeOwnerInSchema(ctx, instance.Spec.Database, schema, typeOwnershipItem.TypeName, owner)
 				if err != nil {
 					return err
 				}
@@ -601,7 +606,7 @@ func (*PostgresqlDatabaseReconciler) manageSchemas(pg postgres.PG, instance *pos
 	return nil
 }
 
-func (*PostgresqlDatabaseReconciler) manageExtensions(pg postgres.PG, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
+func (*PostgresqlDatabaseReconciler) manageExtensions(ctx context.Context, pg postgres.PG, instance *postgresqlv1alpha1.PostgresqlDatabase) error {
 	// Check if were deleted from list and asked to be deleted
 	if instance.Status.Extensions != nil && instance.Spec.Extensions.DropOnOnDelete {
 		newStatusExtensions := make([]string, 0)
@@ -616,7 +621,7 @@ func (*PostgresqlDatabaseReconciler) manageExtensions(pg postgres.PG, instance *
 			}
 			// Not present anymore
 			// Need to delete it
-			err := pg.DropExtension(instance.Spec.Database, statusExt, instance.Spec.Extensions.DeleteWithCascade)
+			err := pg.DropExtension(ctx, instance.Spec.Database, statusExt, instance.Spec.Extensions.DeleteWithCascade)
 			if err != nil {
 				return err
 			}
@@ -628,7 +633,7 @@ func (*PostgresqlDatabaseReconciler) manageExtensions(pg postgres.PG, instance *
 	// Manage extensions creation
 	for _, extension := range instance.Spec.Extensions.List {
 		// Execute create extension SQL statement
-		err := pg.CreateExtension(instance.Spec.Database, extension)
+		err := pg.CreateExtension(ctx, instance.Spec.Database, extension)
 		if err != nil {
 			return err
 		}
@@ -641,11 +646,11 @@ func (*PostgresqlDatabaseReconciler) manageExtensions(pg postgres.PG, instance *
 	return nil
 }
 
-func (*PostgresqlDatabaseReconciler) manageReaderRole(pg postgres.PG, reader string, instance *postgresqlv1alpha1.PostgresqlDatabase, allowGrantAdminOption bool) error {
+func (*PostgresqlDatabaseReconciler) manageReaderRole(ctx context.Context, pg postgres.PG, reader string, instance *postgresqlv1alpha1.PostgresqlDatabase, allowGrantAdminOption bool) error {
 	// Check if role was already created in the past
 	if instance.Status.Roles.Reader != "" {
 		// Check if role doesn't already exists
-		exists, err := pg.IsRoleExist(instance.Status.Roles.Reader)
+		exists, err := pg.IsRoleExist(ctx, instance.Status.Roles.Reader)
 		// Check error
 		if err != nil {
 			return err
@@ -654,7 +659,7 @@ func (*PostgresqlDatabaseReconciler) manageReaderRole(pg postgres.PG, reader str
 		// if needed rename and let create role do his job
 		if exists && reader != instance.Status.Roles.Reader {
 			// Rename
-			err = pg.RenameRole(instance.Status.Roles.Reader, reader)
+			err = pg.RenameRole(ctx, instance.Status.Roles.Reader, reader)
 			if err != nil {
 				return err
 			}
@@ -662,7 +667,7 @@ func (*PostgresqlDatabaseReconciler) manageReaderRole(pg postgres.PG, reader str
 	}
 
 	// Check if role doesn't already exists
-	exists, err := pg.IsRoleExist(reader)
+	exists, err := pg.IsRoleExist(ctx, reader)
 	// Check error
 	if err != nil {
 		return err
@@ -670,7 +675,7 @@ func (*PostgresqlDatabaseReconciler) manageReaderRole(pg postgres.PG, reader str
 	// Check if exists
 	if !exists {
 		// Create it
-		err = pg.CreateGroupRole(reader)
+		err = pg.CreateGroupRole(ctx, reader)
 		// Check error
 		if err != nil {
 			return err
@@ -678,7 +683,7 @@ func (*PostgresqlDatabaseReconciler) manageReaderRole(pg postgres.PG, reader str
 	}
 
 	// Grant role to current role
-	err = pg.GrantRole(reader, pg.GetUser(), allowGrantAdminOption)
+	err = pg.GrantRole(ctx, reader, pg.GetUser(), allowGrantAdminOption)
 	// Check error
 	if err != nil {
 		return err
@@ -690,11 +695,17 @@ func (*PostgresqlDatabaseReconciler) manageReaderRole(pg postgres.PG, reader str
 	return nil
 }
 
-func (*PostgresqlDatabaseReconciler) manageWriterRole(pg postgres.PG, writer string, instance *postgresqlv1alpha1.PostgresqlDatabase, allowGrantAdminOption bool) error {
+func (*PostgresqlDatabaseReconciler) manageWriterRole(
+	ctx context.Context,
+	pg postgres.PG,
+	writer string,
+	instance *postgresqlv1alpha1.PostgresqlDatabase,
+	allowGrantAdminOption bool,
+) error {
 	// Check if role was already created in the past
 	if instance.Status.Roles.Writer != "" {
 		// Check if role doesn't already exists
-		exists, err := pg.IsRoleExist(instance.Status.Roles.Writer)
+		exists, err := pg.IsRoleExist(ctx, instance.Status.Roles.Writer)
 		// Check error
 		if err != nil {
 			return err
@@ -703,7 +714,7 @@ func (*PostgresqlDatabaseReconciler) manageWriterRole(pg postgres.PG, writer str
 		// if needed rename and let create role do his job
 		if exists && writer != instance.Status.Roles.Writer {
 			// Rename
-			err = pg.RenameRole(instance.Status.Roles.Writer, writer)
+			err = pg.RenameRole(ctx, instance.Status.Roles.Writer, writer)
 			if err != nil {
 				return err
 			}
@@ -711,7 +722,7 @@ func (*PostgresqlDatabaseReconciler) manageWriterRole(pg postgres.PG, writer str
 	}
 
 	// Check if role doesn't already exists
-	exists, err := pg.IsRoleExist(writer)
+	exists, err := pg.IsRoleExist(ctx, writer)
 	// Check error
 	if err != nil {
 		return err
@@ -719,7 +730,7 @@ func (*PostgresqlDatabaseReconciler) manageWriterRole(pg postgres.PG, writer str
 	// Check if exists
 	if !exists {
 		// Create it
-		err = pg.CreateGroupRole(writer)
+		err = pg.CreateGroupRole(ctx, writer)
 		// Check error
 		if err != nil {
 			return err
@@ -727,7 +738,7 @@ func (*PostgresqlDatabaseReconciler) manageWriterRole(pg postgres.PG, writer str
 	}
 
 	// Grant role to current role
-	err = pg.GrantRole(writer, pg.GetUser(), allowGrantAdminOption)
+	err = pg.GrantRole(ctx, writer, pg.GetUser(), allowGrantAdminOption)
 	// Check error
 	if err != nil {
 		return err
@@ -739,11 +750,17 @@ func (*PostgresqlDatabaseReconciler) manageWriterRole(pg postgres.PG, writer str
 	return nil
 }
 
-func (*PostgresqlDatabaseReconciler) manageOwnerRole(pg postgres.PG, owner string, instance *postgresqlv1alpha1.PostgresqlDatabase, allowGrantAdminOption bool) error {
+func (*PostgresqlDatabaseReconciler) manageOwnerRole(
+	ctx context.Context,
+	pg postgres.PG,
+	owner string,
+	instance *postgresqlv1alpha1.PostgresqlDatabase,
+	allowGrantAdminOption bool,
+) error {
 	// Check if role was already created in the past
 	if instance.Status.Roles.Owner != "" {
 		// Check if role doesn't already exists
-		exists, err := pg.IsRoleExist(instance.Status.Roles.Owner)
+		exists, err := pg.IsRoleExist(ctx, instance.Status.Roles.Owner)
 		// Check error
 		if err != nil {
 			return err
@@ -752,7 +769,7 @@ func (*PostgresqlDatabaseReconciler) manageOwnerRole(pg postgres.PG, owner strin
 		// if needed rename and let create role do his job
 		if exists && owner != instance.Status.Roles.Owner {
 			// Rename
-			err = pg.RenameRole(instance.Status.Roles.Owner, owner)
+			err = pg.RenameRole(ctx, instance.Status.Roles.Owner, owner)
 			if err != nil {
 				return err
 			}
@@ -760,7 +777,7 @@ func (*PostgresqlDatabaseReconciler) manageOwnerRole(pg postgres.PG, owner strin
 	}
 
 	// Check if role doesn't already exists
-	exists, err := pg.IsRoleExist(owner)
+	exists, err := pg.IsRoleExist(ctx, owner)
 	// Check error
 	if err != nil {
 		return err
@@ -768,7 +785,7 @@ func (*PostgresqlDatabaseReconciler) manageOwnerRole(pg postgres.PG, owner strin
 	// Check if exists
 	if !exists {
 		// Create it
-		err = pg.CreateGroupRole(owner)
+		err = pg.CreateGroupRole(ctx, owner)
 		// Check error
 		if err != nil {
 			return err
@@ -776,7 +793,7 @@ func (*PostgresqlDatabaseReconciler) manageOwnerRole(pg postgres.PG, owner strin
 	}
 
 	// Grant role to current role
-	err = pg.GrantRole(owner, pg.GetUser(), allowGrantAdminOption)
+	err = pg.GrantRole(ctx, owner, pg.GetUser(), allowGrantAdminOption)
 	// Check error
 	if err != nil {
 		return err
