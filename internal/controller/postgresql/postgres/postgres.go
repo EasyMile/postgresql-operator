@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -26,52 +27,52 @@ type TypeOwnership struct {
 }
 
 type PG interface { //nolint:interfacebloat // This is needed
-	CreateDB(dbname, username string) error
-	ChangeDBOwner(dbname, owner string) error
-	IsDatabaseExist(dbname string) (bool, error)
-	RenameDatabase(oldname, newname string) error
-	CreateSchema(db, role, schema string) error
-	CreateExtension(db, extension string) error
-	CreateGroupRole(role string) error
-	CreateUserRole(role, password string, attributes *RoleAttributes) (string, error)
-	AlterRoleAttributes(role string, attributes *RoleAttributes) error
-	GetRoleAttributes(role string) (*RoleAttributes, error)
-	IsRoleExist(role string) (bool, error)
-	RenameRole(oldname, newname string) error
-	UpdatePassword(role, password string) error
-	GrantRole(role, grantee string, withAdminOption bool) error
-	SetSchemaPrivileges(db, creator, role, schema, privs string) error
-	RevokeRole(role, userRole string) error
-	AlterDefaultLoginRole(role, setRole string) error
-	AlterDefaultLoginRoleOnDatabase(role, setRole, database string) error
-	RevokeUserSetRoleOnDatabase(role, database string) error
-	DoesRoleHaveActiveSession(role string) (bool, error)
-	DropDatabase(db string) error
-	DropRoleAndDropAndChangeOwnedBy(role, newOwner, database string) error
-	ChangeAndDropOwnedBy(role, newOwner, database string) error
-	GetSetRoleOnDatabasesRoleSettings(role string) ([]*SetRoleOnDatabaseRoleSetting, error)
-	DropRole(role string) error
-	DropSchema(database, schema string, cascade bool) error
-	DropExtension(database, extension string, cascade bool) error
-	GetRoleMembership(role string) ([]string, error)
-	GetTablesInSchema(db, schema string) ([]*TableOwnership, error)
-	ChangeTableOwner(db, table, owner string) error
-	GetTypesInSchema(db, schema string) ([]*TypeOwnership, error)
-	ChangeTypeOwnerInSchema(db, schema, typeName, owner string) error
-	DropPublication(dbname, name string) error
-	RenamePublication(dbname, oldname, newname string) error
-	GetPublication(dbname, name string) (*PublicationResult, error)
-	CreatePublication(dbname string, builder *CreatePublicationBuilder) error
-	UpdatePublication(dbname, publicationName string, builder *UpdatePublicationBuilder) error
-	DropReplicationSlot(name string) error
-	CreateReplicationSlot(dbname, name, plugin string) error
-	GetReplicationSlot(name string) (*ReplicationSlotResult, error)
+	CreateDB(ctx context.Context, dbname, username string) error
+	ChangeDBOwner(ctx context.Context, dbname, owner string) error
+	IsDatabaseExist(ctx context.Context, dbname string) (bool, error)
+	RenameDatabase(ctx context.Context, oldname, newname string) error
+	CreateSchema(ctx context.Context, db, role, schema string) error
+	CreateExtension(ctx context.Context, db, extension string) error
+	CreateGroupRole(ctx context.Context, role string) error
+	CreateUserRole(ctx context.Context, role, password string, attributes *RoleAttributes) (string, error)
+	AlterRoleAttributes(ctx context.Context, role string, attributes *RoleAttributes) error
+	GetRoleAttributes(ctx context.Context, role string) (*RoleAttributes, error)
+	IsRoleExist(ctx context.Context, role string) (bool, error)
+	RenameRole(ctx context.Context, oldname, newname string) error
+	UpdatePassword(ctx context.Context, role, password string) error
+	GrantRole(ctx context.Context, role, grantee string, withAdminOption bool) error
+	SetSchemaPrivileges(ctx context.Context, db, creator, role, schema, privs string) error
+	RevokeRole(ctx context.Context, role, userRole string) error
+	AlterDefaultLoginRole(ctx context.Context, role, setRole string) error
+	AlterDefaultLoginRoleOnDatabase(ctx context.Context, role, setRole, database string) error
+	RevokeUserSetRoleOnDatabase(ctx context.Context, role, database string) error
+	DoesRoleHaveActiveSession(ctx context.Context, role string) (bool, error)
+	DropDatabase(ctx context.Context, db string) error
+	DropRoleAndDropAndChangeOwnedBy(ctx context.Context, role, newOwner, database string) error
+	ChangeAndDropOwnedBy(ctx context.Context, role, newOwner, database string) error
+	GetSetRoleOnDatabasesRoleSettings(ctx context.Context, role string) ([]*SetRoleOnDatabaseRoleSetting, error)
+	DropRole(ctx context.Context, role string) error
+	DropSchema(ctx context.Context, database, schema string, cascade bool) error
+	DropExtension(ctx context.Context, database, extension string, cascade bool) error
+	GetRoleMembership(ctx context.Context, role string) ([]string, error)
+	GetTablesInSchema(ctx context.Context, db, schema string) ([]*TableOwnership, error)
+	ChangeTableOwner(ctx context.Context, db, table, owner string) error
+	GetTypesInSchema(ctx context.Context, db, schema string) ([]*TypeOwnership, error)
+	ChangeTypeOwnerInSchema(ctx context.Context, db, schema, typeName, owner string) error
+	DropPublication(ctx context.Context, dbname, name string) error
+	RenamePublication(ctx context.Context, dbname, oldname, newname string) error
+	GetPublication(ctx context.Context, dbname, name string) (*PublicationResult, error)
+	CreatePublication(ctx context.Context, dbname string, builder *CreatePublicationBuilder) error
+	UpdatePublication(ctx context.Context, dbname, publicationName string, builder *UpdatePublicationBuilder) error
+	DropReplicationSlot(ctx context.Context, name string) error
+	CreateReplicationSlot(ctx context.Context, dbname, name, plugin string) error
+	GetReplicationSlot(ctx context.Context, name string) (*ReplicationSlotResult, error)
 	GetUser() string
 	GetHost() string
 	GetPort() int
 	GetDefaultDatabase() string
 	GetArgs() string
-	Ping() error
+	Ping(ctx context.Context) error
 }
 
 type pg struct {
@@ -159,13 +160,13 @@ func (c *pg) connect(database string) error {
 	return nil
 }
 
-func (c *pg) Ping() error {
+func (c *pg) Ping(ctx context.Context) error {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 
-	err = c.db.Ping()
+	err = c.db.PingContext(ctx)
 	if err != nil {
 		return err
 	}

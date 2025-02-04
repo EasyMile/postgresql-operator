@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -81,7 +82,7 @@ func (*pg) buildAttributesString(attributes *RoleAttributes) string {
 	return strings.Join(res, " ")
 }
 
-func (c *pg) AlterRoleAttributes(role string, attributes *RoleAttributes) error {
+func (c *pg) AlterRoleAttributes(ctx context.Context, role string, attributes *RoleAttributes) error {
 	// Build attributes str
 	attributesSQLStr := c.buildAttributesString(attributes)
 	// Check if it is empty
@@ -94,7 +95,7 @@ func (c *pg) AlterRoleAttributes(role string, attributes *RoleAttributes) error 
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(AlterRoleWithOptionSQLTemplate, role, attributesSQLStr))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(AlterRoleWithOptionSQLTemplate, role, attributesSQLStr))
 	if err != nil {
 		return err
 	}
@@ -102,7 +103,7 @@ func (c *pg) AlterRoleAttributes(role string, attributes *RoleAttributes) error 
 	return nil
 }
 
-func (c *pg) GetRoleAttributes(role string) (*RoleAttributes, error) {
+func (c *pg) GetRoleAttributes(ctx context.Context, role string) (*RoleAttributes, error) {
 	res := &RoleAttributes{
 		ConnectionLimit: new(int),
 		Replication:     new(bool),
@@ -114,7 +115,7 @@ func (c *pg) GetRoleAttributes(role string) (*RoleAttributes, error) {
 		return res, err
 	}
 
-	rows, err := c.db.Query(fmt.Sprintf(GetRoleAttributesSQLTemplate, role))
+	rows, err := c.db.QueryContext(ctx, fmt.Sprintf(GetRoleAttributesSQLTemplate, role))
 	if err != nil {
 		return res, err
 	}
@@ -140,7 +141,7 @@ func (c *pg) GetRoleAttributes(role string) (*RoleAttributes, error) {
 	return res, nil
 }
 
-func (c *pg) GetRoleMembership(role string) ([]string, error) {
+func (c *pg) GetRoleMembership(ctx context.Context, role string) ([]string, error) {
 	res := make([]string, 0)
 
 	err := c.connect(c.defaultDatabase)
@@ -148,7 +149,7 @@ func (c *pg) GetRoleMembership(role string) ([]string, error) {
 		return res, err
 	}
 
-	rows, err := c.db.Query(fmt.Sprintf(GetRoleMembershipSQLTemplate, role))
+	rows, err := c.db.QueryContext(ctx, fmt.Sprintf(GetRoleMembershipSQLTemplate, role))
 	if err != nil {
 		return res, err
 	}
@@ -178,13 +179,13 @@ func (c *pg) GetRoleMembership(role string) ([]string, error) {
 	return res, nil
 }
 
-func (c *pg) CreateGroupRole(role string) error {
+func (c *pg) CreateGroupRole(ctx context.Context, role string) error {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(CreateGroupRoleSQLTemplate, role))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(CreateGroupRoleSQLTemplate, role))
 	if err != nil {
 		// Try to cast error
 		pqErr, ok := err.(*pq.Error)
@@ -199,7 +200,7 @@ func (c *pg) CreateGroupRole(role string) error {
 	return nil
 }
 
-func (c *pg) CreateUserRole(role, password string, attributes *RoleAttributes) (string, error) {
+func (c *pg) CreateUserRole(ctx context.Context, role, password string, attributes *RoleAttributes) (string, error) {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return "", err
@@ -208,7 +209,7 @@ func (c *pg) CreateUserRole(role, password string, attributes *RoleAttributes) (
 	// Build attributes sql
 	attributesSQLStr := c.buildAttributesString(attributes)
 
-	_, err = c.db.Exec(fmt.Sprintf(CreateUserRoleSQLTemplate, role, password, attributesSQLStr))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(CreateUserRoleSQLTemplate, role, password, attributesSQLStr))
 	if err != nil {
 		return "", err
 	}
@@ -216,7 +217,7 @@ func (c *pg) CreateUserRole(role, password string, attributes *RoleAttributes) (
 	return role, nil
 }
 
-func (c *pg) GrantRole(role, grantee string, withAdminOption bool) error {
+func (c *pg) GrantRole(ctx context.Context, role, grantee string, withAdminOption bool) error {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
@@ -228,7 +229,7 @@ func (c *pg) GrantRole(role, grantee string, withAdminOption bool) error {
 		tpl = GrantRoleWithAdminOptionSQLTemplate
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(tpl, role, grantee))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(tpl, role, grantee))
 	if err != nil {
 		return err
 	}
@@ -236,13 +237,13 @@ func (c *pg) GrantRole(role, grantee string, withAdminOption bool) error {
 	return nil
 }
 
-func (c *pg) AlterDefaultLoginRole(role, setRole string) error {
+func (c *pg) AlterDefaultLoginRole(ctx context.Context, role, setRole string) error {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(AlterUserSetRoleSQLTemplate, role, setRole))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(AlterUserSetRoleSQLTemplate, role, setRole))
 	if err != nil {
 		return err
 	}
@@ -250,13 +251,13 @@ func (c *pg) AlterDefaultLoginRole(role, setRole string) error {
 	return nil
 }
 
-func (c *pg) AlterDefaultLoginRoleOnDatabase(role, setRole, database string) error {
+func (c *pg) AlterDefaultLoginRoleOnDatabase(ctx context.Context, role, setRole, database string) error {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(AlterUserSetRoleOnDatabaseSQLTemplate, role, database, setRole))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(AlterUserSetRoleOnDatabaseSQLTemplate, role, database, setRole))
 	if err != nil {
 		return err
 	}
@@ -264,13 +265,13 @@ func (c *pg) AlterDefaultLoginRoleOnDatabase(role, setRole, database string) err
 	return nil
 }
 
-func (c *pg) RevokeUserSetRoleOnDatabase(role, database string) error {
+func (c *pg) RevokeUserSetRoleOnDatabase(ctx context.Context, role, database string) error {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(RevokeUserSetRoleOnDatabaseSQLTemplate, role, database))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(RevokeUserSetRoleOnDatabaseSQLTemplate, role, database))
 	if err != nil {
 		return err
 	}
@@ -278,7 +279,7 @@ func (c *pg) RevokeUserSetRoleOnDatabase(role, database string) error {
 	return nil
 }
 
-func (c *pg) GetSetRoleOnDatabasesRoleSettings(role string) ([]*SetRoleOnDatabaseRoleSetting, error) {
+func (c *pg) GetSetRoleOnDatabasesRoleSettings(ctx context.Context, role string) ([]*SetRoleOnDatabaseRoleSetting, error) {
 	// Prepare result
 	res := make([]*SetRoleOnDatabaseRoleSetting, 0)
 
@@ -287,7 +288,7 @@ func (c *pg) GetSetRoleOnDatabasesRoleSettings(role string) ([]*SetRoleOnDatabas
 		return res, err
 	}
 
-	rows, err := c.db.Query(fmt.Sprintf(GetRoleSettingsSQLTemplate, role))
+	rows, err := c.db.QueryContext(ctx, fmt.Sprintf(GetRoleSettingsSQLTemplate, role))
 	if err != nil {
 		return res, err
 	}
@@ -328,13 +329,13 @@ func (c *pg) GetSetRoleOnDatabasesRoleSettings(role string) ([]*SetRoleOnDatabas
 	return res, nil
 }
 
-func (c *pg) RevokeRole(role, revoked string) error {
+func (c *pg) RevokeRole(ctx context.Context, role, revoked string) error {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(RevokeRoleSQLTemplate, role, revoked))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(RevokeRoleSQLTemplate, role, revoked))
 	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
 	if err != nil {
 		// Try to cast error
@@ -347,14 +348,14 @@ func (c *pg) RevokeRole(role, revoked string) error {
 	return nil
 }
 
-func (c *pg) ChangeAndDropOwnedBy(role, newOwner, database string) error {
+func (c *pg) ChangeAndDropOwnedBy(ctx context.Context, role, newOwner, database string) error {
 	// REASSIGN OWNED BY only works if the correct database is selected
 	err := c.connect(database)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(ReassignObjectsSQLTemplate, role, newOwner))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(ReassignObjectsSQLTemplate, role, newOwner))
 	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
 	if err != nil {
 		// Try to cast error
@@ -365,7 +366,7 @@ func (c *pg) ChangeAndDropOwnedBy(role, newOwner, database string) error {
 	}
 
 	// We previously assigned all objects to the operator's role so DROP OWNED BY will drop privileges of role
-	_, err = c.db.Exec(fmt.Sprintf(DropOwnedBySQLTemplate, role))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(DropOwnedBySQLTemplate, role))
 	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
 	if err != nil {
 		// Try to cast error
@@ -379,13 +380,13 @@ func (c *pg) ChangeAndDropOwnedBy(role, newOwner, database string) error {
 	return nil
 }
 
-func (c *pg) DropRole(role string) error {
+func (c *pg) DropRole(ctx context.Context, role string) error {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(DropRoleSQLTemplate, role))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(DropRoleSQLTemplate, role))
 	// Check if error exists and if different from "ROLE NOT FOUND" => 42704
 	if err != nil {
 		// Try to cast error
@@ -398,22 +399,22 @@ func (c *pg) DropRole(role string) error {
 	return nil
 }
 
-func (c *pg) DropRoleAndDropAndChangeOwnedBy(role, newOwner, database string) error {
-	err := c.ChangeAndDropOwnedBy(role, newOwner, database)
+func (c *pg) DropRoleAndDropAndChangeOwnedBy(ctx context.Context, role, newOwner, database string) error {
+	err := c.ChangeAndDropOwnedBy(ctx, role, newOwner, database)
 	if err != nil {
 		return err
 	}
 
-	return c.DropRole(role)
+	return c.DropRole(ctx, role)
 }
 
-func (c *pg) UpdatePassword(role, password string) error {
+func (c *pg) UpdatePassword(ctx context.Context, role, password string) error {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(UpdatePasswordSQLTemplate, role, password))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(UpdatePasswordSQLTemplate, role, password))
 	if err != nil {
 		return err
 	}
@@ -421,13 +422,13 @@ func (c *pg) UpdatePassword(role, password string) error {
 	return nil
 }
 
-func (c *pg) IsRoleExist(role string) (bool, error) {
+func (c *pg) IsRoleExist(ctx context.Context, role string) (bool, error) {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return false, err
 	}
 
-	res, err := c.db.Exec(fmt.Sprintf(IsRoleExistSQLTemplate, role))
+	res, err := c.db.ExecContext(ctx, fmt.Sprintf(IsRoleExistSQLTemplate, role))
 	if err != nil {
 		return false, err
 	}
@@ -440,13 +441,13 @@ func (c *pg) IsRoleExist(role string) (bool, error) {
 	return nb == 1, nil
 }
 
-func (c *pg) DoesRoleHaveActiveSession(role string) (bool, error) {
+func (c *pg) DoesRoleHaveActiveSession(ctx context.Context, role string) (bool, error) {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return false, err
 	}
 
-	res, err := c.db.Exec(fmt.Sprintf(DoesRoleHaveActiveSessionSQLTemplate, role))
+	res, err := c.db.ExecContext(ctx, fmt.Sprintf(DoesRoleHaveActiveSessionSQLTemplate, role))
 	if err != nil {
 		return false, err
 	}
@@ -459,13 +460,13 @@ func (c *pg) DoesRoleHaveActiveSession(role string) (bool, error) {
 	return nb == 1, nil
 }
 
-func (c *pg) RenameRole(oldname, newname string) error {
+func (c *pg) RenameRole(ctx context.Context, oldname, newname string) error {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(RenameRoleSQLTemplate, oldname, newname))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(RenameRoleSQLTemplate, oldname, newname))
 	if err != nil {
 		return err
 	}

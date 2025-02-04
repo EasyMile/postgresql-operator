@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -43,13 +44,13 @@ type ReplicationSlotResult struct {
 	Database string
 }
 
-func (c *pg) DropReplicationSlot(name string) error {
+func (c *pg) DropReplicationSlot(ctx context.Context, name string) error {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(DropReplicationSlotSQLTemplate, name))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(DropReplicationSlotSQLTemplate, name))
 	if err != nil {
 		return err
 	}
@@ -58,13 +59,13 @@ func (c *pg) DropReplicationSlot(name string) error {
 	return nil
 }
 
-func (c *pg) CreateReplicationSlot(dbname, name, plugin string) error {
+func (c *pg) CreateReplicationSlot(ctx context.Context, dbname, name, plugin string) error {
 	err := c.connect(dbname)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(CreateReplicationSlotSQLTemplate, name, plugin))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(CreateReplicationSlotSQLTemplate, name, plugin))
 	if err != nil {
 		return err
 	}
@@ -73,14 +74,14 @@ func (c *pg) CreateReplicationSlot(dbname, name, plugin string) error {
 	return nil
 }
 
-func (c *pg) GetReplicationSlot(name string) (*ReplicationSlotResult, error) {
+func (c *pg) GetReplicationSlot(ctx context.Context, name string) (*ReplicationSlotResult, error) {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get rows
-	rows, err := c.db.Query(fmt.Sprintf(GetReplicationSlotSQLTemplate, name))
+	rows, err := c.db.QueryContext(ctx, fmt.Sprintf(GetReplicationSlotSQLTemplate, name))
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +119,7 @@ func (c *pg) GetReplicationSlot(name string) (*ReplicationSlotResult, error) {
 	return &res, nil
 }
 
-func (c *pg) UpdatePublication(dbname, publicationName string, builder *UpdatePublicationBuilder) (err error) {
+func (c *pg) UpdatePublication(ctx context.Context, dbname, publicationName string, builder *UpdatePublicationBuilder) (err error) {
 	// Connect to db
 	err = c.connect(dbname)
 	if err != nil {
@@ -143,7 +144,7 @@ func (c *pg) UpdatePublication(dbname, publicationName string, builder *UpdatePu
 
 	// Manage with options
 	if builder.withPart != "" {
-		_, err = tx.Exec(fmt.Sprintf(AlterPublicationGeneralOperationSQLTemplate, publicationName, builder.withPart))
+		_, err = tx.ExecContext(ctx, fmt.Sprintf(AlterPublicationGeneralOperationSQLTemplate, publicationName, builder.withPart))
 		if err != nil {
 			return err
 		}
@@ -151,7 +152,7 @@ func (c *pg) UpdatePublication(dbname, publicationName string, builder *UpdatePu
 
 	// Manage tables
 	if builder.tablesPart != "" {
-		_, err = tx.Exec(fmt.Sprintf(AlterPublicationGeneralOperationSQLTemplate, publicationName, builder.tablesPart))
+		_, err = tx.ExecContext(ctx, fmt.Sprintf(AlterPublicationGeneralOperationSQLTemplate, publicationName, builder.tablesPart))
 		if err != nil {
 			return err
 		}
@@ -161,7 +162,7 @@ func (c *pg) UpdatePublication(dbname, publicationName string, builder *UpdatePu
 	// ? Note: this should be the last step
 	if builder.newName != "" {
 		// Rename have to be done
-		_, err = tx.Exec(fmt.Sprintf(AlterPublicationRenameSQLTemplate, publicationName, builder.newName))
+		_, err = tx.ExecContext(ctx, fmt.Sprintf(AlterPublicationRenameSQLTemplate, publicationName, builder.newName))
 		if err != nil {
 			return err
 		}
@@ -177,7 +178,7 @@ func (c *pg) UpdatePublication(dbname, publicationName string, builder *UpdatePu
 	return nil
 }
 
-func (c *pg) CreatePublication(dbname string, builder *CreatePublicationBuilder) error {
+func (c *pg) CreatePublication(ctx context.Context, dbname string, builder *CreatePublicationBuilder) error {
 	// Connect to db
 	err := c.connect(dbname)
 	if err != nil {
@@ -187,7 +188,7 @@ func (c *pg) CreatePublication(dbname string, builder *CreatePublicationBuilder)
 	// Build
 	builder.Build()
 
-	_, err = c.db.Exec(fmt.Sprintf(CreatePublicationSQLTemplate, builder.name, builder.tablesPart, builder.withPart))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(CreatePublicationSQLTemplate, builder.name, builder.tablesPart, builder.withPart))
 	if err != nil {
 		return err
 	}
@@ -196,14 +197,14 @@ func (c *pg) CreatePublication(dbname string, builder *CreatePublicationBuilder)
 	return nil
 }
 
-func (c *pg) GetPublication(dbname, name string) (*PublicationResult, error) {
+func (c *pg) GetPublication(ctx context.Context, dbname, name string) (*PublicationResult, error) {
 	err := c.connect(dbname)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get rows
-	rows, err := c.db.Query(fmt.Sprintf(GetPublicationSQLTemplate, name))
+	rows, err := c.db.QueryContext(ctx, fmt.Sprintf(GetPublicationSQLTemplate, name))
 	if err != nil {
 		return nil, err
 	}
@@ -241,13 +242,13 @@ func (c *pg) GetPublication(dbname, name string) (*PublicationResult, error) {
 	return &res, nil
 }
 
-func (c *pg) DropPublication(dbname, name string) error {
+func (c *pg) DropPublication(ctx context.Context, dbname, name string) error {
 	err := c.connect(dbname)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(DropPublicationSQLTemplate, name))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(DropPublicationSQLTemplate, name))
 	// Error code 3D000 is returned if database doesn't exist
 	if err != nil {
 		// Try to cast error
@@ -260,13 +261,13 @@ func (c *pg) DropPublication(dbname, name string) error {
 	return nil
 }
 
-func (c *pg) RenamePublication(dbname, oldname, newname string) error {
+func (c *pg) RenamePublication(ctx context.Context, dbname, oldname, newname string) error {
 	err := c.connect(dbname)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.db.Exec(fmt.Sprintf(AlterPublicationRenameSQLTemplate, oldname, newname))
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(AlterPublicationRenameSQLTemplate, oldname, newname))
 	if err != nil {
 		return err
 	}

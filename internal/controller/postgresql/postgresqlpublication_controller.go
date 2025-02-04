@@ -190,7 +190,7 @@ func (r *PostgresqlPublicationReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	// Get publication
-	pubRes, err := pg.GetPublication(pgDB.Status.Database, nameToSearch)
+	pubRes, err := pg.GetPublication(ctx, pgDB.Status.Database, nameToSearch)
 	// Check error
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
@@ -201,7 +201,7 @@ func (r *PostgresqlPublicationReconciler) Reconcile(ctx context.Context, req ctr
 		// Create case
 		reqLogger.Info("Publication creation case detected")
 
-		err = r.manageCreate(instance, pg, pgDB)
+		err = r.manageCreate(ctx, instance, pg, pgDB)
 		// Check error
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
@@ -214,7 +214,7 @@ func (r *PostgresqlPublicationReconciler) Reconcile(ctx context.Context, req ctr
 		if hash != instance.Status.Hash {
 			reqLogger.Info("Specs are different, update need to be done")
 
-			err = r.manageUpdate(instance, pg, pgDB, pubRes, nameToSearch)
+			err = r.manageUpdate(ctx, instance, pg, pgDB, pubRes, nameToSearch)
 			// Check error
 			if err != nil {
 				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
@@ -223,7 +223,7 @@ func (r *PostgresqlPublicationReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	// Get replication slot
-	replicationSlotResult, err := pg.GetReplicationSlot(instance.Spec.ReplicationSlotName)
+	replicationSlotResult, err := pg.GetReplicationSlot(ctx, instance.Spec.ReplicationSlotName)
 	// Check error
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
@@ -232,7 +232,7 @@ func (r *PostgresqlPublicationReconciler) Reconcile(ctx context.Context, req ctr
 	// Check if replication slot hasn't been found in database
 	if replicationSlotResult == nil {
 		// Create it
-		err = pg.CreateReplicationSlot(pgDB.Status.Database, instance.Spec.ReplicationSlotName, instance.Spec.ReplicationSlotPlugin)
+		err = pg.CreateReplicationSlot(ctx, pgDB.Status.Database, instance.Spec.ReplicationSlotName, instance.Spec.ReplicationSlotPlugin)
 		// Check error
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
@@ -267,6 +267,7 @@ func (r *PostgresqlPublicationReconciler) Reconcile(ctx context.Context, req ctr
 }
 
 func (*PostgresqlPublicationReconciler) manageUpdate(
+	ctx context.Context,
 	instance *v1alpha1.PostgresqlPublication,
 	pg postgres.PG,
 	pgDB *v1alpha1.PostgresqlDatabase,
@@ -304,7 +305,7 @@ func (*PostgresqlPublicationReconciler) manageUpdate(
 	// Perform update
 	// ? Note: this will do an alter even if it is unnecessary
 	// ? Detecting real diff will be long and painful, perform an alter with what is asked will ensure that nothing can be changed
-	err := pg.UpdatePublication(pgDB.Status.Database, currentPublicationName, builder)
+	err := pg.UpdatePublication(ctx, pgDB.Status.Database, currentPublicationName, builder)
 	// Check error
 	if err != nil {
 		return err
@@ -315,6 +316,7 @@ func (*PostgresqlPublicationReconciler) manageUpdate(
 }
 
 func (*PostgresqlPublicationReconciler) manageCreate(
+	ctx context.Context,
 	instance *v1alpha1.PostgresqlPublication,
 	pg postgres.PG,
 	pgDB *v1alpha1.PostgresqlDatabase,
@@ -345,7 +347,7 @@ func (*PostgresqlPublicationReconciler) manageCreate(
 	})
 
 	// Create publication
-	err := pg.CreatePublication(pgDB.Status.Database, builder)
+	err := pg.CreatePublication(ctx, pgDB.Status.Database, builder)
 	// Check error
 	if err != nil {
 		return err
@@ -501,7 +503,7 @@ func (r *PostgresqlPublicationReconciler) manageDropPublication(
 	pg := utils.CreatePgInstance(logger, secret.Data, pgEngCfg)
 
 	// Get publication
-	pub, err := pg.GetPublication(pgDB.Status.Database, instance.Spec.Name)
+	pub, err := pg.GetPublication(ctx, pgDB.Status.Database, instance.Spec.Name)
 	if err != nil {
 		return err
 	}
@@ -509,7 +511,7 @@ func (r *PostgresqlPublicationReconciler) manageDropPublication(
 	// Check if publication is still present to delete it
 	if pub != nil {
 		// Drop publication
-		err = pg.DropPublication(pgDB.Status.Database, instance.Spec.Name)
+		err = pg.DropPublication(ctx, pgDB.Status.Database, instance.Spec.Name)
 		// Check error
 		if err != nil {
 			return err
@@ -519,7 +521,7 @@ func (r *PostgresqlPublicationReconciler) manageDropPublication(
 	// Check if replication slot is defined
 	if instance.Spec.ReplicationSlotName != "" {
 		// Get replication slot
-		rep, err := pg.GetReplicationSlot(instance.Spec.ReplicationSlotName)
+		rep, err := pg.GetReplicationSlot(ctx, instance.Spec.ReplicationSlotName)
 		if err != nil {
 			return err
 		}
@@ -527,7 +529,7 @@ func (r *PostgresqlPublicationReconciler) manageDropPublication(
 		// Check if replication slot is still present to delete it
 		if rep != nil {
 			// Drop replication slot
-			err = pg.DropReplicationSlot(instance.Spec.ReplicationSlotName)
+			err = pg.DropReplicationSlot(ctx, instance.Spec.ReplicationSlotName)
 			// Check error
 			if err != nil {
 				return err
