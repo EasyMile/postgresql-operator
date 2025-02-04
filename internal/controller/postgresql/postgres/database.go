@@ -21,11 +21,11 @@ const (
 	GrantUsageSchemaSQLTemplate    = `GRANT USAGE ON SCHEMA "%s" TO "%s"`
 	GrantAllTablesSQLTemplate      = `GRANT %s ON ALL TABLES IN SCHEMA "%s" TO "%s"`
 	DefaultPrivsSchemaSQLTemplate  = `ALTER DEFAULT PRIVILEGES FOR ROLE "%s" IN SCHEMA "%s" GRANT %s ON TABLES TO "%s"`
-	GetTablesFromSchemaSQLTemplate = `SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'`
+	GetTablesFromSchemaSQLTemplate = `SELECT tablename,tableowner FROM pg_tables WHERE schemaname = '%s'`
 	ChangeTableOwnerSQLTemplate    = `ALTER TABLE IF EXISTS "%s" OWNER TO "%s"`
 	ChangeTypeOwnerSQLTemplate     = `ALTER TYPE "%s"."%s" OWNER TO "%s"`
 	// Got and edited from : https://stackoverflow.com/questions/3660787/how-to-list-custom-types-using-postgres-information-schema
-	GetTypesFromSchemaSQLTemplate = `SELECT      t.typname as type
+	GetTypesFromSchemaSQLTemplate = `SELECT      t.typname as type, pg_catalog.pg_get_userbyid(t.typowner) as owner
 FROM        pg_type t
 LEFT JOIN   pg_catalog.pg_namespace n ON n.oid = t.typnamespace
 WHERE       (t.typrelid = 0 OR (SELECT c.relkind = 'c' FROM pg_catalog.pg_class c WHERE c.oid = t.typrelid))
@@ -33,6 +33,16 @@ AND     NOT EXISTS(SELECT 1 FROM pg_catalog.pg_type el WHERE el.oid = t.typelem 
 AND     n.nspname = '%s';`
 	DuplicateDatabaseErrorCode = "42P04"
 )
+
+type TableOwnership struct {
+	TableName string
+	Owner     string
+}
+
+type TypeOwnership struct {
+	TypeName string
+	Owner    string
+}
 
 func (c *pg) IsDatabaseExist(dbname string) (bool, error) {
 	err := c.connect(c.defaultDatabase)
@@ -114,7 +124,7 @@ func (c *pg) CreateSchema(db, role, schema string) error {
 	return nil
 }
 
-func (c *pg) GetTablesInSchema(db, schema string) ([]string, error) {
+func (c *pg) GetTablesInSchema(db, schema string) ([]*TableOwnership, error) {
 	err := c.connect(db)
 	if err != nil {
 		return nil, err
@@ -127,18 +137,18 @@ func (c *pg) GetTablesInSchema(db, schema string) ([]string, error) {
 
 	defer rows.Close()
 
-	res := []string{}
+	res := []*TableOwnership{}
 
 	for rows.Next() {
-		tableName := ""
+		it := &TableOwnership{}
 		// Scan
-		err = rows.Scan(&tableName)
+		err = rows.Scan(&it.TableName, &it.Owner)
 		// Check error
 		if err != nil {
 			return nil, err
 		}
 		// Save
-		res = append(res, tableName)
+		res = append(res, it)
 	}
 
 	// Rows error
@@ -165,7 +175,7 @@ func (c *pg) ChangeTableOwner(db, table, owner string) error {
 	return nil
 }
 
-func (c *pg) GetTypesInSchema(db, schema string) ([]string, error) {
+func (c *pg) GetTypesInSchema(db, schema string) ([]*TypeOwnership, error) {
 	err := c.connect(db)
 	if err != nil {
 		return nil, err
@@ -178,18 +188,18 @@ func (c *pg) GetTypesInSchema(db, schema string) ([]string, error) {
 
 	defer rows.Close()
 
-	res := []string{}
+	res := []*TypeOwnership{}
 
 	for rows.Next() {
-		typeName := ""
+		it := &TypeOwnership{}
 		// Scan
-		err = rows.Scan(&typeName)
+		err = rows.Scan(&it.TypeName, &it.Owner)
 		// Check error
 		if err != nil {
 			return nil, err
 		}
 		// Save
-		res = append(res, typeName)
+		res = append(res, it)
 	}
 
 	// Rows error
