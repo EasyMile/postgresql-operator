@@ -512,32 +512,38 @@ func (*PostgresqlDatabaseReconciler) manageSchemas(pg postgres.PG, instance *pos
 		}
 
 		// Get list of tables inside schema
-		tableNames, err := pg.GetTablesInSchema(instance.Spec.Database, schema)
+		tableOwnerships, err := pg.GetTablesInSchema(instance.Spec.Database, schema)
 		if err != nil {
 			return err
 		}
 
 		// Loop over all tables to force owner
-		for _, tableName := range tableNames {
-			// Force table owner
-			err = pg.ChangeTableOwner(instance.Spec.Database, tableName, owner)
-			if err != nil {
-				return err
+		for _, tableOwnershipItem := range tableOwnerships {
+			// Check if it is needed to patch owner
+			if tableOwnershipItem.Owner != owner {
+				// Force table owner
+				err = pg.ChangeTableOwner(instance.Spec.Database, tableOwnershipItem.TableName, owner)
+				if err != nil {
+					return err
+				}
 			}
 		}
 
-		// Get list of types inside schema
-		types, err := pg.GetTypesInSchema(instance.Spec.Database, schema)
+		// Get list of typeOwnerships inside schema
+		typeOwnerships, err := pg.GetTypesInSchema(instance.Spec.Database, schema)
 		if err != nil {
 			return err
 		}
 
 		// Loop over all types to force owner
-		for _, typeName := range types {
-			// Force table owner
-			err = pg.ChangeTypeOwnerInSchema(instance.Spec.Database, schema, typeName, owner)
-			if err != nil {
-				return err
+		for _, typeOwnershipItem := range typeOwnerships {
+			// Check if it is needed to patch owner
+			if typeOwnershipItem.Owner != owner {
+				// Force table owner
+				err = pg.ChangeTypeOwnerInSchema(instance.Spec.Database, schema, typeOwnershipItem.TypeName, owner)
+				if err != nil {
+					return err
+				}
 			}
 		}
 
