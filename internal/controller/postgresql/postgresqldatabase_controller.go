@@ -313,27 +313,54 @@ func (r *PostgresqlDatabaseReconciler) manageDropDatabase(
 
 	// Drop owner
 	if instance.Status.Roles.Owner != "" {
-		err = pg.DropRoleAndDropAndChangeOwnedBy(instance.Status.Roles.Owner, pg.GetUser(), instance.Spec.Database)
+		exists, err := pg.IsRoleExist(instance.Status.Roles.Owner)
+		// Check error
 		if err != nil {
 			return err
+		}
+		// Check if role exists before trying to delete it
+		if exists {
+			// Delete
+			err = pg.DropRoleAndDropAndChangeOwnedBy(instance.Status.Roles.Owner, pg.GetUser(), instance.Spec.Database)
+			if err != nil {
+				return err
+			}
 		}
 		// Clear status
 		instance.Status.Roles.Owner = ""
 	}
 	// Drop writer
 	if instance.Status.Roles.Writer != "" {
-		err = pg.DropRoleAndDropAndChangeOwnedBy(instance.Status.Roles.Writer, pg.GetUser(), instance.Spec.Database)
+		exists, err := pg.IsRoleExist(instance.Status.Roles.Writer)
+		// Check error
 		if err != nil {
 			return err
+		}
+		// Check if role exists before trying to delete it
+		if exists {
+			// Delete
+			err = pg.DropRoleAndDropAndChangeOwnedBy(instance.Status.Roles.Writer, pg.GetUser(), instance.Spec.Database)
+			if err != nil {
+				return err
+			}
 		}
 		// Clear status
 		instance.Status.Roles.Writer = ""
 	}
 	// Drop reader
 	if instance.Status.Roles.Reader != "" {
-		err = pg.DropRoleAndDropAndChangeOwnedBy(instance.Status.Roles.Reader, pg.GetUser(), instance.Spec.Database)
+		exists, err := pg.IsRoleExist(instance.Status.Roles.Reader)
+		// Check error
 		if err != nil {
 			return err
+		}
+		// Check if role exists before trying to delete it
+		if exists {
+			// Delete
+			err = pg.DropRoleAndDropAndChangeOwnedBy(instance.Status.Roles.Reader, pg.GetUser(), instance.Spec.Database)
+			if err != nil {
+				return err
+			}
 		}
 		// Clear status
 		instance.Status.Roles.Reader = ""
@@ -346,8 +373,23 @@ func (r *PostgresqlDatabaseReconciler) manageDropDatabase(
 		return err
 	}
 
-	// Drop database
-	return pg.DropDatabase(instance.Spec.Database)
+	exists, err := pg.IsDatabaseExist(instance.Spec.Database)
+	// Check error
+	if err != nil {
+		return err
+	}
+	// Check if role exists before trying to delete it
+	if exists {
+		// Drop database
+		err = pg.DropDatabase(instance.Spec.Database)
+		// Check error
+		if err != nil {
+			return err
+		}
+	}
+
+	// Default
+	return nil
 }
 
 func (r *PostgresqlDatabaseReconciler) shouldDropDatabase(
