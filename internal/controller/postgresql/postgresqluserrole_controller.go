@@ -74,6 +74,7 @@ type PostgresqlUserRoleReconciler struct {
 	ControllerRuntimeDetailedErrorTotal *prometheus.CounterVec
 	Log                                 logr.Logger
 	ControllerName                      string
+	ReconcileTimeout                    time.Duration
 }
 
 type dbPrivilegeCache struct {
@@ -123,6 +124,44 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Original patch
 	originalPatch := client.MergeFrom(instance.DeepCopy())
 
+	// Create timeout in ctx
+	timeoutCtx, cancel := context.WithTimeout(ctx, r.ReconcileTimeout)
+	// Defer cancel
+	defer cancel()
+
+	// Init result
+	var res ctrl.Result
+
+	errC := make(chan error, 1)
+
+	// Create wrapping function
+	cb := func() {
+		a, err := r.mainReconcile(timeoutCtx, reqLogger, instance, originalPatch)
+		// Save result
+		res = a
+		// Send error
+		errC <- err
+	}
+
+	// Start wrapped function
+	go cb()
+
+	// Run or timeout
+	select {
+	case <-timeoutCtx.Done():
+		// ? Note: Here use primary context otherwise update to set error will be aborted
+		return r.manageError(ctx, reqLogger, instance, originalPatch, timeoutCtx.Err())
+	case err := <-errC:
+		return res, err
+	}
+}
+
+func (r *PostgresqlUserRoleReconciler) mainReconcile(
+	ctx context.Context,
+	reqLogger logr.Logger,
+	instance *v1alpha1.PostgresqlUserRole,
+	originalPatch client.Patch,
+) (ctrl.Result, error) {
 	// Deletion case
 	if !instance.GetDeletionTimestamp().IsZero() { //nolint:wsl // it is like that
 		// Deletion detected
@@ -138,7 +177,7 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 		// Get needed items
 
 		// Find PG Database cache
-		dbCache, pgecDBPrivilegeCache, err := r.getDatabaseInstances(ctx, instance, true) //nolint:govet // Allow err shadow
+		dbCache, pgecDBPrivilegeCache, err := r.getDatabaseInstances(ctx, instance, true)
 		// Check error
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, err)
@@ -184,7 +223,7 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Creation case
 
 	// Validate
-	err = r.validateInstance(ctx, instance)
+	err := r.validateInstance(ctx, instance)
 	// Check error
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)

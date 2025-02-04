@@ -50,6 +50,7 @@ type PostgresqlEngineConfigurationReconciler struct {
 	ControllerRuntimeDetailedErrorTotal *prometheus.CounterVec
 	Log                                 logr.Logger
 	ControllerName                      string
+	ReconcileTimeout                    time.Duration
 }
 
 //+kubebuilder:rbac:groups=postgresql.easymile.com,resources=postgresqlengineconfigurations,verbs=get;list;watch;create;update;patch;delete
@@ -93,13 +94,51 @@ func (r *PostgresqlEngineConfigurationReconciler) Reconcile(ctx context.Context,
 	// Original patch
 	originalPatch := client.MergeFrom(instance.DeepCopy())
 
+	// Create timeout in ctx
+	timeoutCtx, cancel := context.WithTimeout(ctx, r.ReconcileTimeout)
+	// Defer cancel
+	defer cancel()
+
+	// Init result
+	var res ctrl.Result
+
+	errC := make(chan error, 1)
+
+	// Create wrapping function
+	cb := func() {
+		a, err := r.mainReconcile(timeoutCtx, reqLogger, instance, originalPatch)
+		// Save result
+		res = a
+		// Send error
+		errC <- err
+	}
+
+	// Start wrapped function
+	go cb()
+
+	// Run or timeout
+	select {
+	case <-timeoutCtx.Done():
+		// ? Note: Here use primary context otherwise update to set error will be aborted
+		return r.manageError(ctx, reqLogger, instance, originalPatch, timeoutCtx.Err())
+	case err := <-errC:
+		return res, err
+	}
+}
+
+func (r *PostgresqlEngineConfigurationReconciler) mainReconcile(
+	ctx context.Context,
+	reqLogger logr.Logger,
+	instance *postgresqlv1alpha1.PostgresqlEngineConfiguration,
+	originalPatch client.Patch,
+) (ctrl.Result, error) {
 	// Deletion case
 	if !instance.GetDeletionTimestamp().IsZero() {
 		// Need to delete
 		// Check if wait linked resources deletion flag is enabled
 		if instance.Spec.WaitLinkedResourcesDeletion {
 			// Check if there are linked resource linked to this
-			existingDB, err := r.getAnyDatabaseLinked(ctx, instance) //nolint:govet // Shadow err
+			existingDB, err := r.getAnyDatabaseLinked(ctx, instance)
 			if err != nil {
 				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 			}
@@ -112,7 +151,7 @@ func (r *PostgresqlEngineConfigurationReconciler) Reconcile(ctx context.Context,
 			}
 		}
 		// Close all saved pools for that pgec
-		err = postgres.CloseAllSavedPoolsForName(
+		err := postgres.CloseAllSavedPoolsForName(
 			utils.CreateNameKeyForSavedPools(instance.Name, instance.Namespace),
 		)
 		// Check error
@@ -134,7 +173,7 @@ func (r *PostgresqlEngineConfigurationReconciler) Reconcile(ctx context.Context,
 
 	// Check if the reconcile loop wasn't recall just because of update status
 	if instance.Status.Phase == postgresqlv1alpha1.EngineValidatedPhase && instance.Status.LastValidatedTime != "" {
-		dur, err := time.ParseDuration(instance.Spec.CheckInterval) //nolint:govet // Shadow err
+		dur, err := time.ParseDuration(instance.Spec.CheckInterval)
 		if err != nil {
 			return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewInternalError(err))
 		}
