@@ -93,6 +93,11 @@ spec:
                       required:
                       - name
                       type: object
+                    extraConnectionUrlParameters:
+                      additionalProperties:
+                        type: string
+                      description: Extra connection URL Parameters
+                      type: object
                     generatedSecretName:
                       description: Generated secret name prefix
                       minLength: 1
