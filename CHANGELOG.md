@@ -1,5 +1,22 @@
 # Changelog
 
+## 3.4.0
+
+### Features
+
+- Add timeout support for reconcile loops
+- postgresqluserrole: Add support for extra connection url parameters
+
+### Fixes
+
+- postgresqldatabase: Avoid closing connections multiple time in row and close them when needed
+- postgresqldatabase: Avoid alters on tables & types when owner is already the right one
+- postgresqldatabase: Improve deletion by checking if roles or database are existing in engine before trying to delete them. This will avoid dead lock scenarios
+
+### Refactor
+
+- Use context on all SQL calls
+
 ## 3.3.0
 
 ### Features
