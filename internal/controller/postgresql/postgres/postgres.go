@@ -28,6 +28,7 @@ type TypeOwnership struct {
 
 type PG interface { //nolint:interfacebloat // This is needed
 	CreateDB(ctx context.Context, dbname, username string) error
+	GetDatabaseOwner(ctx context.Context, dbname string) (string, error)
 	ChangeDBOwner(ctx context.Context, dbname, owner string) error
 	IsDatabaseExist(ctx context.Context, dbname string) (bool, error)
 	RenameDatabase(ctx context.Context, oldname, newname string) error
@@ -53,6 +54,8 @@ type PG interface { //nolint:interfacebloat // This is needed
 	GetSetRoleOnDatabasesRoleSettings(ctx context.Context, role string) ([]*SetRoleOnDatabaseRoleSetting, error)
 	DropRole(ctx context.Context, role string) error
 	DropSchema(ctx context.Context, database, schema string, cascade bool) error
+	ListSchema(ctx context.Context, database string) ([]string, error)
+	ListExtensions(ctx context.Context, database string) ([]string, error)
 	DropExtension(ctx context.Context, database, extension string, cascade bool) error
 	GetRoleMembership(ctx context.Context, role string) ([]string, error)
 	GetTablesInSchema(ctx context.Context, db, schema string) ([]*TableOwnership, error)

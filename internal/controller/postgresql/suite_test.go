@@ -1067,7 +1067,7 @@ func isSQLDBExists(name string) (bool, error) {
 		mainDBConn = db
 	}
 
-	res, err := mainDBConn.Exec(fmt.Sprintf(postgres.IsDatabaseExistSQLTemplate, name))
+	res, err := mainDBConn.Exec(fmt.Sprintf(`SELECT 1 FROM pg_database WHERE datname='%s'`, name))
 	if err != nil {
 		return false, err
 	}
