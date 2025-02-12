@@ -248,8 +248,6 @@ func (r *PostgresqlPublicationReconciler) mainReconcile(
 		}
 	} else {
 		// Update case
-		reqLogger.Info("Publication update case detected")
-
 		// Need to check if status hash is the same or not to force renew or not
 		if hash != instance.Status.Hash {
 			reqLogger.Info("Specs are different, update need to be done")
