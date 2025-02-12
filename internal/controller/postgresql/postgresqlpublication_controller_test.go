@@ -538,7 +538,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Setup a pg publication
 				item := setupPGPublicationWithPartialSpec(postgresqlv1alpha1.PostgresqlPublicationSpec{AllTables: true})
@@ -560,6 +560,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          true,
 						Insert:             true,
 						Update:             true,
@@ -589,7 +590,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -615,6 +616,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          true,
 						Insert:             true,
 						Update:             true,
@@ -658,7 +660,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -689,6 +691,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          true,
 						Insert:             false,
 						Update:             false,
@@ -732,7 +735,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -764,6 +767,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          true,
 						Insert:             false,
 						Update:             false,
@@ -807,7 +811,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -836,6 +840,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          true,
 						Insert:             true,
 						Update:             true,
@@ -881,7 +886,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Setup a pg publication
 				item := setupPGPublicationWithPartialSpec(postgresqlv1alpha1.PostgresqlPublicationSpec{TablesInSchema: []string{"public"}})
@@ -903,6 +908,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             true,
 						Update:             true,
@@ -932,7 +938,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -958,6 +964,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             true,
 						Update:             true,
@@ -1001,7 +1008,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -1032,6 +1039,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             false,
 						Update:             false,
@@ -1075,7 +1083,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -1107,6 +1115,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             false,
 						Update:             false,
@@ -1150,7 +1159,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -1179,6 +1188,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             true,
 						Update:             true,
@@ -1253,7 +1263,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -1283,6 +1293,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             true,
 						Update:             true,
@@ -1320,7 +1331,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -1350,6 +1361,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             true,
 						Update:             true,
@@ -1387,7 +1399,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -1417,6 +1429,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             true,
 						Update:             true,
@@ -1454,7 +1467,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -1484,6 +1497,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             true,
 						Update:             true,
@@ -1521,7 +1535,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -1554,6 +1568,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             false,
 						Update:             false,
@@ -1591,7 +1606,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -1625,6 +1640,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             false,
 						Update:             false,
@@ -1662,7 +1678,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -1693,6 +1709,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             true,
 						Update:             true,
@@ -1844,7 +1861,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -1905,6 +1922,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          true,
 						Insert:             false,
 						Update:             false,
@@ -1948,7 +1966,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -2015,6 +2033,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          true,
 						Insert:             true,
 						Update:             true,
@@ -2115,7 +2134,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -2179,6 +2198,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             true,
 						Update:             true,
@@ -2216,7 +2236,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -2279,6 +2299,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             false,
 						Update:             false,
@@ -2322,7 +2343,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -2391,6 +2412,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             true,
 						Update:             true,
@@ -2493,7 +2515,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -2555,6 +2577,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             true,
 						Update:             true,
@@ -2598,7 +2621,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -2664,6 +2687,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             true,
 						Update:             true,
@@ -2701,7 +2725,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -2767,6 +2791,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             true,
 						Update:             true,
@@ -2810,7 +2835,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -2875,6 +2900,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             true,
 						Update:             true,
@@ -2912,7 +2938,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -2977,6 +3003,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             true,
 						Update:             true,
@@ -3014,7 +3041,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -3079,6 +3106,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             true,
 						Update:             true,
@@ -3116,7 +3144,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -3181,6 +3209,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             true,
 						Update:             true,
@@ -3218,7 +3247,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -3283,6 +3312,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             true,
 						Update:             true,
@@ -3320,7 +3350,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -3385,6 +3415,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             false,
 						Update:             false,
@@ -3422,7 +3453,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
@@ -3493,6 +3524,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				if Expect(err).NotTo(HaveOccurred()) {
 					// Assert
 					Expect(data).To(Equal(&PublicationResult{
+						Owner:              pgdb.Status.Roles.Owner,
 						AllTables:          false,
 						Insert:             true,
 						Update:             true,
@@ -3577,7 +3609,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 
 				// Setup a pg publication
 				item := setupPGPublicationWithPartialSpec(postgresqlv1alpha1.PostgresqlPublicationSpec{
@@ -3599,6 +3631,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				data, err := getPublication(item.Status.Name)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(data).To(Equal(&PublicationResult{
+					Owner:              pgdb.Status.Roles.Owner,
 					AllTables:          true,
 					Insert:             true,
 					Update:             true,
@@ -3669,7 +3702,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
 				Expect(err).NotTo(HaveOccurred())
@@ -3694,6 +3727,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				data, err := getPublication(item.Status.Name)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(data).To(Equal(&PublicationResult{
+					Owner:              pgdb.Status.Roles.Owner,
 					AllTables:          false,
 					Insert:             true,
 					Update:             true,
@@ -3764,7 +3798,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				// Setup pgec
 				setupPGEC("30s", false)
 				// Create pgdb
-				setupPGDB(false)
+				pgdb := setupPGDB(false)
 				// Create tables
 				err := create2KnownTablesWithColumnsInPublicSchema()
 				Expect(err).NotTo(HaveOccurred())
@@ -3789,6 +3823,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				data, err := getPublication(item.Status.Name)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(data).To(Equal(&PublicationResult{
+					Owner:              pgdb.Status.Roles.Owner,
 					AllTables:          false,
 					Insert:             true,
 					Update:             true,
@@ -3814,7 +3849,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 			// Setup pgec
 			setupPGEC("30s", false)
 			// Create pgdb
-			setupPGDB(false)
+			pgdb := setupPGDB(false)
 
 			// Create tables
 			err := create2KnownTablesWithColumnsInPublicSchema()
@@ -3848,6 +3883,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 			if Expect(err).NotTo(HaveOccurred()) {
 				// Assert
 				Expect(data).To(Equal(&PublicationResult{
+					Owner:              pgdb.Status.Roles.Owner,
 					AllTables:          false,
 					Insert:             true,
 					Update:             true,
@@ -3885,7 +3921,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 			// Setup pgec
 			setupPGEC("30s", false)
 			// Create pgdb
-			setupPGDB(false)
+			pgdb := setupPGDB(false)
 
 			// Create tables
 			err := create2KnownTablesWithColumnsInPublicSchema()
@@ -3917,6 +3953,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 			if Expect(err).NotTo(HaveOccurred()) {
 				// Assert
 				Expect(data).To(Equal(&PublicationResult{
+					Owner:              pgdb.Status.Roles.Owner,
 					AllTables:          false,
 					Insert:             true,
 					Update:             true,
@@ -3990,6 +4027,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 			if Expect(err).NotTo(HaveOccurred()) {
 				// Assert
 				Expect(data).To(Equal(&PublicationResult{
+					Owner:              "postgres", // As it have been created by test
 					AllTables:          true,
 					Insert:             true,
 					Update:             true,
@@ -4032,6 +4070,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 			if Expect(err).NotTo(HaveOccurred()) {
 				// Assert
 				Expect(data).To(Equal(&PublicationResult{
+					Owner:              "postgres", // As it have been created by test
 					AllTables:          true,
 					Insert:             true,
 					Update:             true,
@@ -4067,6 +4106,84 @@ var _ = Describe("PostgresqlPublication tests", func() {
 			Expect(item.Status.Name).To(Equal(""))
 			Expect(item.Status.ReplicationSlotName).To(Equal(""))
 			Expect(item.Status.ReplicationSlotPlugin).To(Equal(""))
+		})
+
+		It("should be ok to reconcile ownership change", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			pgdb := setupPGDB(false)
+
+			// Create tables
+			err := create2KnownTablesWithColumnsInPublicSchema()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Setup a pg publication
+			item := setupPGPublicationWithPartialSpec(postgresqlv1alpha1.PostgresqlPublicationSpec{AllTables: true})
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationCreatedPhase))
+			Expect(item.Status.Message).To(Equal(""))
+			Expect(item.Status.AllTables).To(Equal(starAny(true)))
+			Expect(item.Status.Hash).NotTo(Equal(""))
+			Expect(item.Status.Name).To(Equal(pgpublicationPublicationName1))
+			Expect(item.Status.ReplicationSlotName).To(Equal(pgpublicationPublicationName1))
+			Expect(item.Status.ReplicationSlotPlugin).To(Equal(DefaultReplicationSlotPlugin))
+			Expect(item.Spec.ReplicationSlotName).To(Equal(pgpublicationPublicationName1))
+			Expect(item.Spec.ReplicationSlotPlugin).To(Equal(DefaultReplicationSlotPlugin))
+
+			data, err := getPublication(item.Status.Name)
+
+			if Expect(err).NotTo(HaveOccurred()) {
+				// Assert
+				Expect(data).To(Equal(&PublicationResult{
+					Owner:              pgdb.Status.Roles.Owner,
+					AllTables:          true,
+					Insert:             true,
+					Update:             true,
+					Delete:             true,
+					Truncate:           true,
+					PublicationViaRoot: false,
+				}))
+			}
+
+			// Alter publication
+			err = rawSQLQuery("ALTER PUBLICATION " + pgpublicationPublicationName1 + " OWNER TO \"postgres\"")
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(
+				func() error {
+					data, err = getPublication(item.Status.Name)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check if status hasn't been updated
+					if data.Owner != pgdb.Status.Roles.Owner {
+						return gerrors.New("hasn't been updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			if Expect(err).NotTo(HaveOccurred()) {
+				// Assert
+				Expect(data).To(Equal(&PublicationResult{
+					Owner:              pgdb.Status.Roles.Owner,
+					AllTables:          true,
+					Insert:             true,
+					Update:             true,
+					Delete:             true,
+					Truncate:           true,
+					PublicationViaRoot: false,
+				}))
+			}
 		})
 	})
 })

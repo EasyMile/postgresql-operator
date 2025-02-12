@@ -10,6 +10,7 @@ type CreatePublicationBuilder struct {
 	tablesPart string
 	allTables  string
 	withPart   string
+	owner      string
 	tables     []string
 	schemaList []string
 }
@@ -75,6 +76,12 @@ func (b *CreatePublicationBuilder) SetTablesInSchema(schemaList []string) *Creat
 
 func (b *CreatePublicationBuilder) SetForAllTables() *CreatePublicationBuilder {
 	b.allTables = "FOR ALL TABLES"
+
+	return b
+}
+
+func (b *CreatePublicationBuilder) SetOwner(n string) *CreatePublicationBuilder {
+	b.owner = n
 
 	return b
 }

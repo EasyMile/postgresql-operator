@@ -12,9 +12,10 @@ const (
 	CreatePublicationSQLTemplate                = `CREATE PUBLICATION "%s" %s %s`
 	DropPublicationSQLTemplate                  = `DROP PUBLICATION "%s"`
 	AlterPublicationRenameSQLTemplate           = `ALTER PUBLICATION "%s" RENAME TO "%s"`
+	AlterPublicationChangeOwnerSQLTemplate      = `ALTER PUBLICATION "%s" OWNER TO "%s"`
 	AlterPublicationGeneralOperationSQLTemplate = `ALTER PUBLICATION "%s" SET %s`
 	GetPublicationSQLTemplate                   = `SELECT
-  puballtables, pubinsert, pubupdate, pubdelete, pubtruncate, pubviaroot
+  pg_catalog.pg_get_userbyid(pubowner), puballtables, pubinsert, pubupdate, pubdelete, pubtruncate, pubviaroot
 FROM pg_catalog.pg_publication
 WHERE pubname = '%s';`
 	GetReplicationSlotSQLTemplate    = `SELECT slot_name,plugin,database FROM pg_replication_slots WHERE slot_name = '%s'`
@@ -23,6 +24,7 @@ WHERE pubname = '%s';`
 )
 
 type PublicationResult struct {
+	Owner              string
 	AllTables          bool
 	Insert             bool
 	Update             bool
@@ -178,6 +180,23 @@ func (c *pg) UpdatePublication(ctx context.Context, dbname, publicationName stri
 	return nil
 }
 
+func (c *pg) ChangePublicationOwner(ctx context.Context, dbname string, publicationName string, owner string) error {
+	// Connect to db
+	err := c.connect(dbname)
+	if err != nil {
+		return err
+	}
+
+	// Change owner
+	_, err = c.db.ExecContext(ctx, fmt.Sprintf(AlterPublicationChangeOwnerSQLTemplate, publicationName, owner))
+	if err != nil {
+		return err
+	}
+
+	// Default
+	return nil
+}
+
 func (c *pg) CreatePublication(ctx context.Context, dbname string, builder *CreatePublicationBuilder) error {
 	// Connect to db
 	err := c.connect(dbname)
@@ -189,6 +208,12 @@ func (c *pg) CreatePublication(ctx context.Context, dbname string, builder *Crea
 	builder.Build()
 
 	_, err = c.db.ExecContext(ctx, fmt.Sprintf(CreatePublicationSQLTemplate, builder.name, builder.tablesPart, builder.withPart))
+	if err != nil {
+		return err
+	}
+
+	// Change owner
+	err = c.ChangePublicationOwner(ctx, dbname, builder.name, builder.owner)
 	if err != nil {
 		return err
 	}
@@ -217,7 +242,7 @@ func (c *pg) GetPublication(ctx context.Context, dbname, name string) (*Publicat
 
 	for rows.Next() {
 		// Scan
-		err = rows.Scan(&res.AllTables, &res.Insert, &res.Update, &res.Delete, &res.Truncate, &res.PublicationViaRoot)
+		err = rows.Scan(&res.Owner, &res.AllTables, &res.Insert, &res.Update, &res.Delete, &res.Truncate, &res.PublicationViaRoot)
 		// Check error
 		if err != nil {
 			return nil, err

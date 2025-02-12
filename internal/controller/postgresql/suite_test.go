@@ -1411,6 +1411,7 @@ func createTypeInSchemaAsAdmin(schema, typeName string) error {
 }
 
 type PublicationResult struct {
+	Owner              string
 	AllTables          bool
 	Insert             bool
 	Update             bool
@@ -1432,10 +1433,7 @@ func getPublication(name string) (*PublicationResult, error) {
 	}()
 
 	// Get rows
-	rows, err := db.Query(fmt.Sprintf(`SELECT
-  puballtables, pubinsert, pubupdate, pubdelete, pubtruncate, pubviaroot
-FROM pg_catalog.pg_publication
-WHERE pubname = '%s';`, name))
+	rows, err := db.Query(fmt.Sprintf(postgres.GetPublicationSQLTemplate, name))
 	if err != nil {
 		return nil, err
 	}
@@ -1448,7 +1446,7 @@ WHERE pubname = '%s';`, name))
 
 	for rows.Next() {
 		// Scan
-		err = rows.Scan(&res.AllTables, &res.Insert, &res.Update, &res.Delete, &res.Truncate, &res.PublicationViaRoot)
+		err = rows.Scan(&res.Owner, &res.AllTables, &res.Insert, &res.Update, &res.Delete, &res.Truncate, &res.PublicationViaRoot)
 		// Check error
 		if err != nil {
 			return nil, err
