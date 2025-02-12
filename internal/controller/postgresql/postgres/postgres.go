@@ -67,6 +67,7 @@ type PG interface { //nolint:interfacebloat // This is needed
 	GetPublication(ctx context.Context, dbname, name string) (*PublicationResult, error)
 	CreatePublication(ctx context.Context, dbname string, builder *CreatePublicationBuilder) error
 	UpdatePublication(ctx context.Context, dbname, publicationName string, builder *UpdatePublicationBuilder) error
+	ChangePublicationOwner(ctx context.Context, dbname string, publicationName string, owner string) error
 	DropReplicationSlot(ctx context.Context, name string) error
 	CreateReplicationSlot(ctx context.Context, dbname, name, plugin string) error
 	GetReplicationSlot(ctx context.Context, name string) (*ReplicationSlotResult, error)

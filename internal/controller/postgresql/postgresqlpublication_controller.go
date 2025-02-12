@@ -258,6 +258,18 @@ func (r *PostgresqlPublicationReconciler) mainReconcile(
 				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 			}
 		}
+
+		// Check if owner are aligned
+		if pgDB.Status.Roles.Owner != pubRes.Owner {
+			reqLogger.Info("Owner aren't aligned, update need to be done")
+
+			// Change owner
+			err = pg.ChangePublicationOwner(ctx, pgDB.Status.Database, nameToSearch, pgDB.Status.Roles.Owner)
+			// Check error
+			if err != nil {
+				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+			}
+		}
 	}
 
 	// Get replication slot
@@ -383,6 +395,9 @@ func (*PostgresqlPublicationReconciler) manageCreate(
 	lo.ForEach(spec.Tables, func(table *v1alpha1.PostgresqlPublicationTable, _ int) {
 		builder = builder.AddTable(table.TableName, table.Columns, table.AdditionalWhere)
 	})
+
+	// Manage owner
+	builder = builder.SetOwner(pgDB.Status.Roles.Owner)
 
 	// Create publication
 	err := pg.CreatePublication(ctx, pgDB.Status.Database, builder)
