@@ -126,7 +126,7 @@ func (c *pg) IsDatabaseExist(ctx context.Context, dbname string) (bool, error) {
 	o, err := c.GetDatabaseOwner(ctx, dbname)
 	// Check error
 	if err != nil {
-		return false, nil
+		return false, err
 	}
 
 	return o != "", nil

@@ -261,17 +261,21 @@ func (r *PostgresqlPublicationReconciler) mainReconcile(
 			}
 		} else {
 			// Check if reconcile from PG state is necessary because spec haven't been changed
-			need, err := r.isReconcileOnPGNecessary(ctx, instance, pg, pgDB, pubRes, nameToSearch)
+			need, err2 := r.isReconcileOnPGNecessary(ctx, instance, pg, pgDB, pubRes, nameToSearch)
 			// Check error
-			if err != nil {
-				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+			if err2 != nil {
+				return r.manageError(ctx, reqLogger, instance, originalPatch, err2)
 			}
 
 			// Check if it is needed
 			if need {
 				reqLogger.Info("PG state have been changed but not via operator, update need to be done")
 
-				err = r.manageUpdate(ctx, instance, pg, pgDB, pubRes, nameToSearch)
+				err2 = r.manageUpdate(ctx, instance, pg, pgDB, pubRes, nameToSearch)
+				// Check error
+				if err2 != nil {
+					return r.manageError(ctx, reqLogger, instance, originalPatch, err2)
+				}
 			}
 		}
 
@@ -385,7 +389,7 @@ func (*PostgresqlPublicationReconciler) isReconcileOnPGNecessary(
 	}
 
 	// Check if we are in the all tables in schema case
-	if len(instanceSpec.TablesInSchema) != 0 {
+	if len(instanceSpec.TablesInSchema) != 0 { //nolint:wsl
 		// Compute list of schema coming from publication tables and compare list length.
 		// The computed list must be <= with the desired list
 		// Why <= ? Because we can list a schema without any tables in
@@ -401,6 +405,7 @@ func (*PostgresqlPublicationReconciler) isReconcileOnPGNecessary(
 			if !lo.Contains(computedSchemaList, it.SchemaName) {
 				computedSchemaList = append(computedSchemaList, it.SchemaName)
 			}
+
 			if !lo.Contains(currentTableNames, it.TableName) {
 				currentTableNames = append(currentTableNames, it.TableName)
 			}
@@ -419,9 +424,9 @@ func (*PostgresqlPublicationReconciler) isReconcileOnPGNecessary(
 		// Loop over all schema listed
 		for _, sch := range instanceSpec.TablesInSchema {
 			// Get all tables in this schema
-			tableDetails, err := pg.GetTablesInSchema(ctx, pgDB.Status.Database, sch)
-			if err != nil {
-				return false, err
+			tableDetails, err2 := pg.GetTablesInSchema(ctx, pgDB.Status.Database, sch)
+			if err2 != nil {
+				return false, err2
 			}
 
 			// Transform in string slice
@@ -455,13 +460,14 @@ func (*PostgresqlPublicationReconciler) isReconcileOnPGNecessary(
 
 			// Now need to check columns
 
-			columnNamesToCheck := []string{}
+			var columnNamesToCheck []string
 
 			// Check if columns aren't set in spec
 			if st.Columns == nil {
 				// If so, get real columns from table and check if list aren't identical
 				// Split spec table name
 				spl := strings.Split(st.TableName, ".")
+
 				var schemaName, tableName string
 
 				// Check split size
@@ -527,12 +533,10 @@ func (*PostgresqlPublicationReconciler) manageUpdate(
 	if instance.Spec.WithParameters != nil {
 		// Change with
 		builder = builder.SetWith(instance.Spec.WithParameters.Publish, instance.Spec.WithParameters.PublishViaPartitionRoot)
-	} else {
+	} else if pubRes.PublicationViaRoot || !pubRes.Delete || !pubRes.Insert || !pubRes.Truncate || !pubRes.Update {
 		// Potential reconcile case to manage
-		if pubRes.PublicationViaRoot || !pubRes.Delete || !pubRes.Insert || !pubRes.Truncate || !pubRes.Update {
-			// Set default
-			builder = builder.SetDefaultWith()
-		}
+		// Set default
+		builder = builder.SetDefaultWith()
 	}
 
 	// Perform update
