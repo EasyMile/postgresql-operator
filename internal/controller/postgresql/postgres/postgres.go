@@ -68,9 +68,11 @@ type PG interface { //nolint:interfacebloat // This is needed
 	CreatePublication(ctx context.Context, dbname string, builder *CreatePublicationBuilder) error
 	UpdatePublication(ctx context.Context, dbname, publicationName string, builder *UpdatePublicationBuilder) error
 	ChangePublicationOwner(ctx context.Context, dbname string, publicationName string, owner string) error
+	GetPublicationTablesDetails(ctx context.Context, db, publicationName string) ([]*PublicationTableDetail, error)
 	DropReplicationSlot(ctx context.Context, name string) error
 	CreateReplicationSlot(ctx context.Context, dbname, name, plugin string) error
 	GetReplicationSlot(ctx context.Context, name string) (*ReplicationSlotResult, error)
+	GetColumnNamesFromTable(ctx context.Context, database string, schemaName string, tableName string) ([]string, error)
 	GetUser() string
 	GetHost() string
 	GetPort() int
