@@ -77,7 +77,11 @@ func (b *UpdatePublicationBuilder) SetWith(publish string, publishViaPartitionRo
 	// Check if publish is set
 	if publish != "" {
 		with += "publish = '" + publish + "'"
+	} else {
+		// Set default for reconcile cases
+		with += "publish = 'insert, update, delete, truncate'"
 	}
+
 	// Check publish via partition root
 	if publishViaPartitionRoot != nil {
 		// Check if there is already a with set
@@ -91,10 +95,25 @@ func (b *UpdatePublicationBuilder) SetWith(publish string, publishViaPartitionRo
 		} else {
 			with += "false"
 		}
+	} else {
+		// Check if there is already a with set
+		if with != "" {
+			with += ", "
+		}
+		// Set default for reconcile cases
+		with += "publish_via_partition_root = false"
 	}
 
 	// Save
 	b.withPart = fmt.Sprintf(" (%s)", with)
+
+	return b
+}
+
+func (b *UpdatePublicationBuilder) SetDefaultWith() *UpdatePublicationBuilder {
+	fV := false
+	// Call other method without parameters to inject default values
+	b.SetWith("", &fV)
 
 	return b
 }

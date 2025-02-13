@@ -315,10 +315,18 @@ func (*PostgresqlDatabaseReconciler) manageDBCreationOrUpdate(
 			return err
 		}
 	} else {
-		// Ensure owner is correct
-		err := pg.ChangeDBOwner(ctx, instance.Spec.Database, owner)
+		// Get database owner
+		currentOwner, err := pg.GetDatabaseOwner(ctx, instance.Spec.Database)
 		if err != nil {
 			return err
+		}
+		// Check if owner needs to be changed
+		if owner != currentOwner {
+			// Ensure owner is correct
+			err = pg.ChangeDBOwner(ctx, instance.Spec.Database, owner)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -583,11 +591,21 @@ func (*PostgresqlDatabaseReconciler) manageSchemas(ctx context.Context, pg postg
 		writer = instance.Status.Roles.Writer
 	)
 
+	// List all schema in database
+	currentSchemaList, err := pg.ListSchema(ctx, instance.Spec.Database)
+	// Check error
+	if err != nil {
+		return err
+	}
+
 	for _, schema := range instance.Spec.Schemas.List {
-		// Create schema
-		err := pg.CreateSchema(ctx, instance.Spec.Database, owner, schema)
-		if err != nil {
-			return err
+		// Check if schema is already created in database
+		if !funk.ContainsString(currentSchemaList, schema) {
+			// Create schema
+			err = pg.CreateSchema(ctx, instance.Spec.Database, owner, schema)
+			if err != nil {
+				return err
+			}
 		}
 
 		// Set privileges on schema
@@ -670,13 +688,23 @@ func (*PostgresqlDatabaseReconciler) manageExtensions(ctx context.Context, pg po
 		instance.Status.Extensions = newStatusExtensions
 	}
 
+	// List extensions
+	currentExtensionList, err := pg.ListExtensions(ctx, instance.Spec.Database)
+	if err != nil {
+		return err
+	}
+
 	// Manage extensions creation
 	for _, extension := range instance.Spec.Extensions.List {
-		// Execute create extension SQL statement
-		err := pg.CreateExtension(ctx, instance.Spec.Database, extension)
-		if err != nil {
-			return err
+		// Check if extension isn't already in database
+		if !funk.ContainsString(currentExtensionList, extension) {
+			// Execute create extension SQL statement
+			err := pg.CreateExtension(ctx, instance.Spec.Database, extension)
+			if err != nil {
+				return err
+			}
 		}
+
 		// Check if extension was added. Skip if already added
 		if !funk.ContainsString(instance.Status.Extensions, extension) {
 			instance.Status.Extensions = append(instance.Status.Extensions, extension)

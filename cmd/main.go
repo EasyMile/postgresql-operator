@@ -70,8 +70,8 @@ func main() {
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.StringVar(&resyncPeriodStr, "resync-period", "30s", "The resync period to reload all resources for auto-heal procedures.")
-	flag.StringVar(&reconcileTimeoutStr, "reconcile-timeout", "5s", "The reconcile max timeout.")
+	flag.StringVar(&resyncPeriodStr, "resync-period", "60s", "The resync period to reload all resources for auto-heal procedures.")
+	flag.StringVar(&reconcileTimeoutStr, "reconcile-timeout", "10s", "The reconcile max timeout.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")

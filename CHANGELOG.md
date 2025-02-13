@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.4.1
+
+### Fixes
+
+- Fix with linter returns
+- postgresqlpublication : Fix update & create with parameters builders, add forgotten auto heal on publications
+- postgresqlpublication: Add forgotten management of publication ownership
+- Remove misleading log
+- Change resync default period & reconcile default timeout to avoid postgresql high load
+- postgresqldatabase: Avoid some alter if possible
+
 ## 3.4.0
 
 ### Features

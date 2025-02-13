@@ -10,6 +10,7 @@ type CreatePublicationBuilder struct {
 	tablesPart string
 	allTables  string
 	withPart   string
+	owner      string
 	tables     []string
 	schemaList []string
 }
@@ -79,6 +80,12 @@ func (b *CreatePublicationBuilder) SetForAllTables() *CreatePublicationBuilder {
 	return b
 }
 
+func (b *CreatePublicationBuilder) SetOwner(n string) *CreatePublicationBuilder {
+	b.owner = n
+
+	return b
+}
+
 func (b *CreatePublicationBuilder) SetName(n string) *CreatePublicationBuilder {
 	b.name = n
 
@@ -106,8 +113,11 @@ func (b *CreatePublicationBuilder) SetWith(publish string, publishViaPartitionRo
 		}
 	}
 
-	// Save
-	b.withPart = fmt.Sprintf("WITH (%s)", with)
+	// Check if there isn't something
+	if with != "" {
+		// Save
+		b.withPart = fmt.Sprintf("WITH (%s)", with)
+	}
 
 	return b
 }

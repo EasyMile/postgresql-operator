@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/lib/pq"
@@ -12,12 +13,14 @@ const (
 	RestrictKeyword                = "RESTRICT"
 	CreateDBSQLTemplate            = `CREATE DATABASE "%s" WITH OWNER = "%s"`
 	ChangeDBOwnerSQLTemplate       = `ALTER DATABASE "%s" OWNER TO "%s"`
-	IsDatabaseExistSQLTemplate     = `SELECT 1 FROM pg_database WHERE datname='%s'`
+	GetDatabaseOwnerSQLTemplate    = `SELECT pg_catalog.pg_get_userbyid(datdba) as owner FROM pg_database WHERE datname='%s'`
 	RenameDatabaseSQLTemplate      = `ALTER DATABASE "%s" RENAME TO "%s"`
 	CreateSchemaSQLTemplate        = `CREATE SCHEMA IF NOT EXISTS "%s" AUTHORIZATION "%s"`
 	CreateExtensionSQLTemplate     = `CREATE EXTENSION IF NOT EXISTS "%s"`
 	DropDatabaseSQLTemplate        = `DROP DATABASE "%s"`
+	GetExtensionListSQLTemplate    = `SELECT extname FROM pg_extension;`
 	DropExtensionSQLTemplate       = `DROP EXTENSION IF EXISTS "%s" %s`
+	GetSchemaListSQLTemplate       = `SELECT schema_name FROM information_schema.schemata`
 	DropSchemaSQLTemplate          = `DROP SCHEMA IF EXISTS "%s" %s`
 	GrantUsageSchemaSQLTemplate    = `GRANT USAGE ON SCHEMA "%s" TO "%s"`
 	GrantAllTablesSQLTemplate      = `GRANT %s ON ALL TABLES IN SCHEMA "%s" TO "%s"`
@@ -25,6 +28,7 @@ const (
 	GetTablesFromSchemaSQLTemplate = `SELECT tablename,tableowner FROM pg_tables WHERE schemaname = '%s'`
 	ChangeTableOwnerSQLTemplate    = `ALTER TABLE IF EXISTS "%s" OWNER TO "%s"`
 	ChangeTypeOwnerSQLTemplate     = `ALTER TYPE "%s"."%s" OWNER TO "%s"`
+	GetColumnsFromTableSQLTemplate = `SELECT column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'`
 	// Got and edited from : https://stackoverflow.com/questions/3660787/how-to-list-custom-types-using-postgres-information-schema
 	GetTypesFromSchemaSQLTemplate = `SELECT      t.typname as type, pg_catalog.pg_get_userbyid(t.typowner) as owner
 FROM        pg_type t
@@ -35,23 +39,97 @@ AND     n.nspname = '%s';`
 	DuplicateDatabaseErrorCode = "42P04"
 )
 
-func (c *pg) IsDatabaseExist(ctx context.Context, dbname string) (bool, error) {
+func (c *pg) GetColumnNamesFromTable(ctx context.Context, database string, schemaName string, tableName string) ([]string, error) {
+	err := c.connect(database)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := c.db.QueryContext(ctx, fmt.Sprintf(GetColumnsFromTableSQLTemplate, schemaName, tableName))
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	res := []string{}
+
+	for rows.Next() {
+		it := ""
+		// Scan
+		err = rows.Scan(&it)
+		// Check error
+		if err != nil {
+			return nil, err
+		}
+		// Save
+		res = append(res, it)
+	}
+
+	// Rows error
+	err = rows.Err()
+	// Check error
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (c *pg) GetDatabaseOwner(ctx context.Context, dbname string) (string, error) {
 	err := c.connect(c.defaultDatabase)
 	if err != nil {
-		return false, err
+		return "", err
 	}
 
-	res, err := c.db.ExecContext(ctx, fmt.Sprintf(IsDatabaseExistSQLTemplate, dbname))
+	rows, err := c.db.QueryContext(ctx, fmt.Sprintf(GetDatabaseOwnerSQLTemplate, dbname))
+	if err != nil {
+		return "", err
+	}
+
+	defer rows.Close()
+
+	res := []string{}
+
+	for rows.Next() {
+		it := ""
+		// Scan
+		err = rows.Scan(&it)
+		// Check error
+		if err != nil {
+			return "", err
+		}
+		// Save
+		res = append(res, it)
+	}
+
+	// Rows error
+	err = rows.Err()
+	// Check error
+	if err != nil {
+		return "", err
+	}
+
+	if len(res) != 1 {
+		return "", errors.New("select on database mustn't give more than one result. there is a severe issue somewhere")
+	}
+
+	// Check length
+	if len(res) == 0 {
+		return "", nil
+	}
+
+	return res[0], nil
+}
+
+func (c *pg) IsDatabaseExist(ctx context.Context, dbname string) (bool, error) {
+	o, err := c.GetDatabaseOwner(ctx, dbname)
+	// Check error
 	if err != nil {
 		return false, err
 	}
-	// Get affected rows
-	nb, err := res.RowsAffected()
-	if err != nil {
-		return false, err
-	}
 
-	return nb == 1, nil
+	return o != "", nil
 }
 
 func (c *pg) RenameDatabase(ctx context.Context, oldname, newname string) error {
@@ -278,6 +356,80 @@ func (c *pg) DropSchema(ctx context.Context, database, schema string, cascade bo
 	c.log.Info(fmt.Sprintf("Dropped schema %s on database %s with parameter %s", schema, database, param))
 
 	return nil
+}
+
+func (c *pg) ListSchema(ctx context.Context, database string) ([]string, error) {
+	err := c.connect(database)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := c.db.QueryContext(ctx, GetSchemaListSQLTemplate)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	res := []string{}
+
+	for rows.Next() {
+		it := ""
+		// Scan
+		err = rows.Scan(&it)
+		// Check error
+		if err != nil {
+			return nil, err
+		}
+		// Save
+		res = append(res, it)
+	}
+
+	// Rows error
+	err = rows.Err()
+	// Check error
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (c *pg) ListExtensions(ctx context.Context, database string) ([]string, error) {
+	err := c.connect(database)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := c.db.QueryContext(ctx, GetExtensionListSQLTemplate)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	res := []string{}
+
+	for rows.Next() {
+		it := ""
+		// Scan
+		err = rows.Scan(&it)
+		// Check error
+		if err != nil {
+			return nil, err
+		}
+		// Save
+		res = append(res, it)
+	}
+
+	// Rows error
+	err = rows.Err()
+	// Check error
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
 func (c *pg) CreateExtension(ctx context.Context, db, extension string) error {
