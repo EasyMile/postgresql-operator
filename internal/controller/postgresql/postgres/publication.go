@@ -18,6 +18,7 @@ const (
   pg_catalog.pg_get_userbyid(pubowner), puballtables, pubinsert, pubupdate, pubdelete, pubtruncate, pubviaroot
 FROM pg_catalog.pg_publication
 WHERE pubname = '%s';`
+	GetPublicationTablesSQLTemplate  = `SELECT schemaname, tablename, attnames, rowfilter FROM pg_publication_tables WHERE pubname = '%s'`
 	GetReplicationSlotSQLTemplate    = `SELECT slot_name,plugin,database FROM pg_replication_slots WHERE slot_name = '%s'`
 	CreateReplicationSlotSQLTemplate = `SELECT pg_create_logical_replication_slot('%s', '%s')`
 	DropReplicationSlotSQLTemplate   = `SELECT pg_drop_replication_slot('%s')`
@@ -44,6 +45,48 @@ type ReplicationSlotResult struct {
 	SlotName string
 	Plugin   string
 	Database string
+}
+
+func (c *pg) GetPublicationTablesDetails(ctx context.Context, db, publicationName string) ([]*PublicationTableDetail, error) {
+	err := c.connect(db)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := c.db.QueryContext(ctx, fmt.Sprintf(GetPublicationTablesSQLTemplate, publicationName))
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	res := []*PublicationTableDetail{}
+
+	for rows.Next() {
+		var it PublicationTableDetail
+		var pqSA pq.StringArray
+		// Scan
+		err = rows.Scan(&it.SchemaName, &it.TableName, &pqSA, &it.AdditionalWhere)
+		// Check error
+		if err != nil {
+			return nil, err
+		}
+		// Save
+		// ? Note: getting a list of string from pg imply a decode
+		// ? See issue: https://github.com/cockroachdb/cockroach/issues/39770#issuecomment-576170805
+		it.Columns = pqSA
+		// Save
+		res = append(res, &it)
+	}
+
+	// Rows error
+	err = rows.Err()
+	// Check error
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
 func (c *pg) DropReplicationSlot(ctx context.Context, name string) error {

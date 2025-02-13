@@ -4185,5 +4185,915 @@ var _ = Describe("PostgresqlPublication tests", func() {
 				}))
 			}
 		})
+
+		It("should be ok to reconcile publication via root changed and not in spec", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			pgdb := setupPGDB(false)
+
+			// Create tables
+			err := create2KnownTablesWithColumnsInPublicSchema()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Setup a pg publication
+			item := setupPGPublicationWithPartialSpec(postgresqlv1alpha1.PostgresqlPublicationSpec{
+				AllTables: true,
+			})
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationCreatedPhase))
+
+			data, err := getPublication(item.Status.Name)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Alter publication
+			err = rawSQLQuery("ALTER PUBLICATION " + pgpublicationPublicationName1 + " SET (publish_via_partition_root=true)")
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(
+				func() error {
+					data, err = getPublication(item.Status.Name)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check if status hasn't been updated
+					if data.PublicationViaRoot {
+						return gerrors.New("hasn't been updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			if Expect(err).NotTo(HaveOccurred()) {
+				// Assert
+				Expect(data).To(Equal(&PublicationResult{
+					Owner:              pgdb.Status.Roles.Owner,
+					AllTables:          true,
+					Insert:             true,
+					Update:             true,
+					Delete:             true,
+					Truncate:           true,
+					PublicationViaRoot: false,
+				}))
+			}
+		})
+
+		It("should be ok to reconcile publication via root changed and in spec", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			pgdb := setupPGDB(false)
+
+			// Create tables
+			err := create2KnownTablesWithColumnsInPublicSchema()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Setup a pg publication
+			item := setupPGPublicationWithPartialSpec(postgresqlv1alpha1.PostgresqlPublicationSpec{
+				AllTables: true,
+				WithParameters: &postgresqlv1alpha1.PostgresqlPublicationWith{
+					PublishViaPartitionRoot: starAny(true),
+				},
+			})
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationCreatedPhase))
+
+			data, err := getPublication(item.Status.Name)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Alter publication
+			err = rawSQLQuery("ALTER PUBLICATION " + pgpublicationPublicationName1 + " SET (publish_via_partition_root=false)")
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(
+				func() error {
+					data, err = getPublication(item.Status.Name)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check if status hasn't been updated
+					if !data.PublicationViaRoot {
+						return gerrors.New("hasn't been updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			if Expect(err).NotTo(HaveOccurred()) {
+				// Assert
+				Expect(data).To(Equal(&PublicationResult{
+					Owner:              pgdb.Status.Roles.Owner,
+					AllTables:          true,
+					Insert:             true,
+					Update:             true,
+					Delete:             true,
+					Truncate:           true,
+					PublicationViaRoot: true,
+				}))
+			}
+		})
+
+		It("should be ok to reconcile with parameter publish and not in spec without spec block", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			pgdb := setupPGDB(false)
+
+			// Create tables
+			err := create2KnownTablesWithColumnsInPublicSchema()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Setup a pg publication
+			item := setupPGPublicationWithPartialSpec(postgresqlv1alpha1.PostgresqlPublicationSpec{
+				AllTables: true,
+			})
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationCreatedPhase))
+
+			data, err := getPublication(item.Status.Name)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Alter publication
+			err = rawSQLQuery("ALTER PUBLICATION " + pgpublicationPublicationName1 + " SET (publish='insert')")
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(
+				func() error {
+					data, err = getPublication(item.Status.Name)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check if status hasn't been updated
+					if !data.Truncate {
+						return gerrors.New("hasn't been updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			if Expect(err).NotTo(HaveOccurred()) {
+				// Assert
+				Expect(data).To(Equal(&PublicationResult{
+					Owner:              pgdb.Status.Roles.Owner,
+					AllTables:          true,
+					Insert:             true,
+					Update:             true,
+					Delete:             true,
+					Truncate:           true,
+					PublicationViaRoot: false,
+				}))
+			}
+		})
+
+		It("should be ok to reconcile with parameter publish and not in spec with empty spec block", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			pgdb := setupPGDB(false)
+
+			// Create tables
+			err := create2KnownTablesWithColumnsInPublicSchema()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Setup a pg publication
+			item := setupPGPublicationWithPartialSpec(postgresqlv1alpha1.PostgresqlPublicationSpec{
+				AllTables:      true,
+				WithParameters: &postgresqlv1alpha1.PostgresqlPublicationWith{Publish: ""},
+			})
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationCreatedPhase))
+
+			data, err := getPublication(item.Status.Name)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Alter publication
+			err = rawSQLQuery("ALTER PUBLICATION " + pgpublicationPublicationName1 + " SET (publish='insert')")
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(
+				func() error {
+					data, err = getPublication(item.Status.Name)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check if status hasn't been updated
+					if !data.Truncate {
+						return gerrors.New("hasn't been updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			if Expect(err).NotTo(HaveOccurred()) {
+				// Assert
+				Expect(data).To(Equal(&PublicationResult{
+					Owner:              pgdb.Status.Roles.Owner,
+					AllTables:          true,
+					Insert:             true,
+					Update:             true,
+					Delete:             true,
+					Truncate:           true,
+					PublicationViaRoot: false,
+				}))
+			}
+		})
+
+		It("should be ok to reconcile with parameter publish and in spec", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			pgdb := setupPGDB(false)
+
+			// Create tables
+			err := create2KnownTablesWithColumnsInPublicSchema()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Setup a pg publication
+			item := setupPGPublicationWithPartialSpec(postgresqlv1alpha1.PostgresqlPublicationSpec{
+				AllTables: true,
+				WithParameters: &postgresqlv1alpha1.PostgresqlPublicationWith{
+					Publish: "insert",
+				},
+			})
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationCreatedPhase))
+
+			data, err := getPublication(item.Status.Name)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Alter publication
+			err = rawSQLQuery("ALTER PUBLICATION " + pgpublicationPublicationName1 + " SET (publish='truncate')")
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(
+				func() error {
+					data, err = getPublication(item.Status.Name)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check if status hasn't been updated
+					if data.Truncate {
+						return gerrors.New("hasn't been updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			if Expect(err).NotTo(HaveOccurred()) {
+				// Assert
+				Expect(data).To(Equal(&PublicationResult{
+					Owner:              pgdb.Status.Roles.Owner,
+					AllTables:          true,
+					Insert:             true,
+					Update:             false,
+					Delete:             false,
+					Truncate:           false,
+					PublicationViaRoot: false,
+				}))
+			}
+		})
+
+		It("should be ok to reconcile table in schema changed to table", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create tables
+			err := create2KnownTablesWithColumnsInPublicSchema()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Setup a pg publication
+			item := setupPGPublicationWithPartialSpec(postgresqlv1alpha1.PostgresqlPublicationSpec{
+				TablesInSchema: []string{"public"},
+			})
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationCreatedPhase))
+
+			// Alter publication
+			err = rawSQLQuery("ALTER PUBLICATION " + pgpublicationPublicationName1 + " SET TABLE fake")
+			Expect(err).NotTo(HaveOccurred())
+
+			details, err := getPublicationTableDetails(item.Status.Name)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(details).To(HaveLen(1))
+
+			Eventually(
+				func() error {
+					details, err = getPublicationTableDetails(item.Status.Name)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check hasn't been updated
+					if len(details) == 1 {
+						return gerrors.New("hasn't been updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			if Expect(err).NotTo(HaveOccurred()) {
+				Expect(details).To(HaveLen(2))
+				Expect(details).To(Equal([]*PublicationTableDetail{
+					{
+						SchemaName:      "public",
+						TableName:       "fake",
+						Columns:         []string{"id", "nb", "nb2"},
+						AdditionalWhere: nil,
+					},
+					{
+						SchemaName:      "public",
+						TableName:       "fake2",
+						Columns:         []string{"id", "test"},
+						AdditionalWhere: nil,
+					},
+				}))
+			}
+		})
+
+		It("should be ok to reconcile table changed to table in schema", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create tables
+			err := create2KnownTablesWithColumnsInPublicSchema()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Setup a pg publication
+			item := setupPGPublicationWithPartialSpec(postgresqlv1alpha1.PostgresqlPublicationSpec{
+				TablesInSchema: []string{"public"},
+			})
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationCreatedPhase))
+
+			// Alter publication
+			err = rawSQLQuery("ALTER PUBLICATION " + pgpublicationPublicationName1 + " SET TABLE fake")
+			Expect(err).NotTo(HaveOccurred())
+
+			details, err := getPublicationTableDetails(item.Status.Name)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(details).To(HaveLen(1))
+
+			Eventually(
+				func() error {
+					details, err = getPublicationTableDetails(item.Status.Name)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					// Check hasn't been updated
+					if len(details) == 1 {
+						return gerrors.New("hasn't been updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			if Expect(err).NotTo(HaveOccurred()) {
+				Expect(details).To(HaveLen(2))
+				Expect(details).To(Equal([]*PublicationTableDetail{
+					{
+						SchemaName:      "public",
+						TableName:       "fake",
+						Columns:         []string{"id", "nb", "nb2"},
+						AdditionalWhere: nil,
+					},
+					{
+						SchemaName:      "public",
+						TableName:       "fake2",
+						Columns:         []string{"id", "test"},
+						AdditionalWhere: nil,
+					},
+				}))
+			}
+		})
+
+		It("should be ok to reconcile table additional where removed", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create tables
+			err := create2KnownTablesWithColumnsInPublicSchema()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Setup a pg publication
+			item := setupPGPublicationWithPartialSpec(postgresqlv1alpha1.PostgresqlPublicationSpec{
+				Tables: []*postgresqlv1alpha1.PostgresqlPublicationTable{{
+					TableName:       "fake",
+					AdditionalWhere: starAny(`'id' = 'value'`),
+				}},
+			})
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationCreatedPhase))
+
+			// Alter publication
+			err = rawSQLQuery("ALTER PUBLICATION " + pgpublicationPublicationName1 + " SET TABLE fake")
+			Expect(err).NotTo(HaveOccurred())
+
+			details, err := getPublicationTableDetails(item.Status.Name)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(details).To(HaveLen(1))
+
+			Eventually(
+				func() error {
+					details, err = getPublicationTableDetails(item.Status.Name)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					if len(details) == 0 {
+						return gerrors.New("must have tables")
+					}
+
+					// Check hasn't been updated
+					if details[0].AdditionalWhere == nil || *details[0].AdditionalWhere != `('id'::text = 'value'::text)` {
+						return gerrors.New("hasn't been updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			if Expect(err).NotTo(HaveOccurred()) {
+				Expect(details).To(HaveLen(1))
+				Expect(details).To(Equal([]*PublicationTableDetail{
+					{
+						SchemaName:      "public",
+						TableName:       "fake",
+						Columns:         []string{"id", "nb", "nb2"},
+						AdditionalWhere: starAny(`('id'::text = 'value'::text)`),
+					},
+				}))
+			}
+		})
+
+		It("should be ok to reconcile table additional where added and not in spec", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create tables
+			err := create2KnownTablesWithColumnsInPublicSchema()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Setup a pg publication
+			item := setupPGPublicationWithPartialSpec(postgresqlv1alpha1.PostgresqlPublicationSpec{
+				Tables: []*postgresqlv1alpha1.PostgresqlPublicationTable{{
+					TableName: "fake",
+				}},
+			})
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationCreatedPhase))
+
+			// Alter publication
+			err = rawSQLQuery("ALTER PUBLICATION " + pgpublicationPublicationName1 + " SET TABLE fake WHERE ('id' = 'value')")
+			Expect(err).NotTo(HaveOccurred())
+
+			details, err := getPublicationTableDetails(item.Status.Name)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(details).To(HaveLen(1))
+
+			Eventually(
+				func() error {
+					details, err = getPublicationTableDetails(item.Status.Name)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					if len(details) == 0 {
+						return gerrors.New("must have tables")
+					}
+
+					// Check hasn't been updated
+					if details[0].AdditionalWhere != nil {
+						return gerrors.New("hasn't been updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			if Expect(err).NotTo(HaveOccurred()) {
+				Expect(details).To(HaveLen(1))
+				Expect(details).To(Equal([]*PublicationTableDetail{
+					{
+						SchemaName:      "public",
+						TableName:       "fake",
+						Columns:         []string{"id", "nb", "nb2"},
+						AdditionalWhere: nil,
+					},
+				}))
+			}
+		})
+
+		It("should be ok to reconcile table additional where updated", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create tables
+			err := create2KnownTablesWithColumnsInPublicSchema()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Setup a pg publication
+			item := setupPGPublicationWithPartialSpec(postgresqlv1alpha1.PostgresqlPublicationSpec{
+				Tables: []*postgresqlv1alpha1.PostgresqlPublicationTable{{
+					TableName:       "fake",
+					AdditionalWhere: starAny(`'id' = 'value'`),
+				}},
+			})
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationCreatedPhase))
+
+			// Alter publication
+			err = rawSQLQuery("ALTER PUBLICATION " + pgpublicationPublicationName1 + " SET TABLE fake WHERE ('id' = 'fake')")
+			Expect(err).NotTo(HaveOccurred())
+
+			details, err := getPublicationTableDetails(item.Status.Name)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(details).To(HaveLen(1))
+
+			Eventually(
+				func() error {
+					details, err = getPublicationTableDetails(item.Status.Name)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					if len(details) == 0 {
+						return gerrors.New("must have tables")
+					}
+
+					// Check hasn't been updated
+					if details[0].AdditionalWhere == nil || *details[0].AdditionalWhere != `('id'::text = 'value'::text)` {
+						return gerrors.New("hasn't been updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			if Expect(err).NotTo(HaveOccurred()) {
+				Expect(details).To(HaveLen(1))
+				Expect(details).To(Equal([]*PublicationTableDetail{
+					{
+						SchemaName:      "public",
+						TableName:       "fake",
+						Columns:         []string{"id", "nb", "nb2"},
+						AdditionalWhere: starAny(`('id'::text = 'value'::text)`),
+					},
+				}))
+			}
+		})
+
+		It("should be ok to reconcile table columns fully removed", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create tables
+			err := create2KnownTablesWithColumnsInPublicSchema()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Setup a pg publication
+			item := setupPGPublicationWithPartialSpec(postgresqlv1alpha1.PostgresqlPublicationSpec{
+				Tables: []*postgresqlv1alpha1.PostgresqlPublicationTable{{
+					TableName: "fake",
+					Columns:   &[]string{"id"},
+				}},
+			})
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationCreatedPhase))
+
+			// Alter publication
+			err = rawSQLQuery("ALTER PUBLICATION " + pgpublicationPublicationName1 + " SET TABLE fake")
+			Expect(err).NotTo(HaveOccurred())
+
+			details, err := getPublicationTableDetails(item.Status.Name)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(details).To(HaveLen(1))
+
+			Eventually(
+				func() error {
+					details, err = getPublicationTableDetails(item.Status.Name)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					if len(details) == 0 {
+						return gerrors.New("must have tables")
+					}
+
+					// Check hasn't been updated
+					if len(details[0].Columns) > 1 {
+						return gerrors.New("hasn't been updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			if Expect(err).NotTo(HaveOccurred()) {
+				Expect(details).To(HaveLen(1))
+				Expect(details).To(Equal([]*PublicationTableDetail{
+					{
+						SchemaName:      "public",
+						TableName:       "fake",
+						Columns:         []string{"id"},
+						AdditionalWhere: nil,
+					},
+				}))
+			}
+		})
+
+		It("should be ok to reconcile table columns partially removed", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create tables
+			err := create2KnownTablesWithColumnsInPublicSchema()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Setup a pg publication
+			item := setupPGPublicationWithPartialSpec(postgresqlv1alpha1.PostgresqlPublicationSpec{
+				Tables: []*postgresqlv1alpha1.PostgresqlPublicationTable{{
+					TableName: "fake",
+					Columns:   &[]string{"id", "nb"},
+				}},
+			})
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationCreatedPhase))
+
+			// Alter publication
+			err = rawSQLQuery("ALTER PUBLICATION " + pgpublicationPublicationName1 + " SET TABLE fake (id)")
+			Expect(err).NotTo(HaveOccurred())
+
+			details, err := getPublicationTableDetails(item.Status.Name)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(details).To(HaveLen(1))
+
+			Eventually(
+				func() error {
+					details, err = getPublicationTableDetails(item.Status.Name)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					if len(details) == 0 {
+						return gerrors.New("must have tables")
+					}
+
+					// Check hasn't been updated
+					if len(details[0].Columns) == 1 {
+						return gerrors.New("hasn't been updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			if Expect(err).NotTo(HaveOccurred()) {
+				Expect(details).To(HaveLen(1))
+				Expect(details).To(Equal([]*PublicationTableDetail{
+					{
+						SchemaName:      "public",
+						TableName:       "fake",
+						Columns:         []string{"id", "nb"},
+						AdditionalWhere: nil,
+					},
+				}))
+			}
+		})
+
+		It("should be ok to reconcile table columns with one added", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create tables
+			err := create2KnownTablesWithColumnsInPublicSchema()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Setup a pg publication
+			item := setupPGPublicationWithPartialSpec(postgresqlv1alpha1.PostgresqlPublicationSpec{
+				Tables: []*postgresqlv1alpha1.PostgresqlPublicationTable{{
+					TableName: "fake",
+					Columns:   &[]string{"id"},
+				}},
+			})
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationCreatedPhase))
+
+			// Alter publication
+			err = rawSQLQuery("ALTER PUBLICATION " + pgpublicationPublicationName1 + " SET TABLE fake (id,nb)")
+			Expect(err).NotTo(HaveOccurred())
+
+			details, err := getPublicationTableDetails(item.Status.Name)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(details).To(HaveLen(1))
+
+			Eventually(
+				func() error {
+					details, err = getPublicationTableDetails(item.Status.Name)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					if len(details) == 0 {
+						return gerrors.New("must have tables")
+					}
+
+					// Check hasn't been updated
+					if len(details[0].Columns) == 2 {
+						return gerrors.New("hasn't been updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			if Expect(err).NotTo(HaveOccurred()) {
+				Expect(details).To(HaveLen(1))
+				Expect(details).To(Equal([]*PublicationTableDetail{
+					{
+						SchemaName:      "public",
+						TableName:       "fake",
+						Columns:         []string{"id"},
+						AdditionalWhere: nil,
+					},
+				}))
+			}
+		})
+
+		It("should be ok to reconcile table columns with one updated", func() {
+			// Setup pgec
+			setupPGEC("30s", false)
+			// Create pgdb
+			setupPGDB(false)
+
+			// Create tables
+			err := create2KnownTablesWithColumnsInPublicSchema()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Setup a pg publication
+			item := setupPGPublicationWithPartialSpec(postgresqlv1alpha1.PostgresqlPublicationSpec{
+				Tables: []*postgresqlv1alpha1.PostgresqlPublicationTable{{
+					TableName: "fake",
+					Columns:   &[]string{"nb"},
+				}},
+			})
+
+			// Checks
+			Expect(item.Status.Ready).To(BeTrue())
+			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationCreatedPhase))
+
+			// Alter publication
+			err = rawSQLQuery("ALTER PUBLICATION " + pgpublicationPublicationName1 + " SET TABLE fake (id)")
+			Expect(err).NotTo(HaveOccurred())
+
+			details, err := getPublicationTableDetails(item.Status.Name)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(details).To(HaveLen(1))
+
+			Eventually(
+				func() error {
+					details, err = getPublicationTableDetails(item.Status.Name)
+					// Check error
+					if err != nil {
+						return err
+					}
+
+					if len(details) == 0 {
+						return gerrors.New("must have tables")
+					}
+					if len(details[0].Columns) == 0 {
+						return gerrors.New("must have columns")
+					}
+
+					// Check hasn't been updated
+					if details[0].Columns[0] == "id" {
+						return gerrors.New("hasn't been updated by operator")
+					}
+
+					return nil
+				},
+				generalEventuallyTimeout,
+				generalEventuallyInterval,
+			).
+				Should(Succeed())
+
+			if Expect(err).NotTo(HaveOccurred()) {
+				Expect(details).To(HaveLen(1))
+				Expect(details).To(Equal([]*PublicationTableDetail{
+					{
+						SchemaName:      "public",
+						TableName:       "fake",
+						Columns:         []string{"nb"},
+						AdditionalWhere: nil,
+					},
+				}))
+			}
+		})
 	})
 })

@@ -142,7 +142,7 @@ var _ = BeforeSuite(func(_ context.Context) {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
-	resyncPeriod := 10 * time.Second
+	resyncPeriod := 5 * time.Second
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:     scheme.Scheme,
 		SyncPeriod: &resyncPeriod,

@@ -18,7 +18,9 @@ package postgresql
 
 import (
 	"context"
+	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -257,6 +259,20 @@ func (r *PostgresqlPublicationReconciler) mainReconcile(
 			if err != nil {
 				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 			}
+		} else {
+			// Check if reconcile from PG state is necessary because spec haven't been changed
+			need, err := r.isReconcileOnPGNecessary(ctx, instance, pg, pgDB, pubRes, nameToSearch)
+			// Check error
+			if err != nil {
+				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+			}
+
+			// Check if it is needed
+			if need {
+				reqLogger.Info("PG state have been changed but not via operator, update need to be done")
+
+				err = r.manageUpdate(ctx, instance, pg, pgDB, pubRes, nameToSearch)
+			}
 		}
 
 		// Check if owner are aligned
@@ -316,6 +332,167 @@ func (r *PostgresqlPublicationReconciler) mainReconcile(
 	return r.manageSuccess(ctx, reqLogger, instance, originalPatch)
 }
 
+func (*PostgresqlPublicationReconciler) isReconcileOnPGNecessary(
+	ctx context.Context,
+	instance *v1alpha1.PostgresqlPublication,
+	pg postgres.PG,
+	pgDB *v1alpha1.PostgresqlDatabase,
+	pubRes *postgres.PublicationResult,
+	currentPublicationName string,
+) (bool, error) {
+	instanceSpec := instance.Spec
+
+	// Check with parameters
+	// nil spec case
+	if instanceSpec.WithParameters == nil && (pubRes.PublicationViaRoot || !pubRes.Delete || !pubRes.Insert || !pubRes.Truncate || !pubRes.Update) {
+		return true, nil
+	}
+	// Non nil spec case
+	if instanceSpec.WithParameters != nil {
+		// publication via root check
+		if (instanceSpec.WithParameters.PublishViaPartitionRoot == nil && pubRes.PublicationViaRoot) ||
+			(instanceSpec.WithParameters.PublishViaPartitionRoot != nil && *instanceSpec.WithParameters.PublishViaPartitionRoot != pubRes.PublicationViaRoot) {
+			return true, nil
+		}
+
+		// Now check publish parameters
+		// Save
+		publish := strings.ToLower(instanceSpec.WithParameters.Publish)
+		// Empty spec case
+		if publish == "" && (!pubRes.Delete || !pubRes.Insert || !pubRes.Truncate || !pubRes.Update) {
+			return true, nil
+		}
+		// Not empty case
+		if publish != "" &&
+			(strings.Contains(publish, "insert") != pubRes.Insert ||
+				strings.Contains(publish, "update") != pubRes.Update ||
+				strings.Contains(publish, "delete") != pubRes.Delete ||
+				strings.Contains(publish, "truncate") != pubRes.Truncate) {
+			return true, nil
+		}
+	}
+
+	// Check if it is a all tables
+	if instanceSpec.AllTables {
+		// This state cannot be updated so.. Ignoring it
+		return false, nil
+	}
+
+	// Get publication details
+	details, err := pg.GetPublicationTablesDetails(ctx, pgDB.Status.Database, currentPublicationName)
+	if err != nil {
+		return false, err
+	}
+
+	// Check if we are in the all tables in schema case
+	if len(instanceSpec.TablesInSchema) != 0 {
+		// Compute list of schema coming from publication tables and compare list length.
+		// The computed list must be <= with the desired list
+		// Why <= ? Because we can list a schema without any tables in
+		// So we need to check > to go out quickly
+		// After that, we need to check that computed list is included in the desired list
+		// Finally, check that all tables from all schema are found
+
+		// Compute list of schema
+		computedSchemaList := []string{}
+		currentTableNames := []string{}
+
+		for _, it := range details {
+			if !lo.Contains(computedSchemaList, it.SchemaName) {
+				computedSchemaList = append(computedSchemaList, it.SchemaName)
+			}
+			if !lo.Contains(currentTableNames, it.TableName) {
+				currentTableNames = append(currentTableNames, it.TableName)
+			}
+		}
+
+		// Check length
+		if len(computedSchemaList) > len(instanceSpec.TablesInSchema) {
+			return true, nil
+		}
+
+		// Check include/subset
+		if !lo.Every(instanceSpec.TablesInSchema, computedSchemaList) {
+			return true, nil
+		}
+
+		// Loop over all schema listed
+		for _, sch := range instanceSpec.TablesInSchema {
+			// Get all tables in this schema
+			tableDetails, err := pg.GetTablesInSchema(ctx, pgDB.Status.Database, sch)
+			if err != nil {
+				return false, err
+			}
+
+			// Transform in string slice
+			allTableNamesInSchema := lo.Map(tableDetails, func(it *postgres.TableOwnership, _ int) string { return it.TableName })
+			// Now check differences
+			r1, r2 := lo.Difference(allTableNamesInSchema, currentTableNames)
+			if len(r1) != 0 || len(r2) != 0 {
+				return true, nil
+			}
+		}
+	} else {
+		// Need to check with tables
+		// Loop over spec table list
+		for _, st := range instanceSpec.Tables {
+			// Check if table isn't in the current list
+			detail, found := lo.Find(details, func(it *postgres.PublicationTableDetail) bool {
+				return st.TableName == it.TableName || st.TableName == fmt.Sprintf("%s.%s", it.SchemaName, it.TableName)
+			})
+			if !found {
+				return true, nil
+			}
+
+			// Check if additional where  aren't identical (nil case)
+			if st.AdditionalWhere != detail.AdditionalWhere {
+				return true, nil
+			}
+			// Check if additional where  aren't identical (phase 2)
+			if st.AdditionalWhere != nil && detail.AdditionalWhere != nil && fmt.Sprintf("(%s)", *st.AdditionalWhere) != *detail.AdditionalWhere {
+				return true, nil
+			}
+
+			// Now need to check columns
+
+			columnNamesToCheck := []string{}
+
+			// Check if columns aren't set in spec
+			if st.Columns == nil {
+				// If so, get real columns from table and check if list aren't identical
+				// Split spec table name
+				spl := strings.Split(st.TableName, ".")
+				var schemaName, tableName string
+
+				// Check split size
+				if len(spl) == 1 {
+					schemaName = defaultPGPublicSchemaName
+					tableName = spl[0]
+				} else {
+					schemaName = spl[0]
+					tableName = spl[1]
+				}
+
+				columnNamesToCheck, err = pg.GetColumnNamesFromTable(ctx, pgDB.Status.Database, schemaName, tableName)
+				if err != nil {
+					return false, err
+				}
+			} else {
+				columnNamesToCheck = *st.Columns
+			}
+
+			// Check difference
+			r1, r2 := lo.Difference(columnNamesToCheck, detail.Columns)
+			if len(r1) != 0 || len(r2) != 0 {
+				return true, nil
+			}
+		}
+	}
+
+	// Default
+	return false, nil
+}
+
 func (*PostgresqlPublicationReconciler) manageUpdate(
 	ctx context.Context,
 	instance *v1alpha1.PostgresqlPublication,
@@ -350,11 +527,15 @@ func (*PostgresqlPublicationReconciler) manageUpdate(
 	if instance.Spec.WithParameters != nil {
 		// Change with
 		builder = builder.SetWith(instance.Spec.WithParameters.Publish, instance.Spec.WithParameters.PublishViaPartitionRoot)
+	} else {
+		// Potential reconcile case to manage
+		if pubRes.PublicationViaRoot || !pubRes.Delete || !pubRes.Insert || !pubRes.Truncate || !pubRes.Update {
+			// Set default
+			builder = builder.SetDefaultWith()
+		}
 	}
 
 	// Perform update
-	// ? Note: this will do an alter even if it is unnecessary
-	// ? Detecting real diff will be long and painful, perform an alter with what is asked will ensure that nothing can be changed
 	err := pg.UpdatePublication(ctx, pgDB.Status.Database, currentPublicationName, builder)
 	// Check error
 	if err != nil {

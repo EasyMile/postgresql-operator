@@ -28,6 +28,7 @@ const (
 	GetTablesFromSchemaSQLTemplate = `SELECT tablename,tableowner FROM pg_tables WHERE schemaname = '%s'`
 	ChangeTableOwnerSQLTemplate    = `ALTER TABLE IF EXISTS "%s" OWNER TO "%s"`
 	ChangeTypeOwnerSQLTemplate     = `ALTER TYPE "%s"."%s" OWNER TO "%s"`
+	GetColumnsFromTableSQLTemplate = `SELECT column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'`
 	// Got and edited from : https://stackoverflow.com/questions/3660787/how-to-list-custom-types-using-postgres-information-schema
 	GetTypesFromSchemaSQLTemplate = `SELECT      t.typname as type, pg_catalog.pg_get_userbyid(t.typowner) as owner
 FROM        pg_type t
@@ -37,6 +38,43 @@ AND     NOT EXISTS(SELECT 1 FROM pg_catalog.pg_type el WHERE el.oid = t.typelem 
 AND     n.nspname = '%s';`
 	DuplicateDatabaseErrorCode = "42P04"
 )
+
+func (c *pg) GetColumnNamesFromTable(ctx context.Context, database string, schemaName string, tableName string) ([]string, error) {
+	err := c.connect(database)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := c.db.QueryContext(ctx, fmt.Sprintf(GetColumnsFromTableSQLTemplate, schemaName, tableName))
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	res := []string{}
+
+	for rows.Next() {
+		it := ""
+		// Scan
+		err = rows.Scan(&it)
+		// Check error
+		if err != nil {
+			return nil, err
+		}
+		// Save
+		res = append(res, it)
+	}
+
+	// Rows error
+	err = rows.Err()
+	// Check error
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
 
 func (c *pg) GetDatabaseOwner(ctx context.Context, dbname string) (string, error) {
 	err := c.connect(c.defaultDatabase)

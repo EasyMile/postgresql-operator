@@ -113,8 +113,11 @@ func (b *CreatePublicationBuilder) SetWith(publish string, publishViaPartitionRo
 		}
 	}
 
-	// Save
-	b.withPart = fmt.Sprintf("WITH (%s)", with)
+	// Check if there isn't something
+	if with != "" {
+		// Save
+		b.withPart = fmt.Sprintf("WITH (%s)", with)
+	}
 
 	return b
 }
