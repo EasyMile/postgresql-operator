@@ -64,6 +64,7 @@ func (c *pg) GetPublicationTablesDetails(ctx context.Context, db, publicationNam
 
 	for rows.Next() {
 		var it PublicationTableDetail
+
 		var pqSA pq.StringArray
 		// Scan
 		err = rows.Scan(&it.SchemaName, &it.TableName, &pqSA, &it.AdditionalWhere)
