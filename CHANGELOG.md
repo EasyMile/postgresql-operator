@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.4.2
+
+### Fixes
+
+- postgres:database : Fix check conditions on database owner
+
 ## 3.4.1
 
 ### Fixes

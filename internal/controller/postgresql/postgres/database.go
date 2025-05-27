@@ -110,13 +110,13 @@ func (c *pg) GetDatabaseOwner(ctx context.Context, dbname string) (string, error
 		return "", err
 	}
 
-	if len(res) != 1 {
-		return "", errors.New("select on database mustn't give more than one result. there is a severe issue somewhere")
-	}
-
 	// Check length
 	if len(res) == 0 {
 		return "", nil
+	}
+
+	if len(res) != 1 {
+		return "", errors.New("select on database mustn't give more than one result. there is a severe issue somewhere")
 	}
 
 	return res[0], nil
