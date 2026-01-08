@@ -25,9 +25,11 @@ import (
 
 type ProviderType string
 
-const NoProvider ProviderType = ""
-const AWSProvider ProviderType = "AWS"
-const AzureProvider ProviderType = "AZURE"
+const (
+	NoProvider    ProviderType = ""
+	AWSProvider   ProviderType = "AWS"
+	AzureProvider ProviderType = "AZURE"
+)
 
 // PostgresqlEngineConfigurationSpec defines the desired state of PostgresqlEngineConfiguration.
 type PostgresqlEngineConfigurationSpec struct {
@@ -99,9 +101,11 @@ type GenericUserConnection struct {
 
 type EngineStatusPhase string
 
-const EngineNoPhase EngineStatusPhase = ""
-const EngineFailedPhase EngineStatusPhase = "Failed"
-const EngineValidatedPhase EngineStatusPhase = "Validated"
+const (
+	EngineNoPhase        EngineStatusPhase = ""
+	EngineFailedPhase    EngineStatusPhase = "Failed"
+	EngineValidatedPhase EngineStatusPhase = "Validated"
+)
 
 // PostgresqlEngineConfigurationStatus defines the observed state of PostgresqlEngineConfiguration.
 type PostgresqlEngineConfigurationStatus struct {

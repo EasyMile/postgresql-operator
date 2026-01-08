@@ -2,16 +2,20 @@ package postgresql
 
 import (
 	"errors"
-	gerrors "errors"
 	"fmt"
 
-	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
+	"k8s.io/apimachinery/pkg/types"
+
+	//nolint:revive
 	. "github.com/onsi/ginkgo/v2"
+	//nolint:revive
 	. "github.com/onsi/gomega"
+
 	corev1 "k8s.io/api/core/v1"
 	apimachineryErrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+
+	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
 )
 
 var _ = Describe("PostgresqlEngineConfiguration tests", func() {
@@ -973,7 +977,7 @@ var _ = Describe("PostgresqlEngineConfiguration tests", func() {
 
 				// Check if status is no more ready
 				if pgec.Status.Phase != postgresqlv1alpha1.EngineFailedPhase {
-					return gerrors.New("pgec should not be valid anymore")
+					return errors.New("pgec should not be valid anymore")
 				}
 
 				return nil
@@ -986,8 +990,12 @@ var _ = Describe("PostgresqlEngineConfiguration tests", func() {
 		Expect(pgec.Status.Ready).To(BeFalse())
 		Expect(pgec.Status.Phase).To(BeEquivalentTo(postgresqlv1alpha1.EngineFailedPhase))
 		Expect(pgec.Status.Message).To(BeEquivalentTo(
-			fmt.Sprintf("cannot remove resource because found database %s in namespace %s linked to this resource and wait for deletion flag is enabled", pgdbName, pgdbNamespace)))
-
+			fmt.Sprintf(
+				"cannot remove resource because found database %s in namespace %s linked to this resource and wait for deletion flag is enabled",
+				pgdbName,
+				pgdbNamespace,
+			),
+		))
 	})
 
 	It("should be ok to delete it without wait and something linked", func() {

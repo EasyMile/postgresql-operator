@@ -22,19 +22,20 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
 	"github.com/easymile/postgresql-operator/internal/controller/config"
 	"github.com/easymile/postgresql-operator/internal/controller/postgresql/postgres"
 	"github.com/easymile/postgresql-operator/internal/controller/utils"
-	"github.com/go-logr/logr"
-	"github.com/prometheus/client_golang/prometheus"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -72,7 +73,6 @@ func (r *PostgresqlEngineConfigurationReconciler) Reconcile(ctx context.Context,
 	// Issue with this logger: controller and controllerKind are incorrect
 	// Build another logger from upper to fix this.
 	// reqLogger := log.FromContext(ctx)
-
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 	reqLogger.Info("Reconciling PostgresqlEngineConfiguration")
 
@@ -145,7 +145,11 @@ func (r *PostgresqlEngineConfigurationReconciler) mainReconcile(
 
 			if existingDB != nil {
 				// Wait for children removal
-				err = fmt.Errorf("cannot remove resource because found database %s in namespace %s linked to this resource and wait for deletion flag is enabled", existingDB.Name, existingDB.Namespace)
+				err = fmt.Errorf(
+					"cannot remove resource because found database %s in namespace %s linked to this resource and wait for deletion flag is enabled",
+					existingDB.Name,
+					existingDB.Namespace,
+				)
 
 				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 			}
@@ -282,7 +286,8 @@ func (r *PostgresqlEngineConfigurationReconciler) getAnyDatabaseLinked(
 	// Loop over the list
 	for _, db := range dbL.Items {
 		// Check db is linked to pgengineconfig
-		if db.Spec.EngineConfiguration.Name == instance.Name && (db.Spec.EngineConfiguration.Namespace == instance.Namespace || db.Namespace == instance.Namespace) {
+		if db.Spec.EngineConfiguration.Name == instance.Name &&
+			(db.Spec.EngineConfiguration.Namespace == instance.Namespace || db.Namespace == instance.Namespace) {
 			return &db, nil
 		}
 	}

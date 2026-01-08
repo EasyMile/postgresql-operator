@@ -23,21 +23,22 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
 	"github.com/easymile/postgresql-operator/internal/controller/config"
 	"github.com/easymile/postgresql-operator/internal/controller/postgresql/postgres"
 	"github.com/easymile/postgresql-operator/internal/controller/utils"
-	"github.com/go-logr/logr"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/samber/lo"
 )
 
 const DefaultReplicationSlotPlugin = "pgoutput"
@@ -70,15 +71,14 @@ func (r *PostgresqlPublicationReconciler) Reconcile(ctx context.Context, req ctr
 	// Issue with this logger: controller and controllerKind are incorrect
 	// Build another logger from upper to fix this.
 	// reqLogger := log.FromContext(ctx)
-
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 
 	reqLogger.Info("Reconciling PostgresqlPublication")
 
 	// Fetch the PostgresqlPublication instance
 	instance := &v1alpha1.PostgresqlPublication{}
-	err := r.Get(ctx, req.NamespacedName, instance)
 
+	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -665,7 +665,9 @@ func (*PostgresqlPublicationReconciler) validate(
 	})
 	// Check
 	if found {
-		return errors.NewBadRequest("tables cannot have a columns list with an empty name or have a columns list with a table schema list enabled or an empty additional where")
+		return errors.NewBadRequest(
+			"tables cannot have a columns list with an empty name or have a columns list with a table schema list enabled or an empty additional where",
+		)
 	}
 
 	// Default

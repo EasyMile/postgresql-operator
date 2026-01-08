@@ -27,83 +27,8 @@ rules:
   - postgresql.easymile.com
   resources:
   - postgresqldatabases
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - postgresql.easymile.com
-  resources:
-  - postgresqldatabases/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - postgresql.easymile.com
-  resources:
-  - postgresqldatabases/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - postgresql.easymile.com
-  resources:
   - postgresqlengineconfigurations
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - postgresql.easymile.com
-  resources:
-  - postgresqlengineconfigurations/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - postgresql.easymile.com
-  resources:
-  - postgresqlengineconfigurations/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - postgresql.easymile.com
-  resources:
   - postgresqlpublications
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - postgresql.easymile.com
-  resources:
-  - postgresqlpublications/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - postgresql.easymile.com
-  resources:
-  - postgresqlpublications/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - postgresql.easymile.com
-  resources:
   - postgresqluserroles
   verbs:
   - create
@@ -116,12 +41,18 @@ rules:
 - apiGroups:
   - postgresql.easymile.com
   resources:
+  - postgresqldatabases/finalizers
+  - postgresqlengineconfigurations/finalizers
+  - postgresqlpublications/finalizers
   - postgresqluserroles/finalizers
   verbs:
   - update
 - apiGroups:
   - postgresql.easymile.com
   resources:
+  - postgresqldatabases/status
+  - postgresqlengineconfigurations/status
+  - postgresqlpublications/status
   - postgresqluserroles/status
   verbs:
   - get

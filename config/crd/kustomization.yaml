@@ -5,7 +5,7 @@ resources:
   - bases/postgresql.easymile.com_postgresqlengineconfigurations.yaml
   - bases/postgresql.easymile.com_postgresqldatabases.yaml
   - bases/postgresql.easymile.com_postgresqluserroles.yaml
-- bases/postgresql.easymile.com_postgresqlpublications.yaml
+  - bases/postgresql.easymile.com_postgresqlpublications.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

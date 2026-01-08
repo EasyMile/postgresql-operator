@@ -6,16 +6,18 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
+	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/easymile/postgresql-operator/api/postgresql/common"
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
 	"github.com/easymile/postgresql-operator/internal/controller/postgresql/postgres"
-	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CalculateHash(spec interface{}) (string, error) {
+func CalculateHash(spec any) (string, error) {
 	// Json marshal spec
 	bytes, err := json.Marshal(spec)
 	if err != nil {

@@ -24,24 +24,25 @@ import (
 	"strings"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
+	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/thoas/go-funk"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
 	"github.com/easymile/postgresql-operator/internal/controller/config"
 	"github.com/easymile/postgresql-operator/internal/controller/postgresql/postgres"
 	"github.com/easymile/postgresql-operator/internal/controller/utils"
-	"github.com/go-logr/logr"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/thoas/go-funk"
 )
 
 const (
@@ -101,15 +102,14 @@ func (r *PostgresqlUserRoleReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Issue with this logger: controller and controllerKind are incorrect
 	// Build another logger from upper to fix this.
 	// reqLogger := log.FromContext(ctx)
-
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 
 	reqLogger.Info("Reconciling PostgresqlUserRole")
 
 	// Fetch the PostgresqlUser instance
 	instance := &v1alpha1.PostgresqlUserRole{}
-	err := r.Get(ctx, req.NamespacedName, instance)
 
+	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -304,7 +304,13 @@ func (r *PostgresqlUserRoleReconciler) mainReconcile(
 
 	// Ensure they aren't empty
 	if username == "" || password == "" {
-		return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewBadRequest("username or password in work secret are empty so something is interfering with operator"))
+		return r.manageError(
+			ctx,
+			reqLogger,
+			instance,
+			originalPatch,
+			errors.NewBadRequest("username or password in work secret are empty so something is interfering with operator"),
+		)
 	}
 
 	// Compute username changed
@@ -527,7 +533,7 @@ func (r *PostgresqlUserRoleReconciler) cleanOldSecrets(
 			}
 
 			// Check if secret is owned by the current instance
-			foundMarker := funk.Find(item.ObjectMeta.OwnerReferences, func(it metav1.OwnerReference) bool {
+			foundMarker := funk.Find(item.OwnerReferences, func(it metav1.OwnerReference) bool {
 				return it.UID == instance.UID
 			})
 
@@ -746,8 +752,24 @@ func (r *PostgresqlUserRoleReconciler) managePGUserRights(
 				return err
 			}
 
-			logger.Info("Successfully revoked set role from user on specific database in engine", "postgresqlEngine", key, "role", item.Role, "database", item.Database)
-			r.Recorder.Eventf(instance, "Normal", "Updated", "Successfully revoked set role %s from user on specific database %s in engine %s", item.Role, item.Database, key)
+			logger.Info(
+				"Successfully revoked set role from user on specific database in engine",
+				"postgresqlEngine",
+				key,
+				"role",
+				item.Role,
+				"database",
+				item.Database,
+			)
+			r.Recorder.Eventf(
+				instance,
+				"Normal",
+				"Updated",
+				"Successfully revoked set role %s from user on specific database %s in engine %s",
+				item.Role,
+				item.Database,
+				key,
+			)
 		}
 	}
 
@@ -759,6 +781,7 @@ func (*PostgresqlUserRoleReconciler) getDBRoleFromPrivilege(
 	dbInstance *v1alpha1.PostgresqlDatabase,
 	userRolePrivilege *v1alpha1.PostgresqlUserRolePrivilege,
 ) string {
+	//nolint:exhaustive
 	switch userRolePrivilege.Privilege {
 	case v1alpha1.ReaderPrivilege:
 		return dbInstance.Status.Roles.Reader
@@ -818,7 +841,8 @@ func diffAttributes(sqlAttributes, wantedAttributes *postgres.RoleAttributes) *p
 	// Check differences for ConnectionLimit
 	if !reflect.DeepEqual(sqlAttributes.ConnectionLimit, wantedAttributes.ConnectionLimit) {
 		// Check if we are in a reset case
-		if wantedAttributes.ConnectionLimit == nil && sqlAttributes.ConnectionLimit != nil && *sqlAttributes.ConnectionLimit != postgres.DefaultAttributeConnectionLimit {
+		if wantedAttributes.ConnectionLimit == nil && sqlAttributes.ConnectionLimit != nil &&
+			*sqlAttributes.ConnectionLimit != postgres.DefaultAttributeConnectionLimit {
 			// Change value needed => Reset to default
 			attributes.ConnectionLimit = &postgres.DefaultAttributeConnectionLimit
 		} else {
@@ -943,7 +967,7 @@ func (r *PostgresqlUserRoleReconciler) createOrUpdateWorkSecretForManagedMode( /
 	ctx context.Context,
 	logger logr.Logger,
 	instance *v1alpha1.PostgresqlUserRole,
-) (*corev1.Secret, string, bool, bool, error) {
+) (*corev1.Secret, string, bool, bool, error) { //nolint:revive // We have multiple return, we know
 	// Prepare values
 	oldUsername := ""
 	passwordChanged := false
@@ -1453,7 +1477,12 @@ func (r *PostgresqlUserRoleReconciler) validateInstance(
 
 		// Check if username length is acceptable
 		if len(username) > postgres.MaxIdentifierLength {
-			errStr := fmt.Sprintf("Username is too long. It must be <= %d. %s is %d character. Username length must be reduced", postgres.MaxIdentifierLength, username, len(username))
+			errStr := fmt.Sprintf(
+				"Username is too long. It must be <= %d. %s is %d character. Username length must be reduced",
+				postgres.MaxIdentifierLength,
+				username,
+				len(username),
+			)
 
 			return errors.NewBadRequest(errStr)
 		}
@@ -1538,7 +1567,8 @@ func (r *PostgresqlUserRoleReconciler) validateInstance(
 			for _, userInstance := range list.Items {
 				// Check that role prefix isn't declared in another user
 				// TODO Try to validate that this is unique per engine and not for the whole cluster
-				if userInstance.Name != instance.Name && userInstance.Namespace != instance.Namespace && userInstance.Spec.RolePrefix == instance.Spec.RolePrefix {
+				if userInstance.Name != instance.Name && userInstance.Namespace != instance.Namespace &&
+					userInstance.Spec.RolePrefix == instance.Spec.RolePrefix {
 					return errors.NewBadRequest("RolePrefix is declared in another PostgresqlUser. This field value must be unique.")
 				}
 			}
@@ -1561,7 +1591,9 @@ func (r *PostgresqlUserRoleReconciler) updateInstance(
 
 	// Update work generated secret with a generated uuid
 	if instance.Spec.WorkGeneratedSecretName == "" {
-		instance.Spec.WorkGeneratedSecretName = DefaultWorkGeneratedSecretNamePrefix + strings.ToLower(utils.GetRandomString(DefaultWorkGeneratedSecretNameRandomLength))
+		instance.Spec.WorkGeneratedSecretName = DefaultWorkGeneratedSecretNamePrefix + strings.ToLower(
+			utils.GetRandomString(DefaultWorkGeneratedSecretNameRandomLength),
+		)
 	}
 
 	// Check if update is needed
