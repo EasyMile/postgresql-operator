@@ -17,8 +17,9 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/easymile/postgresql-operator/api/postgresql/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/easymile/postgresql-operator/api/postgresql/common"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -26,14 +27,18 @@ import (
 
 type PrivilegesSpecEnum string
 
-const OwnerPrivilege PrivilegesSpecEnum = "OWNER"
-const ReaderPrivilege PrivilegesSpecEnum = "READER"
-const WriterPrivilege PrivilegesSpecEnum = "WRITER"
+const (
+	OwnerPrivilege  PrivilegesSpecEnum = "OWNER"
+	ReaderPrivilege PrivilegesSpecEnum = "READER"
+	WriterPrivilege PrivilegesSpecEnum = "WRITER"
+)
 
 type ConnectionTypesSpecEnum string
 
-const PrimaryConnectionType ConnectionTypesSpecEnum = "PRIMARY"
-const BouncerConnectionType ConnectionTypesSpecEnum = "BOUNCER"
+const (
+	PrimaryConnectionType ConnectionTypesSpecEnum = "PRIMARY"
+	BouncerConnectionType ConnectionTypesSpecEnum = "BOUNCER"
+)
 
 type PostgresqlUserRolePrivilege struct {
 	// User Connection type.
@@ -75,8 +80,10 @@ type PostgresqlUserRoleAttributes struct {
 
 type ModeEnum string
 
-const ProvidedMode ModeEnum = "PROVIDED"
-const ManagedMode ModeEnum = "MANAGED"
+const (
+	ProvidedMode ModeEnum = "PROVIDED"
+	ManagedMode  ModeEnum = "MANAGED"
+)
 
 // PostgresqlUserRoleSpec defines the desired state of PostgresqlUserRole.
 type PostgresqlUserRoleSpec struct {
@@ -113,9 +120,11 @@ type PostgresqlUserRoleSpec struct {
 
 type UserRoleStatusPhase string
 
-const UserRoleNoPhase UserRoleStatusPhase = ""
-const UserRoleFailedPhase UserRoleStatusPhase = "Failed"
-const UserRoleCreatedPhase UserRoleStatusPhase = "Created"
+const (
+	UserRoleNoPhase      UserRoleStatusPhase = ""
+	UserRoleFailedPhase  UserRoleStatusPhase = "Failed"
+	UserRoleCreatedPhase UserRoleStatusPhase = "Created"
+)
 
 // PostgresqlUserRoleStatus defines the observed state of PostgresqlUserRole.
 type PostgresqlUserRoleStatus struct {

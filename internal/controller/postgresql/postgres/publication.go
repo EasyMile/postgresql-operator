@@ -175,7 +175,7 @@ func (c *pg) UpdatePublication(ctx context.Context, dbname, publicationName stri
 	// Build
 	builder.Build()
 
-	tx, err := c.db.Begin()
+	tx, err := c.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -224,7 +224,7 @@ func (c *pg) UpdatePublication(ctx context.Context, dbname, publicationName stri
 	return nil
 }
 
-func (c *pg) ChangePublicationOwner(ctx context.Context, dbname string, publicationName string, owner string) error {
+func (c *pg) ChangePublicationOwner(ctx context.Context, dbname, publicationName, owner string) error {
 	// Connect to db
 	err := c.connect(dbname)
 	if err != nil {

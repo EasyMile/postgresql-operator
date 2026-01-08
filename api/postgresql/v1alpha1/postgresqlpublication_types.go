@@ -17,8 +17,9 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/easymile/postgresql-operator/api/postgresql/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/easymile/postgresql-operator/api/postgresql/common"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -84,9 +85,11 @@ type PostgresqlPublicationWith struct {
 
 type PublicationStatusPhase string
 
-const PublicationNoPhase PublicationStatusPhase = ""
-const PublicationFailedPhase PublicationStatusPhase = "Failed"
-const PublicationCreatedPhase PublicationStatusPhase = "Created"
+const (
+	PublicationNoPhase      PublicationStatusPhase = ""
+	PublicationFailedPhase  PublicationStatusPhase = "Failed"
+	PublicationCreatedPhase PublicationStatusPhase = "Created"
+)
 
 // PostgresqlPublicationStatus defines the observed state of PostgresqlPublication.
 type PostgresqlPublicationStatus struct {

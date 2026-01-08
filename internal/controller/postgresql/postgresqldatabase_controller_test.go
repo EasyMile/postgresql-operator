@@ -2,17 +2,21 @@ package postgresql
 
 import (
 	"errors"
-	gerrors "errors"
 	"fmt"
 	"reflect"
 
-	"github.com/easymile/postgresql-operator/api/postgresql/common"
-	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
+	"k8s.io/apimachinery/pkg/types"
+
+	//nolint:revive
 	. "github.com/onsi/ginkgo/v2"
+	//nolint:revive
 	. "github.com/onsi/gomega"
+
 	apimachineryErrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/easymile/postgresql-operator/api/postgresql/common"
+	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
 )
 
 var _ = Describe("PostgresqlDatabase tests", func() {
@@ -156,9 +160,9 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 			Should(Succeed())
 
 		// Checks
-		ownerRole := fmt.Sprintf("%s-owner", pgdbDBName)
-		readerRole := fmt.Sprintf("%s-reader", pgdbDBName)
-		writerRole := fmt.Sprintf("%s-writer", pgdbDBName)
+		ownerRole := pgdbDBName + "-owner"
+		readerRole := pgdbDBName + "-reader"
+		writerRole := pgdbDBName + "-writer"
 
 		Expect(item.Status.Ready).To(BeTrue())
 		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
@@ -265,8 +269,8 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		// Checks
 		ownerRole := "master"
-		readerRole := fmt.Sprintf("%s-reader", pgdbDBName)
-		writerRole := fmt.Sprintf("%s-writer", pgdbDBName)
+		readerRole := pgdbDBName + "-reader"
+		writerRole := pgdbDBName + "-writer"
 
 		Expect(item.Status.Ready).To(BeTrue())
 		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
@@ -481,7 +485,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		// Create pgdb
 		item := setupPGDB(true)
 
-		ownerRole := fmt.Sprintf("%s-owner", pgdbDBName)
+		ownerRole := pgdbDBName + "-owner"
 
 		Expect(item.Status.Ready).To(BeTrue())
 		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
@@ -522,9 +526,9 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		item := setupPGDB(true)
 
 		// Checks
-		ownerRole := fmt.Sprintf("%s-owner", pgdbDBName)
-		readerRole := fmt.Sprintf("%s-reader", pgdbDBName)
-		writerRole := fmt.Sprintf("%s-writer", pgdbDBName)
+		ownerRole := pgdbDBName + "-owner"
+		readerRole := pgdbDBName + "-reader"
+		writerRole := pgdbDBName + "-writer"
 
 		Expect(item.Status.Ready).To(BeTrue())
 		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseCreatedPhase))
@@ -574,13 +578,13 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		Expect(item.Status.Message).To(BeEmpty())
 
 		// Check if roles exists and are granted to default user
-		ownerRole := fmt.Sprintf("%s-owner", pgdbDBName)
+		ownerRole := pgdbDBName + "-owner"
 		checkRoleInSQLDb(ownerRole)
 
-		readerRole := fmt.Sprintf("%s-reader", pgdbDBName)
+		readerRole := pgdbDBName + "-reader"
 		checkRoleInSQLDb(readerRole)
 
-		writerRole := fmt.Sprintf("%s-writer", pgdbDBName)
+		writerRole := pgdbDBName + "-writer"
 		checkRoleInSQLDb(writerRole)
 
 		// Check role members and rights
@@ -663,7 +667,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 	It("should be ok to have a pgdb referencing an existing editor role", func() {
 		// Create SQL role
-		sqlRole := fmt.Sprintf("%s-writer", pgdbDBName) // -> This is default writer role name used by pgdb
+		sqlRole := pgdbDBName + "-writer" // -> This is default writer role name used by pgdb
 		errRole := createSQLRole(sqlRole)
 		Expect(errRole).ToNot(HaveOccurred())
 
@@ -932,7 +936,8 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		// Add table to schema
 		tableName := "tt"
-		createTableInSchemaAsAdmin(pgPublicSchemaName, tableName)
+		err = createTableInSchemaAsAdmin(pgPublicSchemaName, tableName)
+		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(
 			func() error {
@@ -1161,7 +1166,8 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 		// Add table to schema
 		tableName := "tt"
-		createTableInSchemaAsAdmin(pgdbSchemaName1, tableName)
+		err = createTableInSchemaAsAdmin(pgdbSchemaName1, tableName)
+		Expect(err).ToNot(HaveOccurred())
 
 		// Then remove schema from pgdb
 		item.Spec.Schemas.List = make([]string, 0)
@@ -1461,7 +1467,6 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		secondExists, secondErr := isSQLExtensionExists(pgdbExtensionName2)
 		Expect(secondErr).ToNot(HaveOccurred())
 		Expect(secondExists).To(BeTrue())
-
 	})
 
 	It("should be ok to declare 2 extensions", func() {
@@ -1967,7 +1972,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		Expect(exists).To(BeTrue())
 
 		// Check old role does not exist anymore
-		ownerRole := fmt.Sprintf("%s-owner", pgdbDBName)
+		ownerRole := pgdbDBName + "-owner"
 		exists, err = isSQLRoleExists(ownerRole)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(exists).To(BeFalse())
@@ -2273,7 +2278,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 				// Check if status is no more ready
 				if pgdb.Status.Phase != postgresqlv1alpha1.DatabaseFailedPhase {
-					return gerrors.New("pgdb should not be valid anymore")
+					return errors.New("pgdb should not be valid anymore")
 				}
 
 				return nil
@@ -2286,7 +2291,12 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		Expect(pgdb.Status.Ready).To(BeFalse())
 		Expect(pgdb.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseFailedPhase))
 		Expect(pgdb.Status.Message).To(Equal(
-			fmt.Sprintf("cannot remove resource because found user role %s in namespace %s linked to this resource and wait for deletion flag is enabled", pgurName, pgurNamespace)))
+			fmt.Sprintf(
+				"cannot remove resource because found user role %s in namespace %s linked to this resource and wait for deletion flag is enabled",
+				pgurName,
+				pgurNamespace,
+			),
+		))
 
 		// Check DB has not been deleted
 		exists, err := isSQLDBExists(pgdbDBName)
@@ -2365,7 +2375,7 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 
 				// Check if status is no more ready
 				if pgdb.Status.Phase != postgresqlv1alpha1.DatabaseFailedPhase {
-					return gerrors.New("pgdb should not be valid anymore")
+					return errors.New("pgdb should not be valid anymore")
 				}
 
 				return nil
@@ -2378,7 +2388,12 @@ var _ = Describe("PostgresqlDatabase tests", func() {
 		Expect(pgdb.Status.Ready).To(BeFalse())
 		Expect(pgdb.Status.Phase).To(Equal(postgresqlv1alpha1.DatabaseFailedPhase))
 		Expect(pgdb.Status.Message).To(Equal(
-			fmt.Sprintf("cannot remove resource because found publication %s in namespace %s linked to this resource and wait for deletion flag is enabled", pgpublicationName, pgpublicationNamespace)))
+			fmt.Sprintf(
+				"cannot remove resource because found publication %s in namespace %s linked to this resource and wait for deletion flag is enabled",
+				pgpublicationName,
+				pgpublicationNamespace,
+			),
+		))
 
 		// Check DB has not been deleted
 		exists, err := isSQLDBExists(pgdbDBName)

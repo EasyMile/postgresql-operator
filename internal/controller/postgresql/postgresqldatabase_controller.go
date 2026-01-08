@@ -22,20 +22,21 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/thoas/go-funk"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
 	"github.com/easymile/postgresql-operator/internal/controller/config"
 	"github.com/easymile/postgresql-operator/internal/controller/postgresql/postgres"
 	"github.com/easymile/postgresql-operator/internal/controller/utils"
-	"github.com/go-logr/logr"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/thoas/go-funk"
 )
 
 const (
@@ -73,7 +74,6 @@ func (r *PostgresqlDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Issue with this logger: controller and controllerKind are incorrect
 	// Build another logger from upper to fix this.
 	// reqLogger := log.FromContext(ctx)
-
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 	reqLogger.Info("Reconciling PostgresqlDatabase")
 
@@ -207,11 +207,11 @@ func (r *PostgresqlDatabaseReconciler) mainReconcile(
 	// Create all identifiers now to check length
 	owner := instance.Spec.MasterRole
 	if owner == "" {
-		owner = fmt.Sprintf("%s-owner", instance.Spec.Database)
+		owner = instance.Spec.Database + "-owner"
 	}
 
-	reader := fmt.Sprintf("%s-reader", instance.Spec.Database)
-	writer := fmt.Sprintf("%s-writer", instance.Spec.Database)
+	reader := instance.Spec.Database + "-reader"
+	writer := instance.Spec.Database + "-writer"
 
 	// Check identifier length
 	if len(owner) > postgres.MaxIdentifierLength {
@@ -462,7 +462,11 @@ func (r *PostgresqlDatabaseReconciler) shouldDropDatabase(
 
 		if existingUserRole != nil {
 			// Wait for children removal
-			err = fmt.Errorf("cannot remove resource because found user role %s in namespace %s linked to this resource and wait for deletion flag is enabled", existingUserRole.Name, existingUserRole.Namespace)
+			err = fmt.Errorf(
+				"cannot remove resource because found user role %s in namespace %s linked to this resource and wait for deletion flag is enabled",
+				existingUserRole.Name,
+				existingUserRole.Namespace,
+			)
 
 			return false, err
 		}
@@ -475,7 +479,11 @@ func (r *PostgresqlDatabaseReconciler) shouldDropDatabase(
 
 		if existingPublication != nil {
 			// Wait for children removal
-			err = fmt.Errorf("cannot remove resource because found publication %s in namespace %s linked to this resource and wait for deletion flag is enabled", existingPublication.Name, existingPublication.Namespace)
+			err = fmt.Errorf(
+				"cannot remove resource because found publication %s in namespace %s linked to this resource and wait for deletion flag is enabled",
+				existingPublication.Name,
+				existingPublication.Namespace,
+			)
 
 			return false, err
 		}
@@ -714,7 +722,13 @@ func (*PostgresqlDatabaseReconciler) manageExtensions(ctx context.Context, pg po
 	return nil
 }
 
-func (*PostgresqlDatabaseReconciler) manageReaderRole(ctx context.Context, pg postgres.PG, reader string, instance *postgresqlv1alpha1.PostgresqlDatabase, allowGrantAdminOption bool) error {
+func (*PostgresqlDatabaseReconciler) manageReaderRole(
+	ctx context.Context,
+	pg postgres.PG,
+	reader string,
+	instance *postgresqlv1alpha1.PostgresqlDatabase,
+	allowGrantAdminOption bool,
+) error {
 	// Check if role was already created in the past
 	if instance.Status.Roles.Reader != "" {
 		// Check if role doesn't already exists

@@ -1,0 +1,32 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: |
+          if [ -f /usr/local/bin/dockerize ]; then
+            echo "dockerize found; skipping installation";
+          else
+            wget https://github.com/jwilder/dockerize/releases/download/v0.6.0/dockerize-linux-amd64-v0.6.0.tar.gz \
+              && sudo tar -C /usr/local/bin -xzvf dockerize-linux-amd64-v0.6.0.tar.gz \
+              && rm dockerize-linux-amd64-v0.6.0.tar.gz;
+          fi
+      - run: make setup/services
+      - run: dockerize -wait tcp://localhost:5432 -timeout 5m
+      - run: docker logs postgres
+
+      - name: Running Tests
+        run: make test

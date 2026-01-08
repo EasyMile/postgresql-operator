@@ -162,11 +162,11 @@ func CloseAllSavedPoolsForName(name string) error {
 	ps, _ := psInt.(*poolSaved)
 
 	// Save all keys to be removed
-	keysToBeRemoved := make([]interface{}, 0)
+	keysToBeRemoved := make([]any, 0)
 	// Error
 	var err error
 	// Loop over pools
-	ps.pools.Range(func(k, val interface{}) bool {
+	ps.pools.Range(func(k, val any) bool {
 		// Cast sql db
 		v, _ := val.(*sql.DB)
 		// Close pool

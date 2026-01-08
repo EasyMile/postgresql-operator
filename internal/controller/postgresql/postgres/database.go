@@ -39,7 +39,7 @@ AND     n.nspname = '%s';`
 	DuplicateDatabaseErrorCode = "42P04"
 )
 
-func (c *pg) GetColumnNamesFromTable(ctx context.Context, database string, schemaName string, tableName string) ([]string, error) {
+func (c *pg) GetColumnNamesFromTable(ctx context.Context, database, schemaName, tableName string) ([]string, error) {
 	err := c.connect(database)
 	if err != nil {
 		return nil, err
@@ -311,7 +311,7 @@ func (c *pg) DropDatabase(ctx context.Context, database string) error {
 		}
 	}
 
-	c.log.Info(fmt.Sprintf("Dropped database %s", database))
+	c.log.Info("Dropped database " + database)
 
 	return nil
 }

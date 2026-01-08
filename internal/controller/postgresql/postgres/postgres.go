@@ -5,8 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
 	"github.com/go-logr/logr"
+
+	"github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
 )
 
 const MaxIdentifierLength = 63
@@ -67,12 +68,12 @@ type PG interface { //nolint:interfacebloat // This is needed
 	GetPublication(ctx context.Context, dbname, name string) (*PublicationResult, error)
 	CreatePublication(ctx context.Context, dbname string, builder *CreatePublicationBuilder) error
 	UpdatePublication(ctx context.Context, dbname, publicationName string, builder *UpdatePublicationBuilder) error
-	ChangePublicationOwner(ctx context.Context, dbname string, publicationName string, owner string) error
+	ChangePublicationOwner(ctx context.Context, dbname, publicationName, owner string) error
 	GetPublicationTablesDetails(ctx context.Context, db, publicationName string) ([]*PublicationTableDetail, error)
 	DropReplicationSlot(ctx context.Context, name string) error
 	CreateReplicationSlot(ctx context.Context, dbname, name, plugin string) error
 	GetReplicationSlot(ctx context.Context, name string) (*ReplicationSlotResult, error)
-	GetColumnNamesFromTable(ctx context.Context, database string, schemaName string, tableName string) ([]string, error)
+	GetColumnNamesFromTable(ctx context.Context, database, schemaName, tableName string) ([]string, error)
 	GetUser() string
 	GetHost() string
 	GetPort() int
@@ -115,6 +116,7 @@ func NewPG(
 		name:            name,
 	}
 
+	//nolint:exhaustive
 	switch cloudType {
 	case v1alpha1.AWSProvider:
 		return newAWSPG(postgres)

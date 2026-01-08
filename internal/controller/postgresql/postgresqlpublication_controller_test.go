@@ -2,17 +2,21 @@ package postgresql
 
 import (
 	"errors"
-	gerrors "errors"
 	"fmt"
 	"time"
 
-	"github.com/easymile/postgresql-operator/api/postgresql/common"
-	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
+	"k8s.io/apimachinery/pkg/types"
+
+	//nolint:revive
 	. "github.com/onsi/ginkgo/v2"
+	//nolint:revive
 	. "github.com/onsi/gomega"
+
 	apimachineryErrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/easymile/postgresql-operator/api/postgresql/common"
+	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
 )
 
 var _ = Describe("PostgresqlPublication tests", func() {
@@ -362,7 +366,9 @@ var _ = Describe("PostgresqlPublication tests", func() {
 			// Checks
 			Expect(item.Status.Ready).To(BeFalse())
 			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationFailedPhase))
-			Expect(item.Status.Message).To(Equal("tables cannot have a columns list with an empty name or have a columns list with a table schema list enabled or an empty additional where"))
+			Expect(
+				item.Status.Message,
+			).To(Equal("tables cannot have a columns list with an empty name or have a columns list with a table schema list enabled or an empty additional where"))
 		})
 
 		It("should fail when tables with a empty string in columns is provided", func() {
@@ -417,7 +423,9 @@ var _ = Describe("PostgresqlPublication tests", func() {
 			// Checks
 			Expect(item.Status.Ready).To(BeFalse())
 			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationFailedPhase))
-			Expect(item.Status.Message).To(Equal("tables cannot have a columns list with an empty name or have a columns list with a table schema list enabled or an empty additional where"))
+			Expect(
+				item.Status.Message,
+			).To(Equal("tables cannot have a columns list with an empty name or have a columns list with a table schema list enabled or an empty additional where"))
 		})
 
 		It("should fail when tables with a empty string in additional where is provided", func() {
@@ -472,7 +480,9 @@ var _ = Describe("PostgresqlPublication tests", func() {
 			// Checks
 			Expect(item.Status.Ready).To(BeFalse())
 			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationFailedPhase))
-			Expect(item.Status.Message).To(Equal("tables cannot have a columns list with an empty name or have a columns list with a table schema list enabled or an empty additional where"))
+			Expect(
+				item.Status.Message,
+			).To(Equal("tables cannot have a columns list with an empty name or have a columns list with a table schema list enabled or an empty additional where"))
 		})
 
 		It("should fail when tables with columns and tables in schema are provided", func() {
@@ -528,7 +538,9 @@ var _ = Describe("PostgresqlPublication tests", func() {
 			// Checks
 			Expect(item.Status.Ready).To(BeFalse())
 			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationFailedPhase))
-			Expect(item.Status.Message).To(Equal("tables cannot have a columns list with an empty name or have a columns list with a table schema list enabled or an empty additional where"))
+			Expect(
+				item.Status.Message,
+			).To(Equal("tables cannot have a columns list with an empty name or have a columns list with a table schema list enabled or an empty additional where"))
 		})
 	})
 
@@ -570,8 +582,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(0))
 					}
 				}
@@ -626,8 +638,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(2))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -701,8 +713,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(2))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -777,8 +789,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(2))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -850,8 +862,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(2))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -918,8 +930,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(0))
 					}
 				}
@@ -974,8 +986,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(2))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -1049,8 +1061,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(2))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -1125,8 +1137,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(2))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -1198,8 +1210,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(2))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -1303,8 +1315,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(1))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -1371,8 +1383,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(1))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -1439,8 +1451,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(1))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -1507,8 +1519,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(1))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -1578,8 +1590,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(1))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -1650,8 +1662,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(1))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -1719,8 +1731,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(1))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -1782,7 +1794,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 						// Check if status hasn't been updated
 						if updatedItem.Status.Phase == item.Status.Phase {
-							return gerrors.New("hasn't been updated by operator")
+							return errors.New("hasn't been updated by operator")
 						}
 
 						return nil
@@ -1838,7 +1850,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 						// Check if status hasn't been updated
 						if updatedItem.Status.Phase == item.Status.Phase {
-							return gerrors.New("hasn't been updated by operator")
+							return errors.New("hasn't been updated by operator")
 						}
 
 						return nil
@@ -1898,7 +1910,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 						// Check if status hasn't been updated
 						if updatedItem.Status.Hash == hash {
-							return gerrors.New("hasn't been updated by operator")
+							return errors.New("hasn't been updated by operator")
 						}
 
 						return nil
@@ -1932,8 +1944,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(2))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -2005,7 +2017,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 						// Check if status hasn't been updated
 						if updatedItem.Status.Hash == hash {
-							return gerrors.New("hasn't been updated by operator")
+							return errors.New("hasn't been updated by operator")
 						}
 
 						return nil
@@ -2112,7 +2124,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 						// Check if status hasn't been updated
 						if updatedItem.Status.Phase == item.Status.Phase {
-							return gerrors.New("hasn't been updated by operator")
+							return errors.New("hasn't been updated by operator")
 						}
 
 						return nil
@@ -2174,7 +2186,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 						// Check if status hasn't been updated
 						if updatedItem.Status.Hash == hash {
-							return gerrors.New("hasn't been updated by operator")
+							return errors.New("hasn't been updated by operator")
 						}
 
 						return nil
@@ -2208,8 +2220,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(1))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -2275,7 +2287,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 						// Check if status hasn't been updated
 						if updatedItem.Status.Hash == hash {
-							return gerrors.New("hasn't been updated by operator")
+							return errors.New("hasn't been updated by operator")
 						}
 
 						return nil
@@ -2309,8 +2321,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(2))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -2383,7 +2395,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 						// Check if status hasn't been updated
 						if updatedItem.Status.Hash == hash {
-							return gerrors.New("hasn't been updated by operator")
+							return errors.New("hasn't been updated by operator")
 						}
 
 						return nil
@@ -2493,7 +2505,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 						// Check if status hasn't been updated
 						if updatedItem.Status.Phase == item.Status.Phase {
-							return gerrors.New("hasn't been updated by operator")
+							return errors.New("hasn't been updated by operator")
 						}
 
 						return nil
@@ -2553,7 +2565,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 						// Check if status hasn't been updated
 						if updatedItem.Status.Hash == hash {
-							return gerrors.New("hasn't been updated by operator")
+							return errors.New("hasn't been updated by operator")
 						}
 
 						return nil
@@ -2587,8 +2599,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(2))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -2663,7 +2675,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 						// Check if status hasn't been updated
 						if updatedItem.Status.Hash == hash {
-							return gerrors.New("hasn't been updated by operator")
+							return errors.New("hasn't been updated by operator")
 						}
 
 						return nil
@@ -2697,8 +2709,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(1))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -2767,7 +2779,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 						// Check if status hasn't been updated
 						if updatedItem.Status.Hash == hash {
-							return gerrors.New("hasn't been updated by operator")
+							return errors.New("hasn't been updated by operator")
 						}
 
 						return nil
@@ -2801,8 +2813,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(2))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -2876,7 +2888,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 						// Check if status hasn't been updated
 						if updatedItem.Status.Hash == hash {
-							return gerrors.New("hasn't been updated by operator")
+							return errors.New("hasn't been updated by operator")
 						}
 
 						return nil
@@ -2910,8 +2922,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(1))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -2979,7 +2991,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 						// Check if status hasn't been updated
 						if updatedItem.Status.Hash == hash {
-							return gerrors.New("hasn't been updated by operator")
+							return errors.New("hasn't been updated by operator")
 						}
 
 						return nil
@@ -3013,8 +3025,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(1))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -3082,7 +3094,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 						// Check if status hasn't been updated
 						if updatedItem.Status.Hash == hash {
-							return gerrors.New("hasn't been updated by operator")
+							return errors.New("hasn't been updated by operator")
 						}
 
 						return nil
@@ -3116,8 +3128,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(1))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -3185,7 +3197,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 						// Check if status hasn't been updated
 						if updatedItem.Status.Hash == hash {
-							return gerrors.New("hasn't been updated by operator")
+							return errors.New("hasn't been updated by operator")
 						}
 
 						return nil
@@ -3219,8 +3231,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(1))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -3288,7 +3300,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 						// Check if status hasn't been updated
 						if updatedItem.Status.Hash == hash {
-							return gerrors.New("hasn't been updated by operator")
+							return errors.New("hasn't been updated by operator")
 						}
 
 						return nil
@@ -3322,8 +3334,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(1))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -3391,7 +3403,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 						// Check if status hasn't been updated
 						if updatedItem.Status.Hash == hash {
-							return gerrors.New("hasn't been updated by operator")
+							return errors.New("hasn't been updated by operator")
 						}
 
 						return nil
@@ -3425,8 +3437,8 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}))
 
 					// Get details
-					details, err := getPublicationTableDetails(item.Status.Name)
-					if Expect(err).NotTo(HaveOccurred()) {
+					details, err2 := getPublicationTableDetails(item.Status.Name)
+					if Expect(err2).NotTo(HaveOccurred()) {
 						Expect(details).To(HaveLen(1))
 						Expect(details).To(Equal([]*PublicationTableDetail{
 							{
@@ -3495,7 +3507,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 						// Check if status hasn't been updated
 						if updatedItem.Status.Hash == hash {
-							return gerrors.New("hasn't been updated by operator")
+							return errors.New("hasn't been updated by operator")
 						}
 
 						return nil
@@ -4017,7 +4029,9 @@ var _ = Describe("PostgresqlPublication tests", func() {
 			// Checks
 			Expect(item.Status.Ready).To(BeFalse())
 			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationFailedPhase))
-			Expect(item.Status.Message).To(Equal(`publication in database and spec are out of sync for 'for all tables' and values must be aligned to continue`))
+			Expect(
+				item.Status.Message,
+			).To(Equal(`publication in database and spec are out of sync for 'for all tables' and values must be aligned to continue`))
 			Expect(item.Status.AllTables).To(BeNil())
 			Expect(item.Status.Hash).To(Equal(""))
 			Expect(item.Status.Name).To(Equal(""))
@@ -4060,7 +4074,9 @@ var _ = Describe("PostgresqlPublication tests", func() {
 			// Checks
 			Expect(item.Status.Ready).To(BeFalse())
 			Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.PublicationFailedPhase))
-			Expect(item.Status.Message).To(Equal(`publication in database and spec are out of sync for 'for all tables' and values must be aligned to continue`))
+			Expect(
+				item.Status.Message,
+			).To(Equal(`publication in database and spec are out of sync for 'for all tables' and values must be aligned to continue`))
 			Expect(item.Status.AllTables).To(BeNil())
 			Expect(item.Status.Hash).To(Equal(""))
 			Expect(item.Status.Name).To(Equal(""))
@@ -4088,10 +4104,11 @@ var _ = Describe("PostgresqlPublication tests", func() {
 			setupPGDB(false)
 
 			// Create replication slot
-			createReplicationSlotInMainDB(pgpublicationPublicationName1, DefaultReplicationSlotPlugin)
+			err := createReplicationSlotInMainDB(pgpublicationPublicationName1, DefaultReplicationSlotPlugin)
+			Expect(err).NotTo(HaveOccurred())
 
 			// Create tables
-			err := create2KnownTablesWithColumnsInPublicSchema()
+			err = create2KnownTablesWithColumnsInPublicSchema()
 			Expect(err).NotTo(HaveOccurred())
 
 			// Setup a pg publication
@@ -4162,7 +4179,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 					// Check if status hasn't been updated
 					if data.Owner != pgdb.Status.Roles.Owner {
-						return gerrors.New("hasn't been updated by operator")
+						return errors.New("hasn't been updated by operator")
 					}
 
 					return nil
@@ -4222,7 +4239,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 					// Check if status hasn't been updated
 					if data.PublicationViaRoot {
-						return gerrors.New("hasn't been updated by operator")
+						return errors.New("hasn't been updated by operator")
 					}
 
 					return nil
@@ -4285,7 +4302,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 					// Check if status hasn't been updated
 					if !data.PublicationViaRoot {
-						return gerrors.New("hasn't been updated by operator")
+						return errors.New("hasn't been updated by operator")
 					}
 
 					return nil
@@ -4345,7 +4362,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 					// Check if status hasn't been updated
 					if !data.Truncate {
-						return gerrors.New("hasn't been updated by operator")
+						return errors.New("hasn't been updated by operator")
 					}
 
 					return nil
@@ -4406,7 +4423,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 					// Check if status hasn't been updated
 					if !data.Truncate {
-						return gerrors.New("hasn't been updated by operator")
+						return errors.New("hasn't been updated by operator")
 					}
 
 					return nil
@@ -4469,7 +4486,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 					// Check if status hasn't been updated
 					if data.Truncate {
-						return gerrors.New("hasn't been updated by operator")
+						return errors.New("hasn't been updated by operator")
 					}
 
 					return nil
@@ -4530,7 +4547,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 					// Check hasn't been updated
 					if len(details) == 1 {
-						return gerrors.New("hasn't been updated by operator")
+						return errors.New("hasn't been updated by operator")
 					}
 
 					return nil
@@ -4596,7 +4613,7 @@ var _ = Describe("PostgresqlPublication tests", func() {
 
 					// Check hasn't been updated
 					if len(details) == 1 {
-						return gerrors.New("hasn't been updated by operator")
+						return errors.New("hasn't been updated by operator")
 					}
 
 					return nil
@@ -4664,12 +4681,12 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}
 
 					if len(details) == 0 {
-						return gerrors.New("must have tables")
+						return errors.New("must have tables")
 					}
 
 					// Check hasn't been updated
 					if details[0].AdditionalWhere == nil || *details[0].AdditionalWhere != `('id'::text = 'value'::text)` {
-						return gerrors.New("hasn't been updated by operator")
+						return errors.New("hasn't been updated by operator")
 					}
 
 					return nil
@@ -4730,12 +4747,12 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}
 
 					if len(details) == 0 {
-						return gerrors.New("must have tables")
+						return errors.New("must have tables")
 					}
 
 					// Check hasn't been updated
 					if details[0].AdditionalWhere != nil {
-						return gerrors.New("hasn't been updated by operator")
+						return errors.New("hasn't been updated by operator")
 					}
 
 					return nil
@@ -4797,12 +4814,12 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}
 
 					if len(details) == 0 {
-						return gerrors.New("must have tables")
+						return errors.New("must have tables")
 					}
 
 					// Check hasn't been updated
 					if details[0].AdditionalWhere == nil || *details[0].AdditionalWhere != `('id'::text = 'value'::text)` {
-						return gerrors.New("hasn't been updated by operator")
+						return errors.New("hasn't been updated by operator")
 					}
 
 					return nil
@@ -4864,12 +4881,12 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}
 
 					if len(details) == 0 {
-						return gerrors.New("must have tables")
+						return errors.New("must have tables")
 					}
 
 					// Check hasn't been updated
 					if len(details[0].Columns) > 1 {
-						return gerrors.New("hasn't been updated by operator")
+						return errors.New("hasn't been updated by operator")
 					}
 
 					return nil
@@ -4931,12 +4948,12 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}
 
 					if len(details) == 0 {
-						return gerrors.New("must have tables")
+						return errors.New("must have tables")
 					}
 
 					// Check hasn't been updated
 					if len(details[0].Columns) == 1 {
-						return gerrors.New("hasn't been updated by operator")
+						return errors.New("hasn't been updated by operator")
 					}
 
 					return nil
@@ -4998,12 +5015,12 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}
 
 					if len(details) == 0 {
-						return gerrors.New("must have tables")
+						return errors.New("must have tables")
 					}
 
 					// Check hasn't been updated
 					if len(details[0].Columns) == 2 {
-						return gerrors.New("hasn't been updated by operator")
+						return errors.New("hasn't been updated by operator")
 					}
 
 					return nil
@@ -5065,15 +5082,15 @@ var _ = Describe("PostgresqlPublication tests", func() {
 					}
 
 					if len(details) == 0 {
-						return gerrors.New("must have tables")
+						return errors.New("must have tables")
 					}
 					if len(details[0].Columns) == 0 {
-						return gerrors.New("must have columns")
+						return errors.New("must have columns")
 					}
 
 					// Check hasn't been updated
 					if details[0].Columns[0] == "id" {
-						return gerrors.New("hasn't been updated by operator")
+						return errors.New("hasn't been updated by operator")
 					}
 
 					return nil

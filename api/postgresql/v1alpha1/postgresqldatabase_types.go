@@ -17,8 +17,9 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/easymile/postgresql-operator/api/postgresql/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/easymile/postgresql-operator/api/postgresql/common"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -73,9 +74,11 @@ type DatabaseModulesList struct {
 
 type DatabaseStatusPhase string
 
-const DatabaseNoPhase DatabaseStatusPhase = ""
-const DatabaseFailedPhase DatabaseStatusPhase = "Failed"
-const DatabaseCreatedPhase DatabaseStatusPhase = "Created"
+const (
+	DatabaseNoPhase      DatabaseStatusPhase = ""
+	DatabaseFailedPhase  DatabaseStatusPhase = "Failed"
+	DatabaseCreatedPhase DatabaseStatusPhase = "Created"
+)
 
 // PostgresqlDatabaseStatus defines the observed state of PostgresqlDatabase.
 type PostgresqlDatabaseStatus struct {

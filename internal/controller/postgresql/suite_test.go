@@ -19,7 +19,6 @@ package postgresql
 import (
 	"context"
 	"database/sql"
-	gerrors "errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -28,86 +27,95 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/prometheus"
-
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	//nolint:revive
+	. "github.com/onsi/ginkgo/v2"
+	//nolint:revive
+	. "github.com/onsi/gomega"
+
+	gerrors "errors"
+	//
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/easymile/postgresql-operator/api/postgresql/common"
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
 	"github.com/easymile/postgresql-operator/internal/controller/config"
 	"github.com/easymile/postgresql-operator/internal/controller/postgresql/postgres"
 	"github.com/easymile/postgresql-operator/internal/controller/utils"
-	//+kubebuilder:scaffold:imports
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var cfg *rest.Config
-var k8sClient client.Client
-var testEnv *envtest.Environment
-var ctx context.Context
-var cancel context.CancelFunc
-var generalEventuallyTimeout = 60 * time.Second
-var generalEventuallyInterval = time.Second
-var pgpublicationNamespace = "pgpub-ns"
-var pgpublicationName = "pgpub-object"
-var pgpublicationPublicationName1 = "pub1"
-var pgpublicationCustomReplicationSlotName = "replslotname"
-var pgecNamespace = "pgec-ns"
-var pgecName = "pgec-object"
-var pgecSecretName = "pgec-secret"
-var pgdbNamespace = "pgdb-ns"
-var pgdbName = "pgdb-object"
-var pgdbName2 = "pgdb-object2"
-var pgdbDBName = "super-db"
-var pgdbDBName2 = "super-db2"
-var pguNamespace = "pgu-ns"
-var pguName = "pgu-object"
-var pgurNamespace = "pgur-ns"
-var pgurName = "pgur-object"
-var pgurWorkSecretName = "pgur-work-secret"
-var pgurDBSecretName = "pgur-db-secret"
-var pgurDBSecretName2 = "pgur-db-secret2"
-var pgurImportSecretName = "pgu-import-secret"
-var pgurImportUsername = "fake-username"
-var pgurImportPassword = "fake-password"
-var pgurRolePrefix = "role-prefix"
-var pgdbSchemaName1 = "one_schema"
-var pgdbSchemaName2 = "second_schema"
-var pgPublicSchemaName = "public"
-var pgdbExtensionName1 = "uuid-ossp"
-var pgdbExtensionName2 = "cube"
-var postgresUser = "postgres"
-var postgresPassword = "postgres"
-var postgresUrlWithDbTemplate = "postgresql://%s:%s@localhost:5432/%s?sslmode=disable"
-var postgresUrl = "postgresql://postgres:postgres@localhost:5432/?sslmode=disable"
-var postgresUrlToDB = "postgresql://postgres:postgres@localhost:5432/" + pgdbDBName + "?sslmode=disable"
-var editedSecretName = "updated-secret-name"
-var dbConns = map[string]*struct {
-	tx *sql.Tx
-	db *sql.DB
-}{}
-var mainDBConn *sql.DB
-var controllerRuntimeDetailedErrorTotal = prometheus.NewCounterVec(
-	prometheus.CounterOpts{
-		Name: "controller_runtime_reconcile_detailed_errors_total",
-		Help: "Total number of reconciliation errors per controller detailed with resource namespace and name.",
-	},
-	[]string{"controller", "namespace", "name"},
+var (
+	cfg                                    *rest.Config
+	k8sClient                              client.Client
+	testEnv                                *envtest.Environment
+	ctx                                    context.Context
+	cancel                                 context.CancelFunc
+	generalEventuallyTimeout               = 60 * time.Second
+	generalEventuallyInterval              = time.Second
+	pgpublicationNamespace                 = "pgpub-ns"
+	pgpublicationName                      = "pgpub-object"
+	pgpublicationPublicationName1          = "pub1"
+	pgpublicationCustomReplicationSlotName = "replslotname"
+	pgecNamespace                          = "pgec-ns"
+	pgecName                               = "pgec-object"
+	pgecSecretName                         = "pgec-secret"
+	pgdbNamespace                          = "pgdb-ns"
+	pgdbName                               = "pgdb-object"
+	pgdbName2                              = "pgdb-object2"
+	pgdbDBName                             = "super-db"
+	pgdbDBName2                            = "super-db2"
+	pguNamespace                           = "pgu-ns"
+	pgurNamespace                          = "pgur-ns"
+	pgurName                               = "pgur-object"
+	pgurWorkSecretName                     = "pgur-work-secret"
+	pgurDBSecretName                       = "pgur-db-secret"
+	pgurDBSecretName2                      = "pgur-db-secret2"
+	pgurImportSecretName                   = "pgu-import-secret"
+	pgurImportUsername                     = "fake-username"
+	pgurImportPassword                     = "fake-password"
+	pgurRolePrefix                         = "role-prefix"
+	pgdbSchemaName1                        = "one_schema"
+	pgdbSchemaName2                        = "second_schema"
+	pgPublicSchemaName                     = "public"
+	pgdbExtensionName1                     = "uuid-ossp"
+	pgdbExtensionName2                     = "cube"
+	postgresUser                           = "postgres"
+	postgresPassword                       = "postgres"
+	postgresUrlWithDbTemplate              = "postgresql://%s:%s@localhost:5432/%s?sslmode=disable"
+	postgresUrl                            = "postgresql://postgres:postgres@localhost:5432/?sslmode=disable"
+	postgresUrlToDB                        = "postgresql://postgres:postgres@localhost:5432/" + pgdbDBName + "?sslmode=disable"
+	editedSecretName                       = "updated-secret-name"
+	dbConns                                = map[string]*struct {
+		tx *sql.Tx
+		db *sql.DB
+	}{}
+)
+
+var (
+	mainDBConn                          *sql.DB
+	controllerRuntimeDetailedErrorTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "controller_runtime_reconcile_detailed_errors_total",
+			Help: "Total number of reconciliation errors per controller detailed with resource namespace and name.",
+		},
+		[]string{"controller", "namespace", "name"},
+	)
 )
 
 func TestControllers(t *testing.T) {
@@ -144,8 +152,8 @@ var _ = BeforeSuite(func(_ context.Context) {
 
 	resyncPeriod := 5 * time.Second
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:     scheme.Scheme,
-		SyncPeriod: &resyncPeriod,
+		Scheme: scheme.Scheme,
+		Cache:  cache.Options{SyncPeriod: &resyncPeriod},
 	})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(k8sManager).ToNot(BeNil())
@@ -234,8 +242,9 @@ var _ = AfterSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	// Close db
-	for k, _ := range dbConns {
-		disconnectConnFromKey(k)
+	for k := range dbConns {
+		err = disconnectConnFromKey(k)
+		Expect(err).NotTo(HaveOccurred())
 	}
 	if mainDBConn != nil {
 		Expect(mainDBConn.Close()).To(Succeed())
@@ -247,8 +256,9 @@ func starAny[T any](s T) *T {
 }
 
 func cleanupFunction() {
-	for k, _ := range dbConns {
-		disconnectConnFromKey(k)
+	for k := range dbConns {
+		err := disconnectConnFromKey(k)
+		Expect(err).NotTo(HaveOccurred())
 	}
 
 	// Force delete pgec
@@ -290,14 +300,6 @@ func cleanupFunction() {
 	Expect(err).ToNot(HaveOccurred())
 	err = deleteSecret(ctx, k8sClient, editedSecretName, pgurNamespace)
 	Expect(err).ToNot(HaveOccurred())
-}
-
-func getSecret(ctx context.Context, cli client.Client, name, namespace string) (*corev1.Secret, error) {
-	sec := &corev1.Secret{}
-	// Get secret
-	err := cli.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, sec)
-
-	return sec, err
 }
 
 func deleteSecret(ctx context.Context, cl client.Client, name, namespace string) error {
@@ -354,7 +356,7 @@ func deleteObject(
 
 	// Get item to force cache clean
 	// Loop until it is cleaned or max try
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		err = cl.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, obj)
 		// Check error
 		if err != nil {
@@ -432,6 +434,7 @@ func setupProvidedPGUR() *postgresqlv1alpha1.PostgresqlUserRole {
 
 	return setupSavePGURInternal(it)
 }
+
 func setupProvidedPGURAndPartialCustomAttributes() *postgresqlv1alpha1.PostgresqlUserRole {
 	it := &postgresqlv1alpha1.PostgresqlUserRole{
 		ObjectMeta: v1.ObjectMeta{
@@ -785,18 +788,6 @@ func setupPGECWithBouncer(
 	}, nil, nil, false)
 }
 
-func setupPGECWithReplica(
-	checkInterval string,
-	waitLinkedResourcesDeletion bool,
-) (*postgresqlv1alpha1.PostgresqlEngineConfiguration, *corev1.Secret) {
-	uc := &postgresqlv1alpha1.GenericUserConnection{
-		Host:    "localhost",
-		Port:    5432,
-		URIArgs: "sslmode=disable",
-	}
-	return setupPGECInternal(checkInterval, waitLinkedResourcesDeletion, uc, nil, []*postgresqlv1alpha1.GenericUserConnection{uc}, nil, false)
-}
-
 func setupPGECWithBouncerAndReplica(
 	checkInterval string,
 	waitLinkedResourcesDeletion bool,
@@ -811,7 +802,16 @@ func setupPGECWithBouncerAndReplica(
 		Port:    5433,
 		URIArgs: "sslmode=disable",
 	}
-	return setupPGECInternal(checkInterval, waitLinkedResourcesDeletion, uc, buc, []*postgresqlv1alpha1.GenericUserConnection{uc}, []*postgresqlv1alpha1.GenericUserConnection{buc}, false)
+
+	return setupPGECInternal(
+		checkInterval,
+		waitLinkedResourcesDeletion,
+		uc,
+		buc,
+		[]*postgresqlv1alpha1.GenericUserConnection{uc},
+		[]*postgresqlv1alpha1.GenericUserConnection{buc},
+		false,
+	)
 }
 
 func setupPGECWithAllowGrantAdminOption(
@@ -992,20 +992,27 @@ func deletePGPublication(ctx context.Context, cl client.Client, name, namespace 
 
 func deleteSQLDBs(name string) error {
 	// Query template
-	GetAllCreatedSQLDBTemplate := "SELECT datname FROM pg_database WHERE datname LIKE '%" + name + "%';"
+	getAllCreatedSQLDBTemplate := "SELECT datname FROM pg_database WHERE datname LIKE '%" + name + "%';"
 
 	if mainDBConn == nil {
 		db, err := sql.Open("postgres", postgresUrl)
 		if err != nil {
 			return err
 		}
+
 		mainDBConn = db
 	}
 
-	res, err := mainDBConn.Query(GetAllCreatedSQLDBTemplate)
+	res, err := mainDBConn.Query(getAllCreatedSQLDBTemplate)
 	if err != nil {
 		return err
 	}
+
+	if res.Err() != nil {
+		return res.Err()
+	}
+
+	defer res.Close()
 
 	var dbname string
 	for res.Next() {
@@ -1015,7 +1022,7 @@ func deleteSQLDBs(name string) error {
 		}
 
 		// Try to delete
-		for i := 0; i < 1000; i++ {
+		for range 1000 {
 			_, err = mainDBConn.Exec(fmt.Sprintf(postgres.DropDatabaseSQLTemplate, dbname))
 			if err == nil {
 				break
@@ -1042,6 +1049,7 @@ func createSQLDB(name, role string) error {
 		if err != nil {
 			return err
 		}
+
 		mainDBConn = db
 	}
 
@@ -1064,6 +1072,7 @@ func isSQLDBExists(name string) (bool, error) {
 		if err != nil {
 			return false, err
 		}
+
 		mainDBConn = db
 	}
 
@@ -1082,20 +1091,27 @@ func isSQLDBExists(name string) (bool, error) {
 
 func deleteSQLRoles() error {
 	// Query template
-	GetAllCreatedRolesSQLTemplate := `SELECT rolname FROM pg_roles WHERE rolname NOT LIKE 'pg\_%' AND rolname != 'postgres'`
+	getAllCreatedRolesSQLTemplate := `SELECT rolname FROM pg_roles WHERE rolname NOT LIKE 'pg\_%' AND rolname != 'postgres'`
 
 	if mainDBConn == nil {
 		db, err := sql.Open("postgres", postgresUrl)
 		if err != nil {
 			return err
 		}
+
 		mainDBConn = db
 	}
 
-	res, err := mainDBConn.Query(GetAllCreatedRolesSQLTemplate)
+	res, err := mainDBConn.Query(getAllCreatedRolesSQLTemplate)
 	if err != nil {
 		return err
 	}
+
+	if res.Err() != nil {
+		return res.Err()
+	}
+
+	defer res.Close()
 
 	var role string
 	for res.Next() {
@@ -1119,6 +1135,7 @@ func createSQLRole(role string) error {
 		if err != nil {
 			return err
 		}
+
 		mainDBConn = db
 	}
 
@@ -1141,6 +1158,7 @@ func isSQLRoleExists(name string) (bool, error) {
 		if err != nil {
 			return false, err
 		}
+
 		mainDBConn = db
 	}
 
@@ -1159,7 +1177,7 @@ func isSQLRoleExists(name string) (bool, error) {
 
 func isSQLSchemaExists(name string) (bool, error) {
 	// Query template
-	IsSchemaExistSQLTemplate := `SELECT 1 FROM information_schema.schemata WHERE schema_name='%s'`
+	isSchemaExistSQLTemplate := `SELECT 1 FROM information_schema.schemata WHERE schema_name='%s'`
 
 	// Connect
 	db, err := sql.Open("postgres", postgresUrlToDB)
@@ -1168,11 +1186,9 @@ func isSQLSchemaExists(name string) (bool, error) {
 		return false, err
 	}
 
-	defer func() error {
-		return db.Close()
-	}()
+	defer db.Close()
 
-	res, err := db.Exec(fmt.Sprintf(IsSchemaExistSQLTemplate, name))
+	res, err := db.Exec(fmt.Sprintf(isSchemaExistSQLTemplate, name))
 	if err != nil {
 		return false, err
 	}
@@ -1187,7 +1203,7 @@ func isSQLSchemaExists(name string) (bool, error) {
 
 func isSQLExtensionExists(name string) (bool, error) {
 	// Query template
-	IsExtensionExistSQLTemplate := `SELECT 1 FROM pg_extension WHERE extname='%s'`
+	isExtensionExistSQLTemplate := `SELECT 1 FROM pg_extension WHERE extname='%s'`
 
 	// Connect
 	db, err := sql.Open("postgres", postgresUrlToDB)
@@ -1196,11 +1212,9 @@ func isSQLExtensionExists(name string) (bool, error) {
 		return false, err
 	}
 
-	defer func() error {
-		return db.Close()
-	}()
+	defer db.Close()
 
-	res, err := db.Exec(fmt.Sprintf(IsExtensionExistSQLTemplate, name))
+	res, err := db.Exec(fmt.Sprintf(isExtensionExistSQLTemplate, name))
 	if err != nil {
 		return false, err
 	}
@@ -1224,10 +1238,13 @@ func getTableOwnerInSchema(dbName, schemaName, tableName string) (string, error)
 	defer db.Close()
 
 	sqlTemplate := `select tableowner from pg_tables where tablename = '%s' and schemaname = '%s';`
+
 	res, err := db.Query(fmt.Sprintf(sqlTemplate, tableName, schemaName))
 	if err != nil {
 		return "", err
 	}
+
+	defer res.Close()
 
 	var owner string
 	for res.Next() {
@@ -1255,9 +1272,7 @@ func rawSQLQuery(raw string) error {
 		return err
 	}
 
-	defer func() error {
-		return db.Close()
-	}()
+	defer db.Close()
 
 	_, err = db.Exec(raw)
 	if err != nil {
@@ -1269,7 +1284,7 @@ func rawSQLQuery(raw string) error {
 
 func createTableInSchemaAsAdmin(schema, table string) error {
 	// Query template
-	CreateTableInSchemaTemplate := `CREATE TABLE %s.%s()`
+	createTableInSchemaTemplate := `CREATE TABLE %s.%s()`
 
 	// Connect
 	db, err := sql.Open("postgres", postgresUrlToDB)
@@ -1278,11 +1293,9 @@ func createTableInSchemaAsAdmin(schema, table string) error {
 		return err
 	}
 
-	defer func() error {
-		return db.Close()
-	}()
+	defer db.Close()
 
-	_, err = db.Exec(fmt.Sprintf(CreateTableInSchemaTemplate, schema, table))
+	_, err = db.Exec(fmt.Sprintf(createTableInSchemaTemplate, schema, table))
 	if err != nil {
 		return err
 	}
@@ -1300,9 +1313,7 @@ func createColumnInTable(table, columnName, columnType string) error {
 		return err
 	}
 
-	defer func() error {
-		return db.Close()
-	}()
+	defer db.Close()
 
 	_, err = db.Exec(fmt.Sprintf(tmpl, table, columnName, columnType))
 	if err != nil {
@@ -1327,10 +1338,12 @@ func create2KnownTablesWithColumnsInPublicSchema() error {
 	if err != nil {
 		return err
 	}
+
 	err = createColumnInTable("public.fake", "nb", "integer")
 	if err != nil {
 		return err
 	}
+
 	err = createColumnInTable("public.fake", "nb2", "integer")
 	if err != nil {
 		return err
@@ -1340,6 +1353,7 @@ func create2KnownTablesWithColumnsInPublicSchema() error {
 	if err != nil {
 		return err
 	}
+
 	err = createColumnInTable("public.fake2", "test", "integer")
 	if err != nil {
 		return err
@@ -1361,10 +1375,13 @@ func getTypeOwner(dbName, typeName string) (string, error) {
 	defer db.Close()
 
 	sqlTemplate := `SELECT typowner::regrole FROM pg_type WHERE typname = '%s';`
+
 	res, err := db.Query(fmt.Sprintf(sqlTemplate, typeName))
 	if err != nil {
 		return "", err
 	}
+
+	defer res.Close()
 
 	var owner string
 	for res.Next() {
@@ -1389,7 +1406,7 @@ func getTypeOwner(dbName, typeName string) (string, error) {
 
 func createTypeInSchemaAsAdmin(schema, typeName string) error {
 	// Query template
-	CreateTypeInSchemaTemplate := `CREATE TYPE "%s"."%s" AS ENUM ('new', 'open', 'closed');`
+	createTypeInSchemaTemplate := `CREATE TYPE "%s"."%s" AS ENUM ('new', 'open', 'closed');`
 
 	// Connect
 	db, err := sql.Open("postgres", postgresUrlToDB)
@@ -1398,11 +1415,9 @@ func createTypeInSchemaAsAdmin(schema, typeName string) error {
 		return err
 	}
 
-	defer func() error {
-		return db.Close()
-	}()
+	defer db.Close()
 
-	_, err = db.Exec(fmt.Sprintf(CreateTypeInSchemaTemplate, schema, typeName))
+	_, err = db.Exec(fmt.Sprintf(createTypeInSchemaTemplate, schema, typeName))
 	if err != nil {
 		return err
 	}
@@ -1428,9 +1443,7 @@ func getPublication(name string) (*PublicationResult, error) {
 		return nil, err
 	}
 
-	defer func() error {
-		return db.Close()
-	}()
+	defer db.Close()
 
 	// Get rows
 	rows, err := db.Query(fmt.Sprintf(postgres.GetPublicationSQLTemplate, name))
@@ -1472,10 +1485,10 @@ func getPublication(name string) (*PublicationResult, error) {
 }
 
 type PublicationTableDetail struct {
+	AdditionalWhere *string
 	SchemaName      string
 	TableName       string
 	Columns         []string
-	AdditionalWhere *string
 }
 
 func getPublicationTableDetails(name string) ([]*PublicationTableDetail, error) {
@@ -1486,9 +1499,7 @@ func getPublicationTableDetails(name string) ([]*PublicationTableDetail, error) 
 		return nil, err
 	}
 
-	defer func() error {
-		return db.Close()
-	}()
+	defer db.Close()
 
 	// Get rows
 	rows, err := db.Query(fmt.Sprintf(`SELECT
@@ -1504,8 +1515,10 @@ WHERE pubname = '%s';`, name))
 	res := make([]*PublicationTableDetail, 0)
 
 	for rows.Next() {
-		var it PublicationTableDetail
-		var pqSA pq.StringArray
+		var (
+			it   PublicationTableDetail
+			pqSA pq.StringArray
+		)
 		// Scan
 		err = rows.Scan(&it.SchemaName, &it.TableName, &pqSA, &it.AdditionalWhere)
 		// Check error
@@ -1539,11 +1552,9 @@ func dropReplicationSlot(name string) error {
 		return err
 	}
 
-	defer func() error {
-		return db.Close()
-	}()
+	defer db.Close()
 
-	DropReplicationSlotSQLTemplate := `SELECT pg_drop_replication_slot('%s')`
+	dropReplicationSlotSQLTemplate := `SELECT pg_drop_replication_slot('%s')`
 	count := 0
 
 	for count <= 20 {
@@ -1552,18 +1563,18 @@ func dropReplicationSlot(name string) error {
 			return err
 		}
 
-		if repl1 != nil {
-			_, err = db.Exec(fmt.Sprintf(DropReplicationSlotSQLTemplate, name))
-			if err != nil {
-				return err
-			}
-
-			count += 1
-			// Wait
-			time.Sleep(100 * time.Millisecond)
-		} else {
+		if repl1 == nil {
 			break
 		}
+
+		_, err = db.Exec(fmt.Sprintf(dropReplicationSlotSQLTemplate, name))
+		if err != nil {
+			return err
+		}
+
+		count++
+		// Wait
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	repl1, err := getReplicationSlotInternal(db, name)
@@ -1587,13 +1598,11 @@ func createReplicationSlotInMainDB(name, plugin string) error {
 		return err
 	}
 
-	defer func() error {
-		return db.Close()
-	}()
+	defer db.Close()
 
-	CreateReplicationSlotSQLTemplate := `SELECT pg_create_logical_replication_slot('%s', '%s')`
+	createReplicationSlotSQLTemplate := `SELECT pg_create_logical_replication_slot('%s', '%s')`
 
-	_, err = db.Exec(fmt.Sprintf(CreateReplicationSlotSQLTemplate, name, plugin))
+	_, err = db.Exec(fmt.Sprintf(createReplicationSlotSQLTemplate, name, plugin))
 	if err != nil {
 		return err
 	}
@@ -1616,18 +1625,16 @@ func getReplicationSlot(name string) (*replicationSlotResult, error) {
 		return nil, err
 	}
 
-	defer func() error {
-		return db.Close()
-	}()
+	defer db.Close()
 
 	return getReplicationSlotInternal(db, name)
 }
 
 func getReplicationSlotInternal(db *sql.DB, name string) (*replicationSlotResult, error) {
-	GetReplicationSlotSQLTemplate := `SELECT slot_name,plugin,database FROM pg_replication_slots WHERE slot_name = '%s'`
+	getReplicationSlotSQLTemplate := `SELECT slot_name,plugin,database FROM pg_replication_slots WHERE slot_name = '%s'`
 
 	// Get rows
-	rows, err := db.Query(fmt.Sprintf(GetReplicationSlotSQLTemplate, name))
+	rows, err := db.Query(fmt.Sprintf(getReplicationSlotSQLTemplate, name))
 	if err != nil {
 		return nil, err
 	}
@@ -1685,12 +1692,11 @@ func getRoleAttributes(role string) (*RoleAttributes, error) {
 		return nil, err
 	}
 
-	defer func() error {
-		return db.Close()
-	}()
+	defer db.Close()
 
-	GetRoleAttributesSQLTemplate := `select rolconnlimit, rolreplication, rolbypassrls FROM pg_roles WHERE rolname = '%s'`
-	rows, err := db.Query(fmt.Sprintf(GetRoleAttributesSQLTemplate, role))
+	getRoleAttributesSQLTemplate := `select rolconnlimit, rolreplication, rolbypassrls FROM pg_roles WHERE rolname = '%s'`
+
+	rows, err := db.Query(fmt.Sprintf(getRoleAttributesSQLTemplate, role))
 	if err != nil {
 		return res, err
 	}
@@ -1775,10 +1781,12 @@ func changeDBOwner(dbname, role string) error {
 		if err != nil {
 			return err
 		}
+
 		mainDBConn = db
 	}
 
 	sqlTemplate := `ALTER DATABASE "%s" OWNER TO "%s"`
+
 	_, err := mainDBConn.Exec(fmt.Sprintf(sqlTemplate, dbname, role))
 	if err != nil {
 		return err
@@ -1789,17 +1797,18 @@ func changeDBOwner(dbname, role string) error {
 
 func isRoleOwnerofSQLDB(dbname, role string) (bool, error) {
 	// Query template
-	IsRoleOwnerOfDbSQLTemplate := `SELECT 1 FROM pg_catalog.pg_database d WHERE d.datname = '%s' AND pg_catalog.pg_get_userbyid(d.datdba) = '%s';`
+	isRoleOwnerOfDbSQLTemplate := `SELECT 1 FROM pg_catalog.pg_database d WHERE d.datname = '%s' AND pg_catalog.pg_get_userbyid(d.datdba) = '%s';`
 
 	if mainDBConn == nil {
 		db, err := sql.Open("postgres", postgresUrl)
 		if err != nil {
 			return false, err
 		}
+
 		mainDBConn = db
 	}
 
-	res, err := mainDBConn.Exec(fmt.Sprintf(IsRoleOwnerOfDbSQLTemplate, dbname, role))
+	res, err := mainDBConn.Exec(fmt.Sprintf(isRoleOwnerOfDbSQLTemplate, dbname, role))
 	if err != nil {
 		return false, err
 	}
@@ -1820,6 +1829,7 @@ func getSQLRoleMembershipWithAdminOption(role string) (map[string]bool, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		mainDBConn = db
 	}
 
@@ -1858,17 +1868,18 @@ func getSQLRoleMembershipWithAdminOption(role string) (map[string]bool, error) {
 }
 
 func isSetRoleOnDatabasesRoleSettingsExists(username, databaseInput, groupRole string) (bool, error) {
-	GetRoleSettingsSQLTemplate := `SELECT pg_catalog.split_part(pg_catalog.unnest(setconfig), '=', 1) as parameter_type, pg_catalog.split_part(pg_catalog.unnest(setconfig), '=', 2) as parameter_value, d.datname as database FROM pg_catalog.pg_roles r JOIN pg_catalog.pg_db_role_setting c ON (c.setrole = r.oid) JOIN pg_catalog.pg_database d ON (d.oid = c.setdatabase) WHERE r.rolcanlogin AND r.rolname='%s'`
+	getRoleSettingsSQLTemplate := `SELECT pg_catalog.split_part(pg_catalog.unnest(setconfig), '=', 1) as parameter_type, pg_catalog.split_part(pg_catalog.unnest(setconfig), '=', 2) as parameter_value, d.datname as database FROM pg_catalog.pg_roles r JOIN pg_catalog.pg_db_role_setting c ON (c.setrole = r.oid) JOIN pg_catalog.pg_database d ON (d.oid = c.setdatabase) WHERE r.rolcanlogin AND r.rolname='%s'`
 
 	if mainDBConn == nil {
 		db, err := sql.Open("postgres", postgresUrl)
 		if err != nil {
 			return false, err
 		}
+
 		mainDBConn = db
 	}
 
-	rows, err := mainDBConn.Query(fmt.Sprintf(GetRoleSettingsSQLTemplate, username))
+	rows, err := mainDBConn.Query(fmt.Sprintf(getRoleSettingsSQLTemplate, username))
 	if err != nil {
 		return false, err
 	}
@@ -1935,14 +1946,12 @@ func checkPGURSecretValuesWithExtraArgs(
 		userCon = pgec.Spec.UserConnections.BouncerConnection
 	}
 
-	// Compute uri args from main ones to user defined ones
-	uriArgList := []string{userCon.URIArgs}
 	// Loop over user defined list
 	for k, v := range extraArgsMap {
-		uriArgList = append(uriArgList, fmt.Sprintf("%s=%s", k, v))
+		Expect(
+			strings.Contains(string(secret.Data["ARGS"]), fmt.Sprintf("%s=%s", k, v)),
+		).To(BeTrue(), string(secret.Data["ARGS"])+" contains "+fmt.Sprintf("%s=%s", k, v))
 	}
-	// Join
-	uriArgs := strings.Join(uriArgList, "&")
 
 	Expect(string(secret.Data["POSTGRES_URL"])).To(Equal(
 		fmt.Sprintf("postgresql://%s:%s@%s:%d/%s", secret.Data["LOGIN"], secret.Data["PASSWORD"], userCon.Host, userCon.Port, dbName),
@@ -1953,8 +1962,7 @@ func checkPGURSecretValuesWithExtraArgs(
 	Expect(string(secret.Data["LOGIN"])).To(Equal(username))
 	Expect(string(secret.Data["DATABASE"])).To(Equal(dbName))
 	Expect(string(secret.Data["HOST"])).To(Equal(userCon.Host))
-	Expect(string(secret.Data["PORT"])).To(Equal(fmt.Sprint(userCon.Port)))
-	Expect(string(secret.Data["ARGS"])).To(Equal(uriArgs))
+	Expect(string(secret.Data["PORT"])).To(Equal(strconv.Itoa(userCon.Port)))
 
 	// Check replica data
 	rucList := pgec.Spec.UserConnections.ReplicaConnections
@@ -1976,13 +1984,15 @@ func checkPGURSecretValuesWithExtraArgs(
 		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_POSTGRES_URL"])).To(Equal(
 			fmt.Sprintf("postgresql://%s:%s@%s:%d/%s", secret.Data["LOGIN"], secret.Data["PASSWORD"], userCon.Host, userCon.Port, dbName),
 		))
-		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_POSTGRES_URL_ARGS"])).To(Equal(fmt.Sprintf("%s?%s", secret.Data["POSTGRES_URL"], secret.Data["ARGS"])))
+		Expect(
+			string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_POSTGRES_URL_ARGS"]),
+		).To(Equal(fmt.Sprintf("%s?%s", secret.Data["POSTGRES_URL"], secret.Data["ARGS"])))
 		Expect(secret.Data["REPLICA_"+strconv.Itoa(i)+"_PASSWORD"]).ToNot(BeEmpty())
 		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_PASSWORD"])).To(Equal(password))
 		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_LOGIN"])).To(Equal(username))
 		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_DATABASE"])).To(Equal(dbName))
 		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_HOST"])).To(Equal(userCon.Host))
-		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_PORT"])).To(Equal(fmt.Sprint(userCon.Port)))
+		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_PORT"])).To(Equal(strconv.Itoa(userCon.Port)))
 		Expect(string(secret.Data["REPLICA_"+strconv.Itoa(i)+"_ARGS"])).To(Equal(uriArgs))
 	}
 }
