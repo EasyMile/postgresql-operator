@@ -48,4 +48,22 @@ resources:
     kind: PostgresqlPublication
     path: github.com/easymile/postgresql-operator/api/postgresql/v1alpha1
     version: v1alpha1
+  - api:
+      crdVersion: v1
+      namespaced: true
+    controller: true
+    domain: easymile.com
+    group: postgresql
+    kind: PostgresqlBackupProvider
+    path: github.com/easymile/postgresql-operator/api/postgresql/v1alpha1
+    version: v1alpha1
+  - api:
+      crdVersion: v1
+      namespaced: true
+    controller: true
+    domain: easymile.com
+    group: postgresql
+    kind: PostgresqlBackup
+    path: github.com/easymile/postgresql-operator/api/postgresql/v1alpha1
+    version: v1alpha1
 version: "3"

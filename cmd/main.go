@@ -320,6 +320,32 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "PostgresqlPublication")
 		os.Exit(1)
 	}
+	if err := (&postgresqlcontrollers.PostgresqlBackupProviderReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("postgresqlbackupprovider-controller"),
+		Log: ctrl.Log.WithValues(
+			"controller",
+			"postgresqlbackupprovider",
+			"controllerKind",
+			"PostgresqlBackupProvider",
+			"controllerGroup",
+			"postgresql.easymile.com",
+		),
+		ControllerRuntimeDetailedErrorTotal: controllerRuntimeDetailedErrorTotal,
+		ControllerName:                      "postgresqlbackupprovider",
+		ReconcileTimeout:                    reconcileTimeout,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "PostgresqlBackupProvider")
+		os.Exit(1)
+	}
+	if err := (&postgresqlcontrollers.PostgresqlBackupReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "PostgresqlBackup")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {

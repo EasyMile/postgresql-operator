@@ -30,3 +30,14 @@ resources:
   - postgresql_postgresqlpublication_viewer_role.yaml
   - postgresql_postgresqluserrole_editor_role.yaml
   - postgresql_postgresqluserrole_viewer_role.yaml
+# For each CRD, "Admin", "Editor" and "Viewer" roles are scaffolded by
+# default, aiding admins in cluster management. Those roles are
+# not used by the postgresql-operator itself. You can comment the following lines
+# if you do not want those helpers be installed with your Project.
+- postgresqlbackup_admin_role.yaml
+- postgresqlbackup_editor_role.yaml
+- postgresqlbackup_viewer_role.yaml
+- postgresqlbackupprovider_admin_role.yaml
+- postgresqlbackupprovider_editor_role.yaml
+- postgresqlbackupprovider_viewer_role.yaml
+

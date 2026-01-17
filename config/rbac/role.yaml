@@ -24,8 +24,22 @@ rules:
   - update
   - watch
 - apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - postgresql.easymile.com
   resources:
+  - postgresqlbackupproviders
+  - postgresqlbackups
   - postgresqldatabases
   - postgresqlengineconfigurations
   - postgresqlpublications
@@ -41,6 +55,8 @@ rules:
 - apiGroups:
   - postgresql.easymile.com
   resources:
+  - postgresqlbackupproviders/finalizers
+  - postgresqlbackups/finalizers
   - postgresqldatabases/finalizers
   - postgresqlengineconfigurations/finalizers
   - postgresqlpublications/finalizers
@@ -50,6 +66,8 @@ rules:
 - apiGroups:
   - postgresql.easymile.com
   resources:
+  - postgresqlbackupproviders/status
+  - postgresqlbackups/status
   - postgresqldatabases/status
   - postgresqlengineconfigurations/status
   - postgresqlpublications/status
