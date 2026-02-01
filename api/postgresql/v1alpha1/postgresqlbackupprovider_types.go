@@ -32,9 +32,21 @@ type PostgresqlBackupProviderSpec struct {
 	// Cron job spec for backup runs
 	// +required
 	CronJobSpec *batchv1.CronJobSpec `json:"cronJobSpec,omitempty"`
-	// Name used for cronjob
-	// +optional
+	// Name used for cronjob or job
+	// +required
 	CronJobName string `json:"cronJobName,omitempty"`
+	// Map of string keys and values that can be used to organize and categorize
+	// (scope and select) objects. May match selectors of replication controllers
+	// and services.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+	// Annotations is an unstructured key value map stored with a resource that may be
+	// set by external tools to store and retrieve arbitrary metadata. They are not
+	// queryable and should be preserved when modifying objects.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 	// Generated Secret name used to populate pg_dump information
 	// +optional
 	GeneratedSecretName string `json:"generatedSecretName,omitempty"`
@@ -61,8 +73,6 @@ type PostgresqlBackupProviderStatus struct {
 	// True if all resources are in a ready state and all work is done.
 	// +optional
 	Ready bool `json:"ready,omitempty"`
-	// Resource Spec hash
-	Hash string `json:"hash,omitempty"`
 	// Generated secret name
 	GeneratedSecretName string `json:"generatedSecretName,omitempty"`
 	// Cron job name

@@ -151,6 +151,8 @@ func (r *PostgresqlBackupReconciler) mainReconcile(
 		return ctrl.Result{}, nil
 	}
 
+	// Compute spec hash
+
 	// Success
 	return r.manageSuccess(ctx, reqLogger, instance, originalPatch)
 }

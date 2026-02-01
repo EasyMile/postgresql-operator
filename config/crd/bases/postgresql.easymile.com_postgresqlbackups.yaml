@@ -88,6 +88,9 @@ spec:
               phase:
                 description: Current phase of the operator
                 type: string
+              providerHash:
+                description: BackupProvider spec hash
+                type: string
               ready:
                 description: True if all resources are in a ready state and all work
                   is done.

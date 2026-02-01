@@ -41,8 +41,17 @@ spec:
             description: PostgresqlBackupProviderSpec defines the desired state of
               PostgresqlBackupProvider.
             properties:
+              annotations:
+                additionalProperties:
+                  type: string
+                description: |-
+                  Annotations is an unstructured key value map stored with a resource that may be
+                  set by external tools to store and retrieve arbitrary metadata. They are not
+                  queryable and should be preserved when modifying objects.
+                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations
+                type: object
               cronJobName:
-                description: Name used for cronjob
+                description: Name used for cronjob or job
                 type: string
               cronJobSpec:
                 description: Cron job spec for backup runs
@@ -9194,10 +9203,20 @@ spec:
               generatedSecretName:
                 description: Generated Secret name used to populate pg_dump information
                 type: string
+              labels:
+                additionalProperties:
+                  type: string
+                description: |-
+                  Map of string keys and values that can be used to organize and categorize
+                  (scope and select) objects. May match selectors of replication controllers
+                  and services.
+                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels
+                type: object
               waitLinkedResourcesDeletion:
                 description: Wait for linked resource to be deleted
                 type: boolean
             required:
+            - cronJobName
             - cronJobSpec
             type: object
           status:
@@ -9209,9 +9228,6 @@ spec:
                 type: string
               generatedSecretName:
                 description: Generated secret name
-                type: string
-              hash:
-                description: Resource Spec hash
                 type: string
               message:
                 description: Human-readable message indicating details about current

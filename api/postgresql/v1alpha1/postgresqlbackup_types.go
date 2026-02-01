@@ -61,6 +61,8 @@ type PostgresqlBackupStatus struct {
 	Ready bool `json:"ready,omitempty"`
 	// Resource Spec hash
 	Hash string `json:"hash,omitempty"`
+	// BackupProvider spec hash
+	ProviderHash string `json:"providerHash,omitempty"`
 }
 
 // +kubebuilder:object:root=true
