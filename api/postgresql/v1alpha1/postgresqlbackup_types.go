@@ -52,7 +52,7 @@ const (
 // PostgresqlBackupStatus defines the observed state of PostgresqlBackup.
 type PostgresqlBackupStatus struct {
 	// Current phase of the operator
-	Phase BackupProviderStatusPhase `json:"phase,omitempty"`
+	Phase BackupStatusPhase `json:"phase,omitempty"`
 	// Human-readable message indicating details about current operator phase or error.
 	// +optional
 	Message string `json:"message,omitempty"`
