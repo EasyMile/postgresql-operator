@@ -33,6 +33,7 @@ import (
 
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
 	"github.com/easymile/postgresql-operator/internal/controller/config"
+	"github.com/easymile/postgresql-operator/internal/controller/utils"
 )
 
 // PostgresqlBackupReconciler reconciles a PostgresqlBackup object.
@@ -149,6 +150,34 @@ func (r *PostgresqlBackupReconciler) mainReconcile(
 	// Check if it has been updated in order to stop this reconcile loop here for the moment
 	if updated {
 		return ctrl.Result{}, nil
+	}
+
+	// Get related database
+	database, err := utils.FindPgDatabaseFromLink(ctx, r.Client, instance.Spec.Database, instance.Namespace)
+	// Check error
+	if err != nil {
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+	}
+
+	// Find pgec
+	pgec, err := utils.FindPgEngineCfg(ctx, r.Client, database)
+	// Check error
+	if err != nil {
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+	}
+
+	// Find pgec secret
+	pgecSecret, err := utils.FindSecretPgEngineCfg(ctx, r.Client, pgec)
+	// Check error
+	if err != nil {
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+	}
+
+	// Get related provider
+	backupProvider, err := utils.FindPgBackupProviderFromLink(ctx, r.Client, instance.Spec.BackupProvider, instance.Namespace)
+	// Check error
+	if err != nil {
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
 
 	// Compute spec hash

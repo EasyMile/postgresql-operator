@@ -29,8 +29,6 @@ import (
 type PostgresqlBackupSpec struct {
 	// Schedule for cronjob
 	Schedule string `json:"schedule"`
-	// One shot backup ?
-	OneShot bool `json:"oneShot"`
 	// Postgresql Database
 	// +required
 	// +kubebuilder:validation:Required

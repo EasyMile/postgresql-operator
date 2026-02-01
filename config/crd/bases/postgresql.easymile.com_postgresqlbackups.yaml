@@ -63,16 +63,12 @@ spec:
                 required:
                 - name
                 type: object
-              oneShot:
-                description: One shot backup ?
-                type: boolean
               schedule:
                 description: Schedule for cronjob
                 type: string
             required:
             - backupProvider
             - database
-            - oneShot
             - schedule
             type: object
           status:

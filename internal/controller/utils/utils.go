@@ -144,3 +144,25 @@ func FindPgDatabaseFromLink(
 
 	return pgDatabase, err
 }
+
+func FindPgBackupProviderFromLink(
+	ctx context.Context,
+	cl client.Client,
+	link *common.CRLink,
+	instanceNamespace string,
+) (*postgresqlv1alpha1.PostgresqlBackupProvider, error) {
+	// Try to get namespace from spec
+	namespace := link.Namespace
+	if namespace == "" {
+		// Namespace not found, take it from instance namespace
+		namespace = instanceNamespace
+	}
+
+	item := &postgresqlv1alpha1.PostgresqlBackupProvider{}
+	err := cl.Get(ctx, client.ObjectKey{
+		Name:      link.Name,
+		Namespace: namespace,
+	}, item)
+
+	return item, err
+}
