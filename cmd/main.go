@@ -340,8 +340,20 @@ func main() {
 		os.Exit(1)
 	}
 	if err := (&postgresqlcontrollers.PostgresqlBackupReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("postgresqlbackup-controller"),
+		Log: ctrl.Log.WithValues(
+			"controller",
+			"postgresqlbackup",
+			"controllerKind",
+			"PostgresqlBackup",
+			"controllerGroup",
+			"postgresql.easymile.com",
+		),
+		ControllerRuntimeDetailedErrorTotal: controllerRuntimeDetailedErrorTotal,
+		ControllerName:                      "postgresqlbackup",
+		ReconcileTimeout:                    reconcileTimeout,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PostgresqlBackup")
 		os.Exit(1)

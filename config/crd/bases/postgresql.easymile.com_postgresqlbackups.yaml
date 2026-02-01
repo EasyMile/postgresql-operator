@@ -39,13 +39,59 @@ spec:
           spec:
             description: PostgresqlBackupSpec defines the desired state of PostgresqlBackup.
             properties:
-              foo:
-                description: Foo is an example field of PostgresqlBackup. Edit postgresqlbackup_types.go
-                  to remove/update
+              backupProvider:
+                description: Postgresql backup provider
+                properties:
+                  name:
+                    description: Custom resource name
+                    type: string
+                  namespace:
+                    description: Custom resource namespace
+                    type: string
+                required:
+                - name
+                type: object
+              database:
+                description: Postgresql Database
+                properties:
+                  name:
+                    description: Custom resource name
+                    type: string
+                  namespace:
+                    description: Custom resource namespace
+                    type: string
+                required:
+                - name
+                type: object
+              oneShot:
+                description: One shot backup ?
+                type: boolean
+              schedule:
+                description: Schedule for cronjob
                 type: string
+            required:
+            - backupProvider
+            - database
+            - oneShot
+            - schedule
             type: object
           status:
             description: PostgresqlBackupStatus defines the observed state of PostgresqlBackup.
+            properties:
+              hash:
+                description: Resource Spec hash
+                type: string
+              message:
+                description: Human-readable message indicating details about current
+                  operator phase or error.
+                type: string
+              phase:
+                description: Current phase of the operator
+                type: string
+              ready:
+                description: True if all resources are in a ready state and all work
+                  is done.
+                type: boolean
             type: object
         type: object
     served: true

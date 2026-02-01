@@ -18,8 +18,12 @@ package postgresql
 
 import (
 	"context"
+	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -30,8 +34,13 @@ import (
 
 // PostgresqlBackupReconciler reconciles a PostgresqlBackup object.
 type PostgresqlBackupReconciler struct {
+	Recorder record.EventRecorder
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme                              *runtime.Scheme
+	ControllerRuntimeDetailedErrorTotal *prometheus.CounterVec
+	Log                                 logr.Logger
+	ControllerName                      string
+	ReconcileTimeout                    time.Duration
 }
 
 // +kubebuilder:rbac:groups=postgresql.easymile.com,resources=postgresqlbackups,verbs=get;list;watch;create;update;patch;delete

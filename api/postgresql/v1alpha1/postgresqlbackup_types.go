@@ -18,6 +18,8 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/easymile/postgresql-operator/api/postgresql/common"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -27,12 +29,38 @@ import (
 type PostgresqlBackupSpec struct {
 	// Schedule for cronjob
 	Schedule string `json:"schedule"`
+	// One shot backup ?
+	OneShot bool `json:"oneShot"`
+	// Postgresql Database
+	// +required
+	// +kubebuilder:validation:Required
+	Database *common.CRLink `json:"database"`
+	// Postgresql backup provider
+	// +required
+	// +kubebuilder:validation:Required
+	BackupProvider *common.CRLink `json:"backupProvider"`
 }
+
+type BackupStatusPhase string
+
+const (
+	BackupNoPhase    BackupStatusPhase = ""
+	BackupErrorPhase BackupStatusPhase = "Error"
+	BackupValidPhase BackupStatusPhase = "Valid"
+)
 
 // PostgresqlBackupStatus defines the observed state of PostgresqlBackup.
 type PostgresqlBackupStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Current phase of the operator
+	Phase BackupProviderStatusPhase `json:"phase,omitempty"`
+	// Human-readable message indicating details about current operator phase or error.
+	// +optional
+	Message string `json:"message,omitempty"`
+	// True if all resources are in a ready state and all work is done.
+	// +optional
+	Ready bool `json:"ready,omitempty"`
+	// Resource Spec hash
+	Hash string `json:"hash,omitempty"`
 }
 
 // +kubebuilder:object:root=true
