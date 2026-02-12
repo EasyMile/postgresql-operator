@@ -48,6 +48,8 @@ type PostgresqlBackupProviderReconciler struct {
 	ReconcileTimeout                    time.Duration
 }
 
+const MaxGeneratedSecretNamePrefixLength = 20
+
 // +kubebuilder:rbac:groups=postgresql.easymile.com,resources=postgresqlbackupproviders,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=postgresql.easymile.com,resources=postgresqlbackupproviders/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=postgresql.easymile.com,resources=postgresqlbackupproviders/finalizers,verbs=update
@@ -156,6 +158,8 @@ func (r *PostgresqlBackupProviderReconciler) mainReconcile(
 		return ctrl.Result{}, nil
 	}
 
+	// TODO Validate instance
+
 	// Success
 	return r.manageSuccess(ctx, reqLogger, instance, originalPatch)
 }
@@ -171,9 +175,9 @@ func (r *PostgresqlBackupProviderReconciler) updateInstance(
 	controllerutil.AddFinalizer(instance, config.Finalizer)
 
 	// Check if generated secret name is set
-	if instance.Spec.GeneratedSecretName == "" {
-		instance.Spec.GeneratedSecretName = strings.ToLower(
-			utils.GetRandomString(DefaultWorkGeneratedSecretNameRandomLength),
+	if instance.Spec.GeneratedSecretNamePrefix == "" {
+		instance.Spec.GeneratedSecretNamePrefix = strings.ToLower(
+			utils.GetRandomString(MaxGeneratedSecretNamePrefixLength),
 		)
 	}
 

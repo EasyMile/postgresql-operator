@@ -74,9 +74,6 @@ spec:
           status:
             description: PostgresqlBackupStatus defines the observed state of PostgresqlBackup.
             properties:
-              hash:
-                description: Resource Spec hash
-                type: string
               message:
                 description: Human-readable message indicating details about current
                   operator phase or error.

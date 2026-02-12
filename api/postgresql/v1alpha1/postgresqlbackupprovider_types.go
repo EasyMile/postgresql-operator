@@ -47,9 +47,10 @@ type PostgresqlBackupProviderSpec struct {
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
-	// Generated Secret name used to populate pg_dump information
+	// Generated Secret name prefix used to populate pg_dump information
+	// Must be limited to 20 characters
 	// +optional
-	GeneratedSecretName string `json:"generatedSecretName,omitempty"`
+	GeneratedSecretNamePrefix string `json:"generatedSecretNamePrefix,omitempty"`
 	// Wait for linked resource to be deleted
 	// +optional
 	WaitLinkedResourcesDeletion bool `json:"waitLinkedResourcesDeletion,omitempty"`
@@ -74,7 +75,7 @@ type PostgresqlBackupProviderStatus struct {
 	// +optional
 	Ready bool `json:"ready,omitempty"`
 	// Generated secret name
-	GeneratedSecretName string `json:"generatedSecretName,omitempty"`
+	GeneratedSecretNamePrefix string `json:"generatedSecretNamePrefix,omitempty"`
 	// Cron job name
 	CronJobName string `json:"cronJobName,omitempty"`
 }

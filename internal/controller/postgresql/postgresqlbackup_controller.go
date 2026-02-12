@@ -19,16 +19,21 @@ package postgresql
 import (
 	"context"
 	"reflect"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
@@ -46,6 +51,15 @@ type PostgresqlBackupReconciler struct {
 	ControllerName                      string
 	ReconcileTimeout                    time.Duration
 }
+
+const (
+	pgDumpEnvHost     = "PGHOST"
+	pgDumpEnvPort     = "PGPORT"
+	pgDumpEnvUser     = "PGUSER"
+	pgDumpEnvPassword = "PGPASSWORD"
+	pgDumpEnvDatabase = "PGDATABASE"
+	pgDumpEnvSSLMode  = "PGSSLMODE"
+)
 
 // +kubebuilder:rbac:groups=postgresql.easymile.com,resources=postgresqlbackups,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=postgresql.easymile.com,resources=postgresqlbackups/status,verbs=get;update;patch
@@ -158,12 +172,26 @@ func (r *PostgresqlBackupReconciler) mainReconcile(
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
+	// Check that postgres database is ready before continue but only if it is the first time
+	// If not, requeue event
+	if !database.Status.Ready {
+		reqLogger.Info("PostgresqlDatabase not ready, waiting for it")
+		r.Recorder.Event(instance, "Warning", "Processing", "Processing stopped because PostgresqlDatabase isn't ready. Waiting for it.")
+
+		return ctrl.Result{}, nil
+	}
 
 	// Find pgec
 	pgec, err := utils.FindPgEngineCfg(ctx, r.Client, database)
 	// Check error
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+	}
+	if !pgec.Status.Ready {
+		reqLogger.Info("PostgresqlEngineConfiguration not ready, waiting for it")
+		r.Recorder.Event(instance, "Warning", "Processing", "Processing stopped because PostgresqlEngineConfiguration isn't ready. Waiting for it.")
+
+		return ctrl.Result{}, nil
 	}
 
 	// Find pgec secret
@@ -180,10 +208,123 @@ func (r *PostgresqlBackupReconciler) mainReconcile(
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
 
-	// Compute spec hash
+	_, err = r.manageSecret(ctx, instance, database, pgec, pgecSecret, backupProvider)
+	if err != nil {
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+	}
+
+	// Manage cronjob part
 
 	// Success
 	return r.manageSuccess(ctx, reqLogger, instance, originalPatch)
+}
+
+func (r *PostgresqlBackupReconciler) manageSecret(
+	ctx context.Context,
+	instance *postgresqlv1alpha1.PostgresqlBackup,
+	database *postgresqlv1alpha1.PostgresqlDatabase,
+	pgec *postgresqlv1alpha1.PostgresqlEngineConfiguration,
+	pgecSecret *corev1.Secret,
+	backupProvider *postgresqlv1alpha1.PostgresqlBackupProvider,
+) (string, error) {
+	// TODO Add a random string to secret
+	secretName := backupProvider.Spec.GeneratedSecretNamePrefix
+	if secretName == "" {
+		return "", errors.NewBadRequest("backup provider generated secret name is empty")
+	}
+
+	user := string(pgecSecret.Data[pgecSecretUserKey])
+	password := string(pgecSecret.Data[pgecSecretPassKey])
+	if user == "" || password == "" {
+		return "", errors.NewBadRequest("engine configuration secret must contain \"user\" and \"password\" values")
+	}
+
+	databaseName := database.Status.Database
+	if databaseName == "" {
+		return "", errors.NewBadRequest("database name is empty")
+	}
+
+	host := pgec.Spec.Host
+	port := pgec.Spec.Port
+	uriArgs := pgec.Spec.URIArgs
+
+	data := map[string][]byte{
+		pgDumpEnvHost:     []byte(host),
+		pgDumpEnvPort:     []byte(strconv.Itoa(port)),
+		pgDumpEnvUser:     []byte(user),
+		pgDumpEnvPassword: []byte(password),
+		pgDumpEnvDatabase: []byte(databaseName),
+	}
+
+	if uriArgs != "" {
+		for _, part := range strings.Split(uriArgs, "&") {
+			if part == "" {
+				continue
+			}
+			keyValue := strings.SplitN(part, "=", 2)
+			if len(keyValue) == 2 && keyValue[0] == "sslmode" && keyValue[1] != "" {
+				data[pgDumpEnvSSLMode] = []byte(keyValue[1])
+
+				break
+			}
+		}
+	}
+
+	// Create secret structure
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        secretName,
+			Namespace:   instance.Namespace,
+			Labels:      backupProvider.Spec.Labels,
+			Annotations: backupProvider.Spec.Annotations,
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: data,
+	}
+
+	// Add controller reference
+	err := controllerutil.SetControllerReference(instance, secret, r.Scheme)
+	if err != nil {
+		return "", err
+	}
+
+	// Try to find it in kubernetes
+	found := &corev1.Secret{}
+	err = r.Get(
+		ctx,
+		types.NamespacedName{
+			Name:      secret.Name,
+			Namespace: secret.Namespace,
+		},
+		found,
+	)
+	// Check if error is present and it isn't a not found error
+	if err != nil && !errors.IsNotFound(err) {
+		return "", err
+	}
+
+	// Check if error is present and if it is a not found error
+	if err != nil && errors.IsNotFound(err) {
+		// Create secret
+		return secretName, r.Create(ctx, secret)
+	}
+
+	// Update case
+
+	// Check if update is needed
+	if !reflect.DeepEqual(found.Data, secret.Data) ||
+		!reflect.DeepEqual(found.Labels, secret.Labels) ||
+		!reflect.DeepEqual(found.Annotations, secret.Annotations) {
+		found.Data = secret.Data
+		found.Labels = secret.Labels
+		found.Annotations = secret.Annotations
+
+		// Update
+		return secretName, r.Update(ctx, found)
+	}
+
+	// Nothing to update or patch
+	return secretName, nil
 }
 
 func (r *PostgresqlBackupReconciler) updateInstance(

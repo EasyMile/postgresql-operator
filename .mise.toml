@@ -1,7 +1,7 @@
 #:schema https://mise.jdx.dev/schema/mise.json
 
 [tools]
-go = '1.25.5'
+go = '1.25.6'
 golangci-lint = "2.7.2"
 "aqua:operator-framework/operator-sdk" = "1.42.0"
 "aqua:kubernetes-sigs/kind" = "0.31.0"

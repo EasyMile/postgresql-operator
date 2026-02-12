@@ -41,6 +41,8 @@ import (
 const (
 	DefaultPGPort      = 5432
 	DefaultBouncerPort = 6432
+	pgecSecretUserKey  = "user"
+	pgecSecretPassKey  = "password"
 )
 
 // PostgresqlEngineConfigurationReconciler reconciles a PostgresqlEngineConfiguration object.
@@ -247,8 +249,8 @@ func (r *PostgresqlEngineConfigurationReconciler) mainReconcile(
 
 	// Got secret
 	// Check that secret is valid
-	user := string(secret.Data["user"])
-	password := string(secret.Data["password"])
+	user := string(secret.Data[pgecSecretUserKey])
+	password := string(secret.Data[pgecSecretPassKey])
 
 	if user == "" || password == "" {
 		return r.manageError(
