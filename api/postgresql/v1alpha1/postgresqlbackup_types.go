@@ -57,9 +57,6 @@ type PostgresqlBackupStatus struct {
 	// True if all resources are in a ready state and all work is done.
 	// +optional
 	Ready bool `json:"ready,omitempty"`
-	// BackupProvider spec hash
-	// +optional
-	ProviderHash string `json:"providerHash,omitempty"`
 	// Generated name for resources
 	// +optional
 	GeneratedName string `json:"generatedName,omitempty"`

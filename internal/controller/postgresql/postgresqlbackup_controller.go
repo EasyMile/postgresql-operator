@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -210,15 +211,146 @@ func (r *PostgresqlBackupReconciler) mainReconcile(
 	}
 
 	// Manage secret
-	_, err = r.manageSecret(ctx, instance, database, pgec, pgecSecret, backupProvider)
+	generatedName, err := r.manageSecret(ctx, instance, database, pgec, pgecSecret, backupProvider)
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
 
 	// Manage cronjob part
+	err = r.manageCronJob(ctx, instance, backupProvider, generatedName)
+	if err != nil {
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+	}
+
+	// Save data in status
+	instance.Status.GeneratedName = generatedName
 
 	// Success
 	return r.manageSuccess(ctx, reqLogger, instance, originalPatch)
+}
+
+func (r *PostgresqlBackupReconciler) manageCronJob(
+	ctx context.Context,
+	instance *postgresqlv1alpha1.PostgresqlBackup,
+	backupProvider *postgresqlv1alpha1.PostgresqlBackupProvider,
+	generatedName string,
+) error {
+	// Validate cronjob spec existence before generating resources
+	if backupProvider.Spec.CronJobSpec == nil {
+		return errors.NewBadRequest("backup provider cron job spec is empty")
+	}
+
+	// Clone provider cronjob spec and override schedule from backup instance
+	cronJobSpec := backupProvider.Spec.CronJobSpec.DeepCopy()
+	cronJobSpec.Schedule = instance.Spec.Schedule
+
+	// Ensure the pg_dump secret is available in all containers
+	ensureSecretEnv := func(containers []corev1.Container) []corev1.Container {
+		for i := range containers {
+			found := false
+			for _, envFrom := range containers[i].EnvFrom {
+				if envFrom.SecretRef != nil && envFrom.SecretRef.Name == generatedName {
+					found = true
+
+					break
+				}
+			}
+			if !found {
+				containers[i].EnvFrom = append(containers[i].EnvFrom, corev1.EnvFromSource{
+					SecretRef: &corev1.SecretEnvSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: generatedName,
+						},
+					},
+				})
+			}
+		}
+
+		return containers
+	}
+
+	// Apply secret env injection to init and main containers
+	cronJobSpec.JobTemplate.Spec.Template.Spec.InitContainers = ensureSecretEnv(
+		cronJobSpec.JobTemplate.Spec.Template.Spec.InitContainers,
+	)
+	cronJobSpec.JobTemplate.Spec.Template.Spec.Containers = ensureSecretEnv(
+		cronJobSpec.JobTemplate.Spec.Template.Spec.Containers,
+	)
+
+	// Build CronJob resource with provider labels/annotations
+	cronJob := &batchv1.CronJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        generatedName,
+			Namespace:   backupProvider.Namespace,
+			Labels:      backupProvider.Spec.Labels,
+			Annotations: backupProvider.Spec.Annotations,
+		},
+		Spec: *cronJobSpec,
+	}
+
+	// Set ownership so CronJob is garbage-collected with the backup instance.
+	err := controllerutil.SetControllerReference(instance, cronJob, r.Scheme)
+	if err != nil {
+		return err
+	}
+
+	// Check if previous generated name was the same or not
+	// If not, delete previous cronjob
+	if instance.Status.GeneratedName != "" && instance.Status.GeneratedName != generatedName {
+		err = r.Client.Delete(ctx, &batchv1.CronJob{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      instance.Status.GeneratedName,
+				Namespace: instance.Namespace,
+			},
+		})
+		if err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	// Lookup current CronJob
+	foundCronJob := &batchv1.CronJob{}
+	err = r.Get(
+		ctx,
+		types.NamespacedName{
+			Name:      cronJob.Name,
+			Namespace: cronJob.Namespace,
+		},
+		foundCronJob,
+	)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	// Check if  missing
+	if err != nil && errors.IsNotFound(err) {
+		return r.Create(ctx, cronJob)
+	}
+	// Check error
+	if err != nil {
+		return err
+	}
+
+	// Update only when spec/labels/annotations differ
+	if reflect.DeepEqual(foundCronJob.Spec, cronJob.Spec) &&
+		reflect.DeepEqual(foundCronJob.Labels, cronJob.Labels) &&
+		reflect.DeepEqual(foundCronJob.Annotations, cronJob.Annotations) {
+		return nil
+	}
+
+	// Update data
+	foundCronJob.Spec = cronJob.Spec
+	foundCronJob.Labels = cronJob.Labels
+	foundCronJob.Annotations = cronJob.Annotations
+
+	// Update
+	err = r.Update(ctx, foundCronJob)
+	if err != nil {
+		return err
+	}
+
+	// Default
+	return nil
 }
 
 func (r *PostgresqlBackupReconciler) generateResourceName(
@@ -290,7 +422,7 @@ func (r *PostgresqlBackupReconciler) manageSecret(
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        secretName,
-			Namespace:   instance.Namespace,
+			Namespace:   backupProvider.Namespace,
 			Labels:      backupProvider.Spec.Labels,
 			Annotations: backupProvider.Spec.Annotations,
 		},
@@ -312,11 +444,9 @@ func (r *PostgresqlBackupReconciler) manageSecret(
 				Name:      secretName,
 				Namespace: instance.Namespace,
 			},
-			Type: corev1.SecretTypeOpaque,
-			Data: map[string][]byte{},
 		})
 		// Check error
-		if err != nil {
+		if err != nil && !errors.IsNotFound(err) {
 			return "", err
 		}
 	}
