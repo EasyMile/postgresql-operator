@@ -59,6 +59,7 @@ const (
 	pgDumpEnvPassword = "PGPASSWORD"
 	pgDumpEnvDatabase = "PGDATABASE"
 	pgDumpEnvSSLMode  = "PGSSLMODE"
+	maxNameLength     = 63
 )
 
 // +kubebuilder:rbac:groups=postgresql.easymile.com,resources=postgresqlbackups,verbs=get;list;watch;create;update;patch;delete
@@ -208,6 +209,7 @@ func (r *PostgresqlBackupReconciler) mainReconcile(
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
 	}
 
+	// Manage secret
 	_, err = r.manageSecret(ctx, instance, database, pgec, pgecSecret, backupProvider)
 	if err != nil {
 		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
@@ -219,6 +221,20 @@ func (r *PostgresqlBackupReconciler) mainReconcile(
 	return r.manageSuccess(ctx, reqLogger, instance, originalPatch)
 }
 
+func (r *PostgresqlBackupReconciler) generateResourceName(
+	instance *postgresqlv1alpha1.PostgresqlBackup,
+	provider *postgresqlv1alpha1.PostgresqlBackupProvider,
+) string {
+	// Start build name
+	resourceName := provider.Spec.GeneratedNamePrefix + instance.Name + instance.Namespace
+	// Check if it is greater than max authorized
+	if len(resourceName) > maxNameLength {
+		resourceName = resourceName[:maxNameLength]
+	}
+
+	return resourceName
+}
+
 func (r *PostgresqlBackupReconciler) manageSecret(
 	ctx context.Context,
 	instance *postgresqlv1alpha1.PostgresqlBackup,
@@ -227,8 +243,8 @@ func (r *PostgresqlBackupReconciler) manageSecret(
 	pgecSecret *corev1.Secret,
 	backupProvider *postgresqlv1alpha1.PostgresqlBackupProvider,
 ) (string, error) {
-	// TODO Add a random string to secret
-	secretName := backupProvider.Spec.GeneratedSecretNamePrefix
+	// Generate name
+	secretName := r.generateResourceName(instance, backupProvider)
 	if secretName == "" {
 		return "", errors.NewBadRequest("backup provider generated secret name is empty")
 	}
@@ -257,11 +273,11 @@ func (r *PostgresqlBackupReconciler) manageSecret(
 	}
 
 	if uriArgs != "" {
-		for _, part := range strings.Split(uriArgs, "&") {
+		for part := range strings.SplitSeq(uriArgs, "&") {
 			if part == "" {
 				continue
 			}
-			keyValue := strings.SplitN(part, "=", 2)
+			keyValue := strings.SplitN(part, "=", 2) //nolint:mnd
 			if len(keyValue) == 2 && keyValue[0] == "sslmode" && keyValue[1] != "" {
 				data[pgDumpEnvSSLMode] = []byte(keyValue[1])
 
@@ -286,6 +302,23 @@ func (r *PostgresqlBackupReconciler) manageSecret(
 	err := controllerutil.SetControllerReference(instance, secret, r.Scheme)
 	if err != nil {
 		return "", err
+	}
+
+	// Check if previous generated name was the same or not
+	// If not, delete previous secret
+	if instance.Status.GeneratedName != "" && instance.Status.GeneratedName != secretName {
+		err = r.Client.Delete(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secretName,
+				Namespace: instance.Namespace,
+			},
+			Type: corev1.SecretTypeOpaque,
+			Data: map[string][]byte{},
+		})
+		// Check error
+		if err != nil {
+			return "", err
+		}
 	}
 
 	// Try to find it in kubernetes

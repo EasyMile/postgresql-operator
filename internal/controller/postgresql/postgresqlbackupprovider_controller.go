@@ -175,8 +175,8 @@ func (r *PostgresqlBackupProviderReconciler) updateInstance(
 	controllerutil.AddFinalizer(instance, config.Finalizer)
 
 	// Check if generated secret name is set
-	if instance.Spec.GeneratedSecretNamePrefix == "" {
-		instance.Spec.GeneratedSecretNamePrefix = strings.ToLower(
+	if instance.Spec.GeneratedNamePrefix == "" {
+		instance.Spec.GeneratedNamePrefix = strings.ToLower(
 			utils.GetRandomString(MaxGeneratedSecretNamePrefixLength),
 		)
 	}

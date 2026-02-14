@@ -9200,8 +9200,10 @@ spec:
                 - jobTemplate
                 - schedule
                 type: object
-              generatedSecretName:
-                description: Generated Secret name used to populate pg_dump information
+              generatedNamePrefix:
+                description: |-
+                  Generated name prefix used to populate secret pg_dump information and to create cronjobs.
+                  Must be limited to 20 characters.
                 type: string
               labels:
                 additionalProperties:
@@ -9226,7 +9228,7 @@ spec:
               cronJobName:
                 description: Cron job name
                 type: string
-              generatedSecretName:
+              generatedSecretNamePrefix:
                 description: Generated secret name
                 type: string
               message:
