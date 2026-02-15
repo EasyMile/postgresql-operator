@@ -225,7 +225,7 @@ func (r *PostgresqlBackupProviderReconciler) validateInstance(
 		return errors.NewBadRequest("cronjob name mustn't be empty")
 	}
 	if len(instance.Spec.CronJobName) > maxNameLength {
-		return errors.NewBadRequest("cronjob name is greater than supported")
+		return errors.NewBadRequest("cronjob name length is greater than supported")
 	}
 
 	// Check generated name prefix
@@ -233,7 +233,7 @@ func (r *PostgresqlBackupProviderReconciler) validateInstance(
 		return errors.NewBadRequest("GeneratedNamePrefix mustn't be empty")
 	}
 	if len(instance.Spec.GeneratedNamePrefix) > maxGeneratedNamePrefixLength {
-		return errors.NewBadRequest("GeneratedNamePrefix is greater than supported")
+		return errors.NewBadRequest("GeneratedNamePrefix length is greater than supported")
 	}
 
 	// Default

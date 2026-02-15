@@ -17,58 +17,273 @@ limitations under the License.
 package postgresql
 
 import (
+	"errors"
+	"fmt"
+	"strings"
+
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	//nolint:revive
 	. "github.com/onsi/ginkgo/v2"
+	//nolint:revive
+	. "github.com/onsi/gomega"
+
+	apimachineryErrors "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/easymile/postgresql-operator/api/postgresql/common"
+	postgresqlv1alpha1 "github.com/easymile/postgresql-operator/api/postgresql/v1alpha1"
+	"github.com/easymile/postgresql-operator/internal/controller/config"
 )
 
 var _ = Describe("PostgresqlBackupProvider Controller", func() {
-	// Context("When reconciling a resource", func() {
-	// 	const resourceName = "test-resource"
+	AfterEach(cleanupFunction)
 
-	// 	ctx := context.Background()
+	It("shouldn't accept input without any specs", func() {
+		err := k8sClient.Create(ctx, &postgresqlv1alpha1.PostgresqlBackupProvider{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      pgbpName,
+				Namespace: pgbpNamespace,
+			},
+		})
 
-	// 	typeNamespacedName := types.NamespacedName{
-	// 		Name:      resourceName,
-	// 		Namespace: "default", // TODO(user):Modify as needed
-	// 	}
-	// 	postgresqlbackupprovider := &postgresqlv1alpha1.PostgresqlBackupProvider{}
+		Expect(err).To(HaveOccurred())
 
-	// 	BeforeEach(func() {
-	// 		By("creating the custom resource for the Kind PostgresqlBackupProvider")
-	// 		err := k8sClient.Get(ctx, typeNamespacedName, postgresqlbackupprovider)
-	// 		if err != nil && errors.IsNotFound(err) {
-	// 			resource := &postgresqlv1alpha1.PostgresqlBackupProvider{
-	// 				ObjectMeta: metav1.ObjectMeta{
-	// 					Name:      resourceName,
-	// 					Namespace: "default",
-	// 				},
-	// 				// TODO(user): Specify other spec details if needed.
-	// 			}
-	// 			Expect(k8sClient.Create(ctx, resource)).To(Succeed())
-	// 		}
-	// 	})
+		// Cast error
+		stErr, ok := err.(*apimachineryErrors.StatusError)
+		Expect(ok).To(BeTrue())
 
-	// 	AfterEach(func() {
-	// 		// TODO(user): Cleanup logic after each test, like removing the resource instance.
-	// 		resource := &postgresqlv1alpha1.PostgresqlBackupProvider{}
-	// 		err := k8sClient.Get(ctx, typeNamespacedName, resource)
-	// 		Expect(err).NotTo(HaveOccurred())
+		// Check that content is correct
+		causes := stErr.Status().Details.Causes
+		Expect(causes).To(HaveLen(2))
 
-	// 		By("Cleanup the specific resource instance PostgresqlBackupProvider")
-	// 		Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-	// 	})
-	// 	It("should successfully reconcile the resource", func() {
-	// 		By("Reconciling the created resource")
-	// 		controllerReconciler := &PostgresqlBackupProviderReconciler{
-	// 			Client: k8sClient,
-	// 			Scheme: k8sClient.Scheme(),
-	// 		}
+		fields := map[string]bool{
+			"spec.cronJobSpec": false,
+			"spec.cronJobName": false,
+		}
 
-	// 		_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
-	// 			NamespacedName: typeNamespacedName,
-	// 		})
-	// 		Expect(err).NotTo(HaveOccurred())
-	// 		// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-	// 		// Example: If you expect a certain status condition after reconciliation, verify it here.
-	// 	})
-	// })
+		for _, cause := range causes {
+			fields[cause.Field] = true
+		}
+
+		for key, value := range fields {
+			if !value {
+				err := fmt.Errorf("%s found be found in error causes", key)
+				Expect(err).ToNot(HaveOccurred())
+			}
+		}
+	})
+
+	It("should fail when cronjob name is too long", func() {
+		it := &postgresqlv1alpha1.PostgresqlBackupProvider{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      pgbpName,
+				Namespace: pgbpNamespace,
+			},
+			Spec: postgresqlv1alpha1.PostgresqlBackupProviderSpec{
+				CronJobSpec:         makeCronJobSpec(),
+				CronJobName:         strings.Repeat("a", maxNameLength+1),
+				GeneratedNamePrefix: "prefix",
+			},
+		}
+
+		Expect(k8sClient.Create(ctx, it)).Should(Succeed())
+
+		item := &postgresqlv1alpha1.PostgresqlBackupProvider{}
+		Eventually(
+			func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgbpName,
+					Namespace: pgbpNamespace,
+				}, item)
+				if err != nil {
+					return err
+				}
+				if item.Status.Phase == postgresqlv1alpha1.BackupProviderNoPhase {
+					return errors.New("pgbp hasn't been updated by operator")
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
+
+		Expect(item.Status.Ready).To(BeFalse())
+		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.BackupProviderErrorPhase))
+		Expect(item.Status.Message).To(Equal("cronjob name length is greater than supported"))
+	})
+
+	It("should fail when generated name prefix is too long", func() {
+		it := &postgresqlv1alpha1.PostgresqlBackupProvider{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      pgbpName,
+				Namespace: pgbpNamespace,
+			},
+			Spec: postgresqlv1alpha1.PostgresqlBackupProviderSpec{
+				CronJobSpec:         makeCronJobSpec(),
+				CronJobName:         "backup-cron",
+				GeneratedNamePrefix: strings.Repeat("b", maxGeneratedNamePrefixLength+1),
+			},
+		}
+
+		Expect(k8sClient.Create(ctx, it)).Should(Succeed())
+
+		item := &postgresqlv1alpha1.PostgresqlBackupProvider{}
+		Eventually(
+			func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgbpName,
+					Namespace: pgbpNamespace,
+				}, item)
+				if err != nil {
+					return err
+				}
+				if item.Status.Phase == postgresqlv1alpha1.BackupProviderNoPhase {
+					return errors.New("pgbp hasn't been updated by operator")
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
+
+		Expect(item.Status.Ready).To(BeFalse())
+		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.BackupProviderErrorPhase))
+		Expect(item.Status.Message).To(Equal("GeneratedNamePrefix length is greater than supported"))
+	})
+
+	It("should be ok to set required values and auto-generate prefix", func() {
+		it := &postgresqlv1alpha1.PostgresqlBackupProvider{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      pgbpName,
+				Namespace: pgbpNamespace,
+			},
+			Spec: postgresqlv1alpha1.PostgresqlBackupProviderSpec{
+				CronJobSpec: makeCronJobSpec(),
+				CronJobName: "backup-cron",
+			},
+		}
+
+		Expect(k8sClient.Create(ctx, it)).Should(Succeed())
+
+		item := &postgresqlv1alpha1.PostgresqlBackupProvider{}
+		Eventually(
+			func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgbpName,
+					Namespace: pgbpNamespace,
+				}, item)
+				if err != nil {
+					return err
+				}
+				if item.Status.Phase == postgresqlv1alpha1.BackupProviderNoPhase {
+					return errors.New("pgbp hasn't been updated by operator")
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
+
+		Expect(item.Status.Ready).To(BeTrue())
+		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.BackupProviderValidPhase))
+		Expect(item.Status.Message).To(BeEmpty())
+		Expect(controllerutil.ContainsFinalizer(item, config.Finalizer)).To(BeTrue())
+		Expect(item.Spec.GeneratedNamePrefix).ToNot(BeEmpty())
+		Expect(len(item.Spec.GeneratedNamePrefix)).To(BeNumerically("<=", maxGeneratedNamePrefixLength))
+	})
+
+	It("should block deletion when wait linked resources deletion is enabled and a backup exists", func() {
+		provider := &postgresqlv1alpha1.PostgresqlBackupProvider{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      pgbpName,
+				Namespace: pgbpNamespace,
+			},
+			Spec: postgresqlv1alpha1.PostgresqlBackupProviderSpec{
+				CronJobSpec:                 makeCronJobSpec(),
+				CronJobName:                 "backup-cron",
+				GeneratedNamePrefix:         "prefix",
+				WaitLinkedResourcesDeletion: true,
+			},
+		}
+		Expect(k8sClient.Create(ctx, provider)).Should(Succeed())
+
+		backup := &postgresqlv1alpha1.PostgresqlBackup{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      pgbName,
+				Namespace: pgbNamespace,
+			},
+			Spec: postgresqlv1alpha1.PostgresqlBackupSpec{
+				Schedule: "*/10 * * * *",
+				Database: &common.CRLink{
+					Name:      pgdbName,
+					Namespace: pgbpNamespace,
+				},
+				BackupProvider: &common.CRLink{
+					Name:      pgbpName,
+					Namespace: pgbpNamespace,
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, backup)).Should(Succeed())
+
+		backupItem := &postgresqlv1alpha1.PostgresqlBackup{}
+		Eventually(
+			func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgbName,
+					Namespace: pgbNamespace,
+				}, backupItem)
+				if err != nil {
+					return err
+				}
+
+				if backupItem.Status.Phase != postgresqlv1alpha1.BackupErrorPhase {
+					return errors.New("backup not updated")
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
+
+		Expect(k8sClient.Delete(ctx, provider)).Should(Succeed())
+
+		item := &postgresqlv1alpha1.PostgresqlBackupProvider{}
+		Eventually(
+			func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgbpName,
+					Namespace: pgbpNamespace,
+				}, item)
+				if err != nil {
+					return err
+				}
+				if item.DeletionTimestamp.IsZero() {
+					return errors.New("pgbp hasn't started deletion yet")
+				}
+				if !controllerutil.ContainsFinalizer(item, config.Finalizer) {
+					return errors.New("finalizer removed before linked backup deletion")
+				}
+				if item.Status.Phase != postgresqlv1alpha1.BackupProviderErrorPhase {
+					return errors.New("pgbp hasn't been updated by operator")
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
+
+		Expect(item.Status.Ready).To(BeFalse())
+		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.BackupProviderErrorPhase))
+		Expect(item.Status.Message).To(ContainSubstring("cannot remove resource because found backup"))
+	})
+
+	// TODO Finish tests
 })

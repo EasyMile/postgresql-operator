@@ -45,6 +45,7 @@ import (
 
 	gerrors "errors"
 	//
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -95,6 +96,10 @@ var (
 	pgPublicSchemaName                     = "public"
 	pgdbExtensionName1                     = "uuid-ossp"
 	pgdbExtensionName2                     = "cube"
+	pgbpNamespace                          = "pgbp-ns"
+	pgbpName                               = "pgbp"
+	pgbNamespace                           = "pgb-ns"
+	pgbName                                = "pgb"
 	postgresUser                           = "postgres"
 	postgresPassword                       = "postgres"
 	postgresUrlWithDbTemplate              = "postgresql://%s:%s@localhost:5432/%s?sslmode=disable"
@@ -198,6 +203,26 @@ var _ = BeforeSuite(func(_ context.Context) {
 		ReconcileTimeout:                    10 * time.Second,
 	}).SetupWithManager(k8sManager)).ToNot(HaveOccurred())
 
+	Expect((&PostgresqlBackupProviderReconciler{
+		Client:                              k8sClient,
+		Log:                                 logf.Log.WithName("controllers"),
+		Recorder:                            k8sManager.GetEventRecorderFor("controller"),
+		Scheme:                              scheme.Scheme,
+		ControllerRuntimeDetailedErrorTotal: controllerRuntimeDetailedErrorTotal,
+		ControllerName:                      "postgresqlbackupprovider",
+		ReconcileTimeout:                    10 * time.Second,
+	}).SetupWithManager(k8sManager)).ToNot(HaveOccurred())
+
+	Expect((&PostgresqlBackupReconciler{
+		Client:                              k8sClient,
+		Log:                                 logf.Log.WithName("controllers"),
+		Recorder:                            k8sManager.GetEventRecorderFor("controller"),
+		Scheme:                              scheme.Scheme,
+		ControllerRuntimeDetailedErrorTotal: controllerRuntimeDetailedErrorTotal,
+		ControllerName:                      "postgresqlbackup",
+		ReconcileTimeout:                    10 * time.Second,
+	}).SetupWithManager(k8sManager)).ToNot(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -231,6 +256,18 @@ var _ = BeforeSuite(func(_ context.Context) {
 	Expect(k8sClient.Create(ctx, &corev1.Namespace{
 		ObjectMeta: v1.ObjectMeta{
 			Name: pgpublicationNamespace,
+		},
+	})).ToNot(HaveOccurred())
+
+	Expect(k8sClient.Create(ctx, &corev1.Namespace{
+		ObjectMeta: v1.ObjectMeta{
+			Name: pgbNamespace,
+		},
+	})).ToNot(HaveOccurred())
+
+	Expect(k8sClient.Create(ctx, &corev1.Namespace{
+		ObjectMeta: v1.ObjectMeta{
+			Name: pgbpNamespace,
 		},
 	})).ToNot(HaveOccurred())
 }, NodeTimeout(60*time.Second))
@@ -271,6 +308,8 @@ func cleanupFunction() {
 	Expect(deletePGUR(ctx, k8sClient, pgurName, pgurNamespace)).ToNot(HaveOccurred())
 	Expect(deletePGDB(ctx, k8sClient, pgdbName, pgdbNamespace)).ToNot(HaveOccurred())
 	Expect(deletePGDB(ctx, k8sClient, pgdbName2, pgdbNamespace)).ToNot(HaveOccurred())
+	Expect(deletePGB(ctx, k8sClient, pgbName, pgbNamespace)).ToNot(HaveOccurred())
+	Expect(deletePGBP(ctx, k8sClient, pgbpName, pgbpNamespace)).ToNot(HaveOccurred())
 
 	// Close all connections in operator pool
 	// For this, use utils methods and official pool methods
@@ -374,6 +413,28 @@ func deleteObject(
 	}
 
 	return gerrors.New("object not cleaned")
+}
+
+func makeCronJobSpec() *batchv1.CronJobSpec {
+	return &batchv1.CronJobSpec{
+		Schedule: "*/5 * * * *",
+		JobTemplate: batchv1.JobTemplateSpec{
+			Spec: batchv1.JobSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						RestartPolicy: corev1.RestartPolicyNever,
+						Containers: []corev1.Container{
+							{
+								Name:    "backup",
+								Image:   "busybox:1.36",
+								Command: []string{"sh", "-c", "echo backup"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
 func setupPGECSecret() *corev1.Secret {
@@ -972,6 +1033,20 @@ func setupSavePGDBInternal(
 func deletePGDB(ctx context.Context, cl client.Client, name, namespace string) error {
 	// Create structure
 	st := &postgresqlv1alpha1.PostgresqlDatabase{}
+	// Delete
+	return deleteObject(ctx, cl, name, namespace, st)
+}
+
+func deletePGB(ctx context.Context, cl client.Client, name, namespace string) error {
+	// Create structure
+	st := &postgresqlv1alpha1.PostgresqlBackup{}
+	// Delete
+	return deleteObject(ctx, cl, name, namespace, st)
+}
+
+func deletePGBP(ctx context.Context, cl client.Client, name, namespace string) error {
+	// Create structure
+	st := &postgresqlv1alpha1.PostgresqlBackupProvider{}
 	// Delete
 	return deleteObject(ctx, cl, name, namespace, st)
 }
