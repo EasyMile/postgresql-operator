@@ -18,6 +18,7 @@ package postgresql
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -48,7 +49,7 @@ type PostgresqlBackupProviderReconciler struct {
 	ReconcileTimeout                    time.Duration
 }
 
-const MaxGeneratedSecretNamePrefixLength = 20
+const maxGeneratedNamePrefixLength = 20
 
 // +kubebuilder:rbac:groups=postgresql.easymile.com,resources=postgresqlbackupproviders,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=postgresql.easymile.com,resources=postgresqlbackupproviders/status,verbs=get;update;patch
@@ -132,7 +133,26 @@ func (r *PostgresqlBackupProviderReconciler) mainReconcile(
 	// Deletion case
 	if !instance.GetDeletionTimestamp().IsZero() {
 		// Deletion in progress detected
-		// TODO wait for children
+
+		// Check if wait linked resources deletion flag is enabled
+		if instance.Spec.WaitLinkedResourcesDeletion {
+			// Check if there are linked resource linked to this
+			found, err := r.getAnyBackupLinked(ctx, instance)
+			if err != nil {
+				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+			}
+
+			if found != nil {
+				// Wait for children removal
+				err = fmt.Errorf(
+					"cannot remove resource because found backup %s in namespace %s linked to this resource and wait for deletion flag is enabled",
+					found.Name,
+					found.Namespace,
+				)
+
+				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+			}
+		}
 
 		// Remove finalizer
 		controllerutil.RemoveFinalizer(instance, config.Finalizer)
@@ -158,10 +178,66 @@ func (r *PostgresqlBackupProviderReconciler) mainReconcile(
 		return ctrl.Result{}, nil
 	}
 
-	// TODO Validate instance
+	// Validate instance
+	err = r.validateInstance(instance)
+	// Check error
+	if err != nil {
+		return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+	}
 
 	// Success
 	return r.manageSuccess(ctx, reqLogger, instance, originalPatch)
+}
+
+func (r *PostgresqlBackupProviderReconciler) getAnyBackupLinked(
+	ctx context.Context,
+	instance *postgresqlv1alpha1.PostgresqlBackupProvider,
+) (*postgresqlv1alpha1.PostgresqlBackup, error) {
+	// Initialize postgres backup list
+	bL := postgresqlv1alpha1.PostgresqlBackupList{}
+	// Requests for list of backups
+	err := r.List(ctx, &bL)
+	if err != nil {
+		return nil, err
+	}
+	// Loop over the list
+	for _, item := range bL.Items {
+		// Check backup is linked to provider
+		if item.Spec.BackupProvider.Name == instance.Name &&
+			(item.Spec.BackupProvider.Namespace == instance.Namespace || item.Namespace == instance.Namespace) {
+			return &item, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func (r *PostgresqlBackupProviderReconciler) validateInstance(
+	instance *postgresqlv1alpha1.PostgresqlBackupProvider,
+) error {
+	// Cronjob spec
+	if instance.Spec.CronJobSpec == nil {
+		return errors.NewBadRequest("cronjob spec mustn't be empty")
+	}
+
+	// Cronjob name
+	if instance.Spec.CronJobName == "" {
+		return errors.NewBadRequest("cronjob name mustn't be empty")
+	}
+	if len(instance.Spec.CronJobName) > maxNameLength {
+		return errors.NewBadRequest("cronjob name is greater than supported")
+	}
+
+	// Check generated name prefix
+	if instance.Spec.GeneratedNamePrefix == "" {
+		return errors.NewBadRequest("GeneratedNamePrefix mustn't be empty")
+	}
+	if len(instance.Spec.GeneratedNamePrefix) > maxGeneratedNamePrefixLength {
+		return errors.NewBadRequest("GeneratedNamePrefix is greater than supported")
+	}
+
+	// Default
+	return nil
 }
 
 func (r *PostgresqlBackupProviderReconciler) updateInstance(
@@ -177,7 +253,7 @@ func (r *PostgresqlBackupProviderReconciler) updateInstance(
 	// Check if generated secret name is set
 	if instance.Spec.GeneratedNamePrefix == "" {
 		instance.Spec.GeneratedNamePrefix = strings.ToLower(
-			utils.GetRandomString(MaxGeneratedSecretNamePrefixLength),
+			utils.GetRandomString(maxGeneratedNamePrefixLength),
 		)
 	}
 

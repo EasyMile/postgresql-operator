@@ -69,7 +69,6 @@ spec:
             required:
             - backupProvider
             - database
-            - schedule
             type: object
           status:
             description: PostgresqlBackupStatus defines the observed state of PostgresqlBackup.

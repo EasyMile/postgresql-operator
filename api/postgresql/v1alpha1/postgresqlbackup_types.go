@@ -28,6 +28,7 @@ import (
 // PostgresqlBackupSpec defines the desired state of PostgresqlBackup.
 type PostgresqlBackupSpec struct {
 	// Schedule for cronjob
+	// +optional
 	Schedule string `json:"schedule"`
 	// Postgresql Database
 	// +required

@@ -242,7 +242,10 @@ func (r *PostgresqlBackupReconciler) manageCronJob(
 
 	// Clone provider cronjob spec and override schedule from backup instance
 	cronJobSpec := backupProvider.Spec.CronJobSpec.DeepCopy()
-	cronJobSpec.Schedule = instance.Spec.Schedule
+	// Check if schedule is set in order to patch spec
+	if instance.Spec.Schedule != "" {
+		cronJobSpec.Schedule = instance.Spec.Schedule
+	}
 
 	// Ensure the pg_dump secret is available in all containers
 	ensureSecretEnv := func(containers []corev1.Container) []corev1.Container {
