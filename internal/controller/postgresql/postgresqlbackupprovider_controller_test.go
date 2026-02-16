@@ -285,5 +285,217 @@ var _ = Describe("PostgresqlBackupProvider Controller", func() {
 		Expect(item.Status.Message).To(ContainSubstring("cannot remove resource because found backup"))
 	})
 
-	// TODO Finish tests
+	It("should block deletion when wait linked resources deletion is disabled and a backup exists", func() {
+		provider := &postgresqlv1alpha1.PostgresqlBackupProvider{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      pgbpName,
+				Namespace: pgbpNamespace,
+			},
+			Spec: postgresqlv1alpha1.PostgresqlBackupProviderSpec{
+				CronJobSpec:                 makeCronJobSpec(),
+				CronJobName:                 "backup-cron",
+				GeneratedNamePrefix:         "prefix",
+				WaitLinkedResourcesDeletion: false,
+			},
+		}
+		Expect(k8sClient.Create(ctx, provider)).Should(Succeed())
+
+		backup := &postgresqlv1alpha1.PostgresqlBackup{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      pgbName,
+				Namespace: pgbNamespace,
+			},
+			Spec: postgresqlv1alpha1.PostgresqlBackupSpec{
+				Schedule: "*/10 * * * *",
+				Database: &common.CRLink{
+					Name:      pgdbName,
+					Namespace: pgbpNamespace,
+				},
+				BackupProvider: &common.CRLink{
+					Name:      pgbpName,
+					Namespace: pgbpNamespace,
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, backup)).Should(Succeed())
+
+		backupItem := &postgresqlv1alpha1.PostgresqlBackup{}
+		Eventually(
+			func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgbName,
+					Namespace: pgbNamespace,
+				}, backupItem)
+				if err != nil {
+					return err
+				}
+
+				if backupItem.Status.Phase != postgresqlv1alpha1.BackupErrorPhase {
+					return errors.New("backup not updated")
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
+
+		Expect(k8sClient.Delete(ctx, provider)).Should(Succeed())
+
+		item := &postgresqlv1alpha1.PostgresqlBackupProvider{}
+		Eventually(
+			func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgbpName,
+					Namespace: pgbpNamespace,
+				}, item)
+				if err != nil && !apimachineryErrors.IsNotFound(err) {
+					return err
+				}
+				if err != nil && apimachineryErrors.IsNotFound(err) {
+					return nil
+				}
+				if item.DeletionTimestamp.IsZero() {
+					return errors.New("pgbp hasn't started deletion yet")
+				}
+				if !controllerutil.ContainsFinalizer(item, config.Finalizer) {
+					return errors.New("finalizer removed before linked backup deletion")
+				}
+
+				return errors.New("not cleaned")
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
+	})
+
+	It("should block deletion when wait linked resources deletion is enabled and no backup exists", func() {
+		provider := &postgresqlv1alpha1.PostgresqlBackupProvider{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      pgbpName,
+				Namespace: pgbpNamespace,
+			},
+			Spec: postgresqlv1alpha1.PostgresqlBackupProviderSpec{
+				CronJobSpec:                 makeCronJobSpec(),
+				CronJobName:                 "backup-cron",
+				GeneratedNamePrefix:         "prefix",
+				WaitLinkedResourcesDeletion: true,
+			},
+		}
+		Expect(k8sClient.Create(ctx, provider)).Should(Succeed())
+
+		backupProviderItem := &postgresqlv1alpha1.PostgresqlBackupProvider{}
+		Eventually(
+			func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgbpName,
+					Namespace: pgbpNamespace,
+				}, backupProviderItem)
+				if err != nil {
+					return err
+				}
+
+				if backupProviderItem.Status.Phase == postgresqlv1alpha1.BackupProviderNoPhase {
+					return errors.New("backup not updated")
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
+
+		Expect(k8sClient.Delete(ctx, provider)).Should(Succeed())
+
+		item := &postgresqlv1alpha1.PostgresqlBackupProvider{}
+		Eventually(
+			func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgbpName,
+					Namespace: pgbpNamespace,
+				}, item)
+				if err != nil && !apimachineryErrors.IsNotFound(err) {
+					return err
+				}
+				if err != nil && apimachineryErrors.IsNotFound(err) {
+					return nil
+				}
+				if item.DeletionTimestamp.IsZero() {
+					return errors.New("pgbp hasn't started deletion yet")
+				}
+				if !controllerutil.ContainsFinalizer(item, config.Finalizer) {
+					return errors.New("finalizer removed before linked backup deletion")
+				}
+
+				return errors.New("not cleaned")
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
+	})
+
+	It("should block deletion when wait linked resources deletion is disabled and no backup exists", func() {
+		provider := &postgresqlv1alpha1.PostgresqlBackupProvider{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      pgbpName,
+				Namespace: pgbpNamespace,
+			},
+			Spec: postgresqlv1alpha1.PostgresqlBackupProviderSpec{
+				CronJobSpec:                 makeCronJobSpec(),
+				CronJobName:                 "backup-cron",
+				GeneratedNamePrefix:         "prefix",
+				WaitLinkedResourcesDeletion: false,
+			},
+		}
+		Expect(k8sClient.Create(ctx, provider)).Should(Succeed())
+
+		backupProviderItem := &postgresqlv1alpha1.PostgresqlBackupProvider{}
+		Eventually(
+			func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgbpName,
+					Namespace: pgbpNamespace,
+				}, backupProviderItem)
+				if err != nil {
+					return err
+				}
+
+				if backupProviderItem.Status.Phase == postgresqlv1alpha1.BackupProviderNoPhase {
+					return errors.New("backup not updated")
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
+
+		Expect(k8sClient.Delete(ctx, provider)).Should(Succeed())
+
+		item := &postgresqlv1alpha1.PostgresqlBackupProvider{}
+		Eventually(
+			func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgbpName,
+					Namespace: pgbpNamespace,
+				}, item)
+				if err != nil && !apimachineryErrors.IsNotFound(err) {
+					return err
+				}
+				if err != nil && apimachineryErrors.IsNotFound(err) {
+					return nil
+				}
+				if item.DeletionTimestamp.IsZero() {
+					return errors.New("pgbp hasn't started deletion yet")
+				}
+				if !controllerutil.ContainsFinalizer(item, config.Finalizer) {
+					return errors.New("finalizer removed before linked backup deletion")
+				}
+
+				return errors.New("not cleaned")
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
+	})
 })
