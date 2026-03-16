@@ -75,46 +75,6 @@ var _ = Describe("PostgresqlBackupProvider Controller", func() {
 		}
 	})
 
-	It("should fail when cronjob name is too long", func() {
-		it := &postgresqlv1alpha1.PostgresqlBackupProvider{
-			ObjectMeta: v1.ObjectMeta{
-				Name:      pgbpName,
-				Namespace: pgbpNamespace,
-			},
-			Spec: postgresqlv1alpha1.PostgresqlBackupProviderSpec{
-				CronJobSpec:         makeCronJobSpec(),
-				CronJobName:         strings.Repeat("a", maxNameLength+1),
-				GeneratedNamePrefix: "prefix",
-			},
-		}
-
-		Expect(k8sClient.Create(ctx, it)).Should(Succeed())
-
-		item := &postgresqlv1alpha1.PostgresqlBackupProvider{}
-		Eventually(
-			func() error {
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      pgbpName,
-					Namespace: pgbpNamespace,
-				}, item)
-				if err != nil {
-					return err
-				}
-				if item.Status.Phase == postgresqlv1alpha1.BackupProviderNoPhase {
-					return errors.New("pgbp hasn't been updated by operator")
-				}
-
-				return nil
-			},
-			generalEventuallyTimeout,
-			generalEventuallyInterval,
-		).Should(Succeed())
-
-		Expect(item.Status.Ready).To(BeFalse())
-		Expect(item.Status.Phase).To(Equal(postgresqlv1alpha1.BackupProviderErrorPhase))
-		Expect(item.Status.Message).To(Equal("cronjob name length is greater than supported"))
-	})
-
 	It("should fail when generated name prefix is too long", func() {
 		it := &postgresqlv1alpha1.PostgresqlBackupProvider{
 			ObjectMeta: v1.ObjectMeta{
@@ -123,7 +83,6 @@ var _ = Describe("PostgresqlBackupProvider Controller", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlBackupProviderSpec{
 				CronJobSpec:         makeCronJobSpec(),
-				CronJobName:         "backup-cron",
 				GeneratedNamePrefix: strings.Repeat("b", maxGeneratedNamePrefixLength+1),
 			},
 		}
@@ -163,7 +122,6 @@ var _ = Describe("PostgresqlBackupProvider Controller", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlBackupProviderSpec{
 				CronJobSpec: makeCronJobSpec(),
-				CronJobName: "backup-cron",
 			},
 		}
 
@@ -205,7 +163,6 @@ var _ = Describe("PostgresqlBackupProvider Controller", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlBackupProviderSpec{
 				CronJobSpec:                 makeCronJobSpec(),
-				CronJobName:                 "backup-cron",
 				GeneratedNamePrefix:         "prefix",
 				WaitLinkedResourcesDeletion: true,
 			},
@@ -293,7 +250,6 @@ var _ = Describe("PostgresqlBackupProvider Controller", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlBackupProviderSpec{
 				CronJobSpec:                 makeCronJobSpec(),
-				CronJobName:                 "backup-cron",
 				GeneratedNamePrefix:         "prefix",
 				WaitLinkedResourcesDeletion: false,
 			},
@@ -377,7 +333,6 @@ var _ = Describe("PostgresqlBackupProvider Controller", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlBackupProviderSpec{
 				CronJobSpec:                 makeCronJobSpec(),
-				CronJobName:                 "backup-cron",
 				GeneratedNamePrefix:         "prefix",
 				WaitLinkedResourcesDeletion: true,
 			},
@@ -442,7 +397,6 @@ var _ = Describe("PostgresqlBackupProvider Controller", func() {
 			},
 			Spec: postgresqlv1alpha1.PostgresqlBackupProviderSpec{
 				CronJobSpec:                 makeCronJobSpec(),
-				CronJobName:                 "backup-cron",
 				GeneratedNamePrefix:         "prefix",
 				WaitLinkedResourcesDeletion: false,
 			},

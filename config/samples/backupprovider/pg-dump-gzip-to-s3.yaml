@@ -1,0 +1,88 @@
+apiVersion: postgresql.easymile.com/v1alpha1
+kind: PostgresqlBackupProvider
+metadata:
+  name: pg-dump-gzip-to-s3
+spec:
+  # Name used for the generated CronJob (and Job on manual trigger).
+  cronJobName: pg-dump-gzip-to-s3
+
+  # Optional prefix prepended to every generated resource name (secret, cronjob).
+  # Must be 20 characters or fewer.
+  # generatedNamePrefix: "bkp-"
+
+  # Labels and annotations copied onto every generated CronJob / Secret.
+  # +optional
+  # labels:
+  #   team: platform
+  # annotations:
+  #   backup.example.com/retention: "30d"
+
+  # Wait for all linked PostgresqlBackup objects to be deleted before
+  # allowing this provider to be deleted.
+  # Default: false
+  # waitLinkedResourcesDeletion: true
+
+  cronJobSpec:
+    # How often the backup runs.
+    schedule: "*/5 * * * *"
+
+    # Keep the last 3 successful and 1 failed job for log inspection.
+    successfulJobsHistoryLimit: 3
+    failedJobsHistoryLimit: 1
+
+    jobTemplate:
+      spec:
+        template:
+          spec:
+            restartPolicy: OnFailure
+
+            # Shared volume used to pass the dump file between init containers.
+            volumes:
+              - name: dump
+                emptyDir: {}
+
+            initContainers:
+              # --- Step 1: pg_dump ---
+              # The operator automatically injects an envFrom referencing the
+              # generated secret into every init container and main container.
+              # That secret exposes: PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE
+              # (and optionally PGSSLMODE), so no explicit env block is needed here.
+              - name: pg-dump
+                image: postgres:16
+                command:
+                  - sh
+                  - -c
+                  - |
+                    pg_dump \
+                      --format=plain \
+                      --no-password \
+                      --file=/dump/backup.sql
+                volumeMounts:
+                  - name: dump
+                    mountPath: /dump
+
+              # --- Step 2: gzip ---
+              - name: gzip
+                image: busybox:1.36
+                command:
+                  - sh
+                  - -c
+                  - gzip /dump/backup.sql
+                volumeMounts:
+                  - name: dump
+                    mountPath: /dump
+
+            containers:
+              # --- Step 3: upload ---
+              # Replace this container with your actual upload logic
+              # (e.g. aws s3 cp, gsutil cp, rclone, …).
+              # Here we simply list the dump directory to confirm the file exists.
+              - name: upload
+                image: busybox:1.36
+                command:
+                  - sh
+                  - -c
+                  - ls -lh /dump/
+                volumeMounts:
+                  - name: dump
+                    mountPath: /dump

@@ -32,9 +32,6 @@ type PostgresqlBackupProviderSpec struct {
 	// Cron job spec for backup runs
 	// +required
 	CronJobSpec *batchv1.CronJobSpec `json:"cronJobSpec,omitempty"`
-	// Name used for cronjob or job
-	// +required
-	CronJobName string `json:"cronJobName,omitempty"`
 	// Map of string keys and values that can be used to organize and categorize
 	// (scope and select) objects. May match selectors of replication controllers
 	// and services.
@@ -76,8 +73,6 @@ type PostgresqlBackupProviderStatus struct {
 	Ready bool `json:"ready,omitempty"`
 	// Generated secret name
 	GeneratedSecretNamePrefix string `json:"generatedSecretNamePrefix,omitempty"`
-	// Cron job name
-	CronJobName string `json:"cronJobName,omitempty"`
 }
 
 // +kubebuilder:object:root=true

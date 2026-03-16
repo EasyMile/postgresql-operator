@@ -50,9 +50,6 @@ spec:
                   queryable and should be preserved when modifying objects.
                   More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations
                 type: object
-              cronJobName:
-                description: Name used for cronjob or job
-                type: string
               cronJobSpec:
                 description: Cron job spec for backup runs
                 properties:
@@ -9218,16 +9215,12 @@ spec:
                 description: Wait for linked resource to be deleted
                 type: boolean
             required:
-            - cronJobName
             - cronJobSpec
             type: object
           status:
             description: PostgresqlBackupProviderStatus defines the observed state
               of PostgresqlBackupProvider.
             properties:
-              cronJobName:
-                description: Cron job name
-                type: string
               generatedSecretNamePrefix:
                 description: Generated secret name
                 type: string

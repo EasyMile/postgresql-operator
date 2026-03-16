@@ -142,7 +142,35 @@ func (r *PostgresqlBackupReconciler) mainReconcile(
 	// Deletion case
 	if !instance.GetDeletionTimestamp().IsZero() {
 		// Deletion in progress detected
-		// TODO wait for children
+		if instance.Status.GeneratedName != "" {
+			resourceNamespace := instance.Namespace
+			// Check if override
+			if instance.Spec.BackupProvider != nil && instance.Spec.BackupProvider.Namespace != resourceNamespace {
+				resourceNamespace = instance.Spec.BackupProvider.Namespace
+			}
+
+			// Delete cronjob
+			err := r.Client.Delete(ctx, &batchv1.CronJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      instance.Status.GeneratedName,
+					Namespace: resourceNamespace,
+				},
+			})
+			if err != nil && !errors.IsNotFound(err) {
+				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+			}
+
+			// Delete secret
+			err = r.Client.Delete(ctx, &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      instance.Status.GeneratedName,
+					Namespace: resourceNamespace,
+				},
+			})
+			if err != nil && !errors.IsNotFound(err) {
+				return r.manageError(ctx, reqLogger, instance, originalPatch, err)
+			}
+		}
 
 		// Remove finalizer
 		controllerutil.RemoveFinalizer(instance, config.Finalizer)
@@ -292,7 +320,8 @@ func (r *PostgresqlBackupReconciler) manageCronJob(
 	}
 
 	// Set ownership so CronJob is garbage-collected with the backup instance.
-	err := controllerutil.SetControllerReference(instance, cronJob, r.Scheme)
+	// ? Note: As we cannot put the instance because it can be in another namespace, as default, put provider
+	err := controllerutil.SetControllerReference(backupProvider, cronJob, r.Scheme)
 	if err != nil {
 		return err
 	}
@@ -434,7 +463,8 @@ func (r *PostgresqlBackupReconciler) manageSecret(
 	}
 
 	// Add controller reference
-	err := controllerutil.SetControllerReference(instance, secret, r.Scheme)
+	// ? Note: As we cannot put the instance because it can be in another namespace, as default, put provider
+	err := controllerutil.SetControllerReference(backupProvider, secret, r.Scheme)
 	if err != nil {
 		return "", err
 	}
