@@ -56,11 +56,10 @@ var _ = Describe("PostgresqlBackupProvider Controller", func() {
 
 		// Check that content is correct
 		causes := stErr.Status().Details.Causes
-		Expect(causes).To(HaveLen(2))
+		Expect(causes).To(HaveLen(1))
 
 		fields := map[string]bool{
 			"spec.cronJobSpec": false,
-			"spec.cronJobName": false,
 		}
 
 		for _, cause := range causes {
