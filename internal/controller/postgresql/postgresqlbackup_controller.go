@@ -328,7 +328,8 @@ func (r *PostgresqlBackupReconciler) manageCronJob(
 
 	// Check if previous generated name was the same or not
 	// If not, delete previous cronjob
-	if instance.Status.GeneratedName != "" && instance.Status.GeneratedName != generatedName { // Find old secret
+	if instance.Status.GeneratedName != "" && instance.Status.GeneratedName != generatedName {
+		// Find old cronjob
 		oldCron := &batchv1.CronJob{}
 		err = r.Get(
 			ctx,
