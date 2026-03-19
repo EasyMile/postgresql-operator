@@ -328,15 +328,28 @@ func (r *PostgresqlBackupReconciler) manageCronJob(
 
 	// Check if previous generated name was the same or not
 	// If not, delete previous cronjob
-	if instance.Status.GeneratedName != "" && instance.Status.GeneratedName != generatedName {
-		err = r.Client.Delete(ctx, &batchv1.CronJob{
-			ObjectMeta: metav1.ObjectMeta{
+	if instance.Status.GeneratedName != "" && instance.Status.GeneratedName != generatedName { // Find old secret
+		oldCron := &batchv1.CronJob{}
+		err = r.Get(
+			ctx,
+			types.NamespacedName{
 				Name:      instance.Status.GeneratedName,
-				Namespace: instance.Namespace,
+				Namespace: cronJob.Namespace,
 			},
-		})
+			oldCron,
+		)
+
+		// Check if error is present and it isn't a not found error
 		if err != nil && !errors.IsNotFound(err) {
 			return err
+		}
+
+		if err == nil {
+			err = r.Client.Delete(ctx, oldCron)
+			// Check error
+			if err != nil && !errors.IsNotFound(err) {
+				return err
+			}
 		}
 	}
 
@@ -408,8 +421,8 @@ func (r *PostgresqlBackupReconciler) manageSecret(
 	backupProvider *postgresqlv1alpha1.PostgresqlBackupProvider,
 ) (string, error) {
 	// Generate name
-	secretName := r.generateResourceName(instance, backupProvider)
-	if secretName == "" {
+	generatedName := r.generateResourceName(instance, backupProvider)
+	if generatedName == "" {
 		return "", errors.NewBadRequest("backup provider generated secret name is empty")
 	}
 
@@ -453,7 +466,7 @@ func (r *PostgresqlBackupReconciler) manageSecret(
 	// Create secret structure
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        secretName,
+			Name:        generatedName,
 			Namespace:   backupProvider.Namespace,
 			Labels:      backupProvider.Spec.Labels,
 			Annotations: backupProvider.Spec.Annotations,
@@ -471,16 +484,29 @@ func (r *PostgresqlBackupReconciler) manageSecret(
 
 	// Check if previous generated name was the same or not
 	// If not, delete previous secret
-	if instance.Status.GeneratedName != "" && instance.Status.GeneratedName != secretName {
-		err = r.Client.Delete(ctx, &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      secretName,
-				Namespace: instance.Namespace,
+	if instance.Status.GeneratedName != "" && instance.Status.GeneratedName != generatedName {
+		// Find old secret
+		oldSecret := &corev1.Secret{}
+		err = r.Get(
+			ctx,
+			types.NamespacedName{
+				Name:      instance.Status.GeneratedName,
+				Namespace: secret.Namespace,
 			},
-		})
-		// Check error
+			oldSecret,
+		)
+
+		// Check if error is present and it isn't a not found error
 		if err != nil && !errors.IsNotFound(err) {
 			return "", err
+		}
+
+		if err == nil {
+			err = r.Client.Delete(ctx, oldSecret)
+			// Check error
+			if err != nil && !errors.IsNotFound(err) {
+				return "", err
+			}
 		}
 	}
 
@@ -502,7 +528,7 @@ func (r *PostgresqlBackupReconciler) manageSecret(
 	// Check if error is present and if it is a not found error
 	if err != nil && errors.IsNotFound(err) {
 		// Create secret
-		return secretName, r.Create(ctx, secret)
+		return generatedName, r.Create(ctx, secret)
 	}
 
 	// Update case
@@ -516,11 +542,11 @@ func (r *PostgresqlBackupReconciler) manageSecret(
 		found.Annotations = secret.Annotations
 
 		// Update
-		return secretName, r.Update(ctx, found)
+		return generatedName, r.Update(ctx, found)
 	}
 
 	// Nothing to update or patch
-	return secretName, nil
+	return generatedName, nil
 }
 
 func (r *PostgresqlBackupReconciler) updateInstance(
