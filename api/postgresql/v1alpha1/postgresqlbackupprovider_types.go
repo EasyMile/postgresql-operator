@@ -77,6 +77,8 @@ type PostgresqlBackupProviderStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:path=postgresqlbackupproviders,scope=Namespaced,shortName=pgbp
+// +kubebuilder:printcolumn:name="Phase",type=string,description="Status phase",JSONPath=".status.phase"
 
 // PostgresqlBackupProvider is the Schema for the postgresqlbackupproviders API.
 type PostgresqlBackupProvider struct {

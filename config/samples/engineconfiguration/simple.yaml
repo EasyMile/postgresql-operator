@@ -3,7 +3,58 @@ kind: PostgresqlEngineConfiguration
 metadata:
   name: simple
 spec:
+  # Provider type
+  # Default to ""
+  provider: ""
   # PostgreSQL Hostname
-  host: postgres
+  host: 192.168.2.111
+  # PostgreSQL Port
+  # Default to 5432
+  port: 5432
   # Secret name in the current namespace to find "user" and "password"
   secretName: pgenginesecrets
+  # URI args to add for PostgreSQL URL
+  # Default to ""
+  uriArgs: sslmode=disable
+  # Default database name
+  # Default to "postgres"
+  defaultDatabase: postgres
+  # Check interval
+  # Default to 30s
+  checkInterval: 30s
+  # Allow grant admin on every created roles (group or user) for provided PGEC user in order to
+  # have power to administrate those roles even with a less powered "admin" user.
+  # Operator will create role and after grant PGEC provided user on those roles with admin option if enabled.
+  allowGrantAdminOption: true
+  # Wait for linked resource to be deleted
+  # Default to false
+  waitLinkedResourcesDeletion: true
+  # User connections used for secret generation
+  # That will be used to generate secret with primary server as url or
+  # to use the pg bouncer one.
+  # Note: Operator won't check those values.
+  userConnections:
+    # Primary connection is referring to the primary node connection.
+    # If not being set, all values will be set from spec (host, port, uriArgs)
+    primaryConnection:
+      host: localhost
+      uriArgs: sslmode=disable
+      port: 5432
+    # Bouncer connection is referring to a pg bouncer node.
+    # bouncerConnection:
+    #   host: localhost
+    #   uriArgs: sslmode=disable
+    #   port: 6432
+    # Replica connections are referring to the replica nodes.
+    # replicaConnections:
+    #   - host: localhost
+    #     uriArgs: sslmode=disable
+    #     port: 5433
+    #   - host: localhost
+    #     uriArgs: sslmode=disable
+    #     port: 5434
+    # Replica Bouncer connections are referring to pg bouncer nodes.
+    # replicaBouncerConnections:
+    #   - host: localhost
+    #     uriArgs: sslmode=disable
+    #     port: 6432

@@ -3,9 +3,6 @@ kind: PostgresqlBackupProvider
 metadata:
   name: pg-dump-gzip-to-s3
 spec:
-  # Name used for the generated CronJob (and Job on manual trigger).
-  cronJobName: pg-dump-gzip-to-s3
-
   # Optional prefix prepended to every generated resource name (secret, cronjob).
   # Must be 20 characters or fewer.
   # generatedNamePrefix: "bkp-"

@@ -561,7 +561,7 @@ func (r *PostgresqlBackupReconciler) updateInstance(
 	controllerutil.AddFinalizer(instance, config.Finalizer)
 
 	// Check if update is needed
-	if !reflect.DeepEqual(oCopy.ObjectMeta, instance.ObjectMeta) {
+	if !reflect.DeepEqual(oCopy.Spec, instance.Spec) {
 		return true, r.Update(ctx, instance)
 	}
 
