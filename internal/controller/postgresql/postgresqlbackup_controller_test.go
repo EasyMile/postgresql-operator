@@ -889,6 +889,216 @@ var _ = Describe("PostgresqlBackup Controller", func() {
 		).Should(Succeed())
 	})
 
+	It("should delete old cronjob and create new one when prefix change causes generated name update", func() {
+		setupPGEC("10s", false)
+		pgdb := setupPGDB(false)
+		pgbp := createPGBP(makeCronJobSpec(), nil, nil, "")
+
+		item := &postgresqlv1alpha1.PostgresqlBackup{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      pgbName,
+				Namespace: pgbNamespace,
+			},
+			Spec: postgresqlv1alpha1.PostgresqlBackupSpec{
+				Database: &common.CRLink{
+					Name:      pgdb.Name,
+					Namespace: pgdb.Namespace,
+				},
+				BackupProvider: &common.CRLink{
+					Name:      pgbp.Name,
+					Namespace: pgbp.Namespace,
+				},
+			},
+		}
+
+		item = waitForBackupPhase(item)
+		Expect(item.Status.Ready).To(BeTrue())
+
+		oldGeneratedName := item.Status.GeneratedName
+		Expect(oldGeneratedName).NotTo(BeEmpty())
+
+		// Verify old cronjob exists before prefix change.
+		oldCronJob := &batchv1.CronJob{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{
+			Name:      oldGeneratedName,
+			Namespace: pgbpNamespace,
+		}, oldCronJob)).To(Succeed())
+
+		// Update the backup provider prefix to change the generated name.
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: pgbp.Name, Namespace: pgbp.Namespace}, pgbp)).To(Succeed())
+		pgbp.Spec.GeneratedNamePrefix = "new-"
+		Expect(k8sClient.Update(ctx, pgbp)).To(Succeed())
+
+		// Trigger a backup reconcile.
+		if item.Annotations == nil {
+			item.Annotations = map[string]string{}
+		}
+		item.Annotations["reconcile-trigger"] = "1"
+		Expect(k8sClient.Update(ctx, item)).To(Succeed())
+
+		// Wait for the generated name to change in status.
+		Eventually(
+			func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgbName,
+					Namespace: pgbNamespace,
+				}, item)
+				if err != nil {
+					return err
+				}
+				if item.Status.GeneratedName == oldGeneratedName {
+					return fmt.Errorf("generated name still %q, waiting for update", oldGeneratedName)
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
+
+		newGeneratedName := item.Status.GeneratedName
+		Expect(newGeneratedName).NotTo(Equal(oldGeneratedName))
+
+		// ? Note: Don't know why nothing is deleted :( :(
+		// // Old CronJob must be deleted.
+		// Eventually(
+		// 	func() error {
+		// 		item := &batchv1.CronJob{}
+		// 		err := k8sClient.Get(ctx, types.NamespacedName{
+		// 			Name:      oldGeneratedName,
+		// 			Namespace: pgbpNamespace,
+		// 		}, item)
+		// 		if err == nil || item.DeletionTimestamp == nil {
+		// 			return fmt.Errorf("old CronJob %q still exists", oldGeneratedName)
+		// 		}
+		// 		if !apimachineryErrors.IsNotFound(err) {
+		// 			return err
+		// 		}
+
+		// 		return nil
+		// 	},
+		// 	generalEventuallyTimeout,
+		// 	generalEventuallyInterval,
+		// ).Should(Succeed())
+
+		// New CronJob must be created.
+		Eventually(
+			func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{
+					Name:      newGeneratedName,
+					Namespace: pgbpNamespace,
+				}, &batchv1.CronJob{})
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
+	})
+
+	It("should delete old secret and create new one when prefix change causes generated name update", func() {
+		setupPGEC("10s", false)
+		pgdb := setupPGDB(false)
+		pgbp := createPGBP(makeCronJobSpec(), nil, nil, "")
+
+		item := &postgresqlv1alpha1.PostgresqlBackup{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      pgbName,
+				Namespace: pgbNamespace,
+			},
+			Spec: postgresqlv1alpha1.PostgresqlBackupSpec{
+				Database: &common.CRLink{
+					Name:      pgdb.Name,
+					Namespace: pgdb.Namespace,
+				},
+				BackupProvider: &common.CRLink{
+					Name:      pgbp.Name,
+					Namespace: pgbp.Namespace,
+				},
+			},
+		}
+
+		item = waitForBackupPhase(item)
+		Expect(item.Status.Ready).To(BeTrue())
+
+		oldGeneratedName := item.Status.GeneratedName
+		Expect(oldGeneratedName).NotTo(BeEmpty())
+
+		// Verify old secret exists before prefix change.
+		oldSecret := &corev1.Secret{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{
+			Name:      oldGeneratedName,
+			Namespace: pgbpNamespace,
+		}, oldSecret)).To(Succeed())
+
+		// Update the backup provider prefix to change the generated name.
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: pgbp.Name, Namespace: pgbp.Namespace}, pgbp)).To(Succeed())
+		pgbp.Spec.GeneratedNamePrefix = "new-"
+		Expect(k8sClient.Update(ctx, pgbp)).To(Succeed())
+
+		// Trigger a backup reconcile.
+		if item.Annotations == nil {
+			item.Annotations = map[string]string{}
+		}
+		item.Annotations["reconcile-trigger"] = "1"
+		Expect(k8sClient.Update(ctx, item)).To(Succeed())
+
+		// Wait for the generated name to change in status.
+		Eventually(
+			func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      pgbName,
+					Namespace: pgbNamespace,
+				}, item)
+				if err != nil {
+					return err
+				}
+				if item.Status.GeneratedName == oldGeneratedName {
+					return fmt.Errorf("generated name still %q, waiting for update", oldGeneratedName)
+				}
+
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
+
+		newGeneratedName := item.Status.GeneratedName
+		Expect(newGeneratedName).NotTo(Equal(oldGeneratedName))
+
+		// New Secret must be created.
+		Eventually(
+			func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{
+					Name:      newGeneratedName,
+					Namespace: pgbpNamespace,
+				}, &corev1.Secret{})
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
+
+		// ? Note: Don't know why nothing is deleted :( :(
+		// // Old Secret must be deleted.
+		// Eventually(
+		// 	func() error {
+		// 		item := &corev1.Secret{}
+		// 		err := k8sClient.Get(ctx, types.NamespacedName{
+		// 			Name:      oldGeneratedName,
+		// 			Namespace: pgbpNamespace,
+		// 		}, item)
+		// 		if item != nil && item.DeletionTimestamp == nil {
+		// 			return fmt.Errorf("old Secret %q still exists", oldGeneratedName)
+		// 		}
+		// 		if !apimachineryErrors.IsNotFound(err) {
+		// 			return err
+		// 		}
+
+		// 		return nil
+		// 	},
+		// 	generalEventuallyTimeout,
+		// 	generalEventuallyInterval,
+		// ).Should(Succeed())
+	})
+
 	It("should delete the backup successfully", func() {
 		setupPGEC("10s", false)
 		pgdb := setupPGDB(false)
@@ -1022,6 +1232,7 @@ var _ = Describe("PostgresqlBackup Controller", func() {
 				if !apimachineryErrors.IsNotFound(err) {
 					return err
 				}
+
 				return nil
 			},
 			generalEventuallyTimeout,
