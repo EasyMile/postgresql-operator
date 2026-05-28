@@ -308,10 +308,10 @@ func (r *PostgresqlEngineConfigurationReconciler) updateInstance(
 	r.addDefaultValues(instance)
 
 	// Add finalizer
-	controllerutil.AddFinalizer(instance, config.Finalizer)
+	updated := controllerutil.AddFinalizer(instance, config.Finalizer)
 
 	// Check if update is needed
-	if !reflect.DeepEqual(instance, oCopy) {
+	if updated || !reflect.DeepEqual(instance, oCopy) {
 		return true, r.Update(ctx, instance)
 	}
 

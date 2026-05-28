@@ -1050,7 +1050,12 @@ func (r *PostgresqlUserRoleReconciler) createOrUpdateWorkSecretForManagedMode( /
 		}
 
 		logger.Info("Successfully updated work secret with new user/password tuple because role name have changed or work secret have been edited")
-		r.Recorder.Event(instance, "Normal", "Updated", "Work secret updated with new user/password tuple because role name have changed or work secret have been edited")
+		r.Recorder.Event(
+			instance,
+			"Normal",
+			"Updated",
+			"Work secret updated with new user/password tuple because role name have changed or work secret have been edited",
+		)
 		r.Recorder.Event(workSec, "Normal", "Updated", "Secret updated by PostgresqlUserRole controller")
 	} else if instance.Spec.UserPasswordRotationDuration != "" && instance.Status.LastPasswordChangedTime != "" { // Check if rolling password is enabled and a previous run have been performed
 		// Get duration
@@ -1107,7 +1112,12 @@ func (r *PostgresqlUserRoleReconciler) createOrUpdateWorkSecretForManagedMode( /
 			passwordChanged = true
 
 			logger.Info("Successfully updated work secret with new user/password tuple because user password rotation have been triggered")
-			r.Recorder.Event(instance, "Normal", "Updated", "Work secret updated with new user/password tuple because user password rotation have been triggered")
+			r.Recorder.Event(
+				instance,
+				"Normal",
+				"Updated",
+				"Work secret updated with new user/password tuple because user password rotation have been triggered",
+			)
 			r.Recorder.Event(workSec, "Normal", "Updated", "Secret updated by PostgresqlUserRole controller")
 		}
 	}
@@ -1497,7 +1507,12 @@ func (r *PostgresqlUserRoleReconciler) validateInstance(
 		username := instance.Spec.RolePrefix + Login0Suffix + "X" // Adding extra item to have more space for the future.
 		// Check if username length is acceptable
 		if len(username) > postgres.MaxIdentifierLength {
-			errStr := fmt.Sprintf("Role prefix is too long. It must be <= %d. %s is %d character. Role prefix length must be reduced", postgres.MaxIdentifierLength, username, len(username))
+			errStr := fmt.Sprintf(
+				"Role prefix is too long. It must be <= %d. %s is %d character. Role prefix length must be reduced",
+				postgres.MaxIdentifierLength,
+				username,
+				len(username),
+			)
 
 			return errors.NewBadRequest(errStr)
 		}
@@ -1587,7 +1602,7 @@ func (r *PostgresqlUserRoleReconciler) updateInstance(
 	oCopy := instance.DeepCopy()
 
 	// Add finalizer
-	controllerutil.AddFinalizer(instance, config.Finalizer)
+	updated := controllerutil.AddFinalizer(instance, config.Finalizer)
 
 	// Update work generated secret with a generated uuid
 	if instance.Spec.WorkGeneratedSecretName == "" {
@@ -1597,7 +1612,7 @@ func (r *PostgresqlUserRoleReconciler) updateInstance(
 	}
 
 	// Check if update is needed
-	if !reflect.DeepEqual(oCopy.ObjectMeta, instance.ObjectMeta) || !reflect.DeepEqual(oCopy.Spec, instance.Spec) {
+	if updated || !reflect.DeepEqual(oCopy.ObjectMeta, instance.ObjectMeta) || !reflect.DeepEqual(oCopy.Spec, instance.Spec) {
 		return true, r.Update(ctx, instance)
 	}
 

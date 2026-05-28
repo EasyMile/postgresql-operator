@@ -959,27 +959,26 @@ var _ = Describe("PostgresqlBackup Controller", func() {
 		newGeneratedName := item.Status.GeneratedName
 		Expect(newGeneratedName).NotTo(Equal(oldGeneratedName))
 
-		// ? Note: Don't know why nothing is deleted :( :(
-		// // Old CronJob must be deleted.
-		// Eventually(
-		// 	func() error {
-		// 		item := &batchv1.CronJob{}
-		// 		err := k8sClient.Get(ctx, types.NamespacedName{
-		// 			Name:      oldGeneratedName,
-		// 			Namespace: pgbpNamespace,
-		// 		}, item)
-		// 		if err == nil || item.DeletionTimestamp == nil {
-		// 			return fmt.Errorf("old CronJob %q still exists", oldGeneratedName)
-		// 		}
-		// 		if !apimachineryErrors.IsNotFound(err) {
-		// 			return err
-		// 		}
+		// Old CronJob must be deleted.
+		Eventually(
+			func() error {
+				item := &batchv1.CronJob{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      oldGeneratedName,
+					Namespace: pgbpNamespace,
+				}, item)
+				if err == nil || item.DeletionTimestamp == nil {
+					return fmt.Errorf("old CronJob %q still exists", oldGeneratedName)
+				}
+				if !apimachineryErrors.IsNotFound(err) {
+					return err
+				}
 
-		// 		return nil
-		// 	},
-		// 	generalEventuallyTimeout,
-		// 	generalEventuallyInterval,
-		// ).Should(Succeed())
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
 
 		// New CronJob must be created.
 		Eventually(
@@ -1076,27 +1075,26 @@ var _ = Describe("PostgresqlBackup Controller", func() {
 			generalEventuallyInterval,
 		).Should(Succeed())
 
-		// ? Note: Don't know why nothing is deleted :( :(
-		// // Old Secret must be deleted.
-		// Eventually(
-		// 	func() error {
-		// 		item := &corev1.Secret{}
-		// 		err := k8sClient.Get(ctx, types.NamespacedName{
-		// 			Name:      oldGeneratedName,
-		// 			Namespace: pgbpNamespace,
-		// 		}, item)
-		// 		if item != nil && item.DeletionTimestamp == nil {
-		// 			return fmt.Errorf("old Secret %q still exists", oldGeneratedName)
-		// 		}
-		// 		if !apimachineryErrors.IsNotFound(err) {
-		// 			return err
-		// 		}
+		// Old Secret must be deleted.
+		Eventually(
+			func() error {
+				item := &corev1.Secret{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      oldGeneratedName,
+					Namespace: pgbpNamespace,
+				}, item)
+				if item != nil && item.DeletionTimestamp == nil {
+					return fmt.Errorf("old Secret %q still exists", oldGeneratedName)
+				}
+				if !apimachineryErrors.IsNotFound(err) {
+					return err
+				}
 
-		// 		return nil
-		// 	},
-		// 	generalEventuallyTimeout,
-		// 	generalEventuallyInterval,
-		// ).Should(Succeed())
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
 	})
 
 	It("should delete the backup successfully", func() {
@@ -1149,46 +1147,44 @@ var _ = Describe("PostgresqlBackup Controller", func() {
 			generalEventuallyInterval,
 		).Should(Succeed())
 
-		// ? Note: Don't know why nothing is deleted :( :(
-		// // Verify that the generated CronJob and Secret are deleted from the backup provider namespace.
-		// Eventually(
-		// 	func() error {
-		// 		err := k8sClient.Get(ctx, types.NamespacedName{
-		// 			Name:      generatedName,
-		// 			Namespace: pgbpNamespace,
-		// 		}, &batchv1.CronJob{})
-		// 		if err == nil {
-		// 			return errors.New("generated CronJob should be deleted but still exists")
-		// 		}
-		// 		if !apimachineryErrors.IsNotFound(err) {
-		// 			return err
-		// 		}
+		// Verify that the generated CronJob and Secret are deleted from the backup provider namespace.
+		Eventually(
+			func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      generatedName,
+					Namespace: pgbpNamespace,
+				}, &batchv1.CronJob{})
+				if err == nil {
+					return errors.New("generated CronJob should be deleted but still exists")
+				}
+				if !apimachineryErrors.IsNotFound(err) {
+					return err
+				}
 
-		// 		return nil
-		// 	},
-		// 	generalEventuallyTimeout,
-		// 	generalEventuallyInterval,
-		// ).Should(Succeed())
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
 
-		// ? Note: Don't know why nothing is deleted :( :(
-		// Eventually(
-		// 	func() error {
-		// 		err := k8sClient.Get(ctx, types.NamespacedName{
-		// 			Name:      generatedName,
-		// 			Namespace: pgbpNamespace,
-		// 		}, &corev1.Secret{})
-		// 		if err == nil {
-		// 			return errors.New("generated Secret should be deleted but still exists")
-		// 		}
-		// 		if !apimachineryErrors.IsNotFound(err) {
-		// 			return err
-		// 		}
+		Eventually(
+			func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      generatedName,
+					Namespace: pgbpNamespace,
+				}, &corev1.Secret{})
+				if err == nil {
+					return errors.New("generated Secret should be deleted but still exists")
+				}
+				if !apimachineryErrors.IsNotFound(err) {
+					return err
+				}
 
-		// 		return nil
-		// 	},
-		// 	generalEventuallyTimeout,
-		// 	generalEventuallyInterval,
-		// ).Should(Succeed())
+				return nil
+			},
+			generalEventuallyTimeout,
+			generalEventuallyInterval,
+		).Should(Succeed())
 	})
 
 	It("should delete the backup successfully when backup provider has been deleted first", func() {

@@ -552,7 +552,7 @@ func (r *PostgresqlDatabaseReconciler) updateInstance(
 	oCopy := instance.DeepCopy()
 
 	// Add finalizer
-	controllerutil.AddFinalizer(instance, config.Finalizer)
+	updated := controllerutil.AddFinalizer(instance, config.Finalizer)
 
 	// Check if schema list is set or not
 	if len(instance.Spec.Schemas.List) == 0 {
@@ -561,7 +561,7 @@ func (r *PostgresqlDatabaseReconciler) updateInstance(
 	}
 
 	// Check if update is needed
-	if !reflect.DeepEqual(oCopy.ObjectMeta, instance.ObjectMeta) {
+	if updated || !reflect.DeepEqual(oCopy.ObjectMeta, instance.ObjectMeta) {
 		return true, r.Update(ctx, instance)
 	}
 

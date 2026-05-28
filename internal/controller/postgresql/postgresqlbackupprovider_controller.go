@@ -224,6 +224,7 @@ func (r *PostgresqlBackupProviderReconciler) validateInstance(
 	if instance.Spec.GeneratedNamePrefix == "" {
 		return errors.NewBadRequest("GeneratedNamePrefix mustn't be empty")
 	}
+
 	if len(instance.Spec.GeneratedNamePrefix) > maxGeneratedNamePrefixLength {
 		return errors.NewBadRequest("GeneratedNamePrefix length is greater than supported")
 	}
@@ -240,7 +241,7 @@ func (r *PostgresqlBackupProviderReconciler) updateInstance(
 	oCopy := instance.DeepCopy()
 
 	// Add finalizer
-	controllerutil.AddFinalizer(instance, config.Finalizer)
+	updated := controllerutil.AddFinalizer(instance, config.Finalizer)
 
 	// Check if generated secret name is set
 	if instance.Spec.GeneratedNamePrefix == "" {
@@ -250,7 +251,7 @@ func (r *PostgresqlBackupProviderReconciler) updateInstance(
 	}
 
 	// Check if update is needed
-	if !reflect.DeepEqual(oCopy.Spec, instance.Spec) {
+	if updated || !reflect.DeepEqual(oCopy.Spec, instance.Spec) {
 		return true, r.Update(ctx, instance)
 	}
 

@@ -314,12 +314,24 @@ func (r *PostgresqlPublicationReconciler) mainReconcile(
 
 		// Other database case
 		if replicationSlotResult.Database != pgDB.Status.Database {
-			return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewBadRequest("replication slot with the same name already exists for another database"))
+			return r.manageError(
+				ctx,
+				reqLogger,
+				instance,
+				originalPatch,
+				errors.NewBadRequest("replication slot with the same name already exists for another database"),
+			)
 		}
 
 		// Other plugin case
 		if replicationSlotResult.Plugin != instance.Spec.ReplicationSlotPlugin {
-			return r.manageError(ctx, reqLogger, instance, originalPatch, errors.NewBadRequest("replication slot with the same name already exists with another plugin"))
+			return r.manageError(
+				ctx,
+				reqLogger,
+				instance,
+				originalPatch,
+				errors.NewBadRequest("replication slot with the same name already exists with another plugin"),
+			)
 		}
 	}
 
@@ -682,7 +694,7 @@ func (r *PostgresqlPublicationReconciler) updateInstance(
 	oCopy := instance.DeepCopy()
 
 	// Add finalizer
-	controllerutil.AddFinalizer(instance, config.Finalizer)
+	updated := controllerutil.AddFinalizer(instance, config.Finalizer)
 
 	// Check if replication slot name isn't set
 	if instance.Spec.ReplicationSlotName == "" {
@@ -697,7 +709,7 @@ func (r *PostgresqlPublicationReconciler) updateInstance(
 	}
 
 	// Check if update is needed
-	if !reflect.DeepEqual(oCopy.ObjectMeta, instance.ObjectMeta) {
+	if updated || !reflect.DeepEqual(oCopy.ObjectMeta, instance.ObjectMeta) {
 		return true, r.Update(ctx, instance)
 	}
 

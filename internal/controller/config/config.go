@@ -1,3 +1,3 @@
 package config
 
-const Finalizer = "finalizer.postgresql.easymile.com"
+const Finalizer = "finalizer.easymile.com/postgresql"
